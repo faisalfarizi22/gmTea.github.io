@@ -50,7 +50,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 </div>
               )}
             </div>
-            <p className="text-sm text-gray-600 mt-3">Your GM check-ins</p>
+            <p className="text-sm text-gray-600 mt-3">Your GM Count</p>
             {canCheckin ? (
               <p className="mt-1 text-xs text-green-600 font-medium">Ready for next check-in!</p>
             ) : (
@@ -94,7 +94,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
               </div>
             </div>
             <p className="text-sm text-gray-600 mt-3">Worldwide GM Count</p>
-            <p className="mt-1 text-xs text-emerald-600">Growing community on Tea Network</p>
+            <p className="mt-1 text-xs text-emerald-600 text-center w-full">Growing community on Tea Protocol</p>
           </div>
         )}
       </div>

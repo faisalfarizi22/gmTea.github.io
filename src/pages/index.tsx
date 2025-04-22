@@ -12,7 +12,8 @@ import {
   connectWallet, 
   getProvider, 
   getContract, 
-  switchToTeaSepolia 
+  switchToTeaSepolia,
+  getGlobalCheckinCount
 } from '@/utils/web3';
 import { CHECKIN_FEE, TEA_SEPOLIA_CHAIN_ID } from '@/utils/constants';
 import { 
@@ -58,7 +59,7 @@ export default function Home() {
   const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
   const [isCheckinLoading, setIsCheckinLoading] = useState<boolean>(false);
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false);
-
+  const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -246,12 +247,17 @@ export default function Home() {
                     msg.timestamp?.toNumber() || 0,
           message: msg.message || 'GM!'
         }));
-        
+          
         setMessages(formattedMessages);
       } else {
         console.error("Invalid messages format:", recentGMs);
         setMessages([]);
       }
+
+      // Load global checkin count
+      const globalCount = await getGlobalCheckinCount(contract);
+      setGlobalCheckinCount(globalCount);
+
     } catch (error) {
       console.error('Error loading recent messages:', error)
       setMessages([]);
@@ -552,6 +558,7 @@ useEffect(() => {
                 checkinCount={checkinStats.userCheckinCount}
                 timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
                 isLoading={web3State.isLoading}
+                globalCheckinCount={globalCheckinCount}
               />
               
               <CountdownTimer 

@@ -214,25 +214,163 @@ export const isTeaSepoliaNetwork = async (): Promise<boolean> => {
 };
 
 /**
- * Get total global checkins (estimated from recent messages)
+ * Get total global checkins directly from blockchain with optimized approach
  * @param contract The GMOnchain contract
  * @returns Promise<number> Total global check-ins
  */
-export const getGlobalCheckinCount = async (contract: ethers.Contract): Promise<number> => {
+export const getTotalCheckins = async (contract: ethers.Contract): Promise<number> => {
   try {
-    // Pendekatan 1: Mendapatkan jumlah check-in dari recent messages
-    const recentGMs = await contract.getRecentGMs();
+    // Method 1: Try to get count from CheckinCompleted events
+    // This is the most accurate approach but might be slow for many events
+    let count = 0;
     
-    // Pada kasus nyata, ini bisa dihitung dari event logs atau fungsi khusus
-    // Untuk saat ini, kita estimasi dari panjang array dan tambahkan offset
-    const messagesCount = recentGMs.length;
+    try {
+      // First try: Get logs from provider directly (potentially faster than contract events)
+      const provider = contract.provider;
+      const contractAddress = contract.address;
+      
+      // Get CheckinCompleted event signature (first topic)
+      // Event: CheckinCompleted(address indexed user, uint256 timestamp, string message, uint256 count)
+      const eventSignature = ethers.utils.id("CheckinCompleted(address,uint256,string,uint256)");
+      
+      // Get the current block number
+      const currentBlock = await provider.getBlockNumber();
+      
+      // Set reasonable block range to search (adjust based on deployment time)
+      // This is a tradeoff between accuracy and performance
+      const fromBlock = currentBlock - 200000; // Search last ~200k blocks
+      
+      // Use getLogs API directly
+      const logs = await provider.getLogs({
+        address: contractAddress,
+        topics: [eventSignature],
+        fromBlock: Math.max(0, fromBlock),
+        toBlock: "latest"
+      });
+      
+      if (logs && logs.length > 0) {
+        console.log(`Found ${logs.length} CheckinCompleted events`);
+        count = logs.length;
+        return count;
+      }
+    } catch (logsError) {
+      console.warn("Error getting logs directly:", logsError);
+    }
     
-    // Estimasi: jumlah pesan saat ini + offset random untuk simulasi komunitas yang lebih besar
-    const estimatedGlobalCount = messagesCount + 214;  // Bisa diganti dengan jumlah yang lebih realistis
+    // Method 2: Try using contract's queryFilter with reasonable chunk size
+    try {
+      const filter = contract.filters.CheckinCompleted();
+      const currentBlock = await contract.provider.getBlockNumber();
+      
+      // Use a moderate chunk size that most providers can handle
+      const CHUNK_SIZE = 5000;
+      const fromBlock = Math.max(0, currentBlock - 50000); // Last 50k blocks
+      
+      for (let i = fromBlock; i < currentBlock; i += CHUNK_SIZE) {
+        const toBlock = Math.min(currentBlock, i + CHUNK_SIZE - 1);
+        try {
+          const events = await contract.queryFilter(filter, i, toBlock);
+          count += events.length;
+        } catch (chunkError) {
+          console.warn(`Error querying chunk ${i} to ${toBlock}:`, chunkError);
+          // Continue with next chunk
+        }
+      }
+      
+      if (count > 0) {
+        return count;
+      }
+    } catch (queryError) {
+      console.warn("Error using queryFilter:", queryError);
+    }
     
-    return estimatedGlobalCount;
+    // Method 3: Try getting user data from recent GMs
+    try {
+      const recentGMs = await contract.getRecentGMs();
+      let uniqueUsers = new Set();
+      let totalUserCheckins = 0;
+      
+      // Get unique users
+      for (const gm of recentGMs) {
+        if (gm && gm.user && !uniqueUsers.has(gm.user)) {
+          uniqueUsers.add(gm.user);
+          
+          // Get this user's check-in count
+          try {
+            const userCount = await contract.getCheckinCount(gm.user);
+            totalUserCheckins += userCount.toNumber();
+          } catch (userError) {
+            console.warn(`Error getting count for user ${gm.user}:`, userError);
+          }
+        }
+      }
+      
+      // If we have some data, estimate total
+      if (uniqueUsers.size > 0 && totalUserCheckins > 0) {
+        // Calculate average check-ins per user
+        const avgCheckinsPerUser = totalUserCheckins / uniqueUsers.size;
+        
+        // Estimate number of active users (assume recent GMs represent ~20% of active users)
+        const estimatedActiveUsers = uniqueUsers.size * 5;
+        
+        // Estimate total check-ins
+        const estimatedTotal = Math.round(estimatedActiveUsers * avgCheckinsPerUser);
+        
+        // Return the higher of our estimation or recent GMs length
+        return Math.max(estimatedTotal, recentGMs.length);
+      }
+      
+      // If we just have recent GMs (minimum value)
+      if (recentGMs.length > 0) {
+        return recentGMs.length;
+      }
+    } catch (recentError) {
+      console.warn("Error analyzing recent GMs:", recentError);
+    }
+    
+    // Method 4: Try a simplified approach with smart pagination
+    try {
+      let totalEvents = 0;
+      let blockWindow = 1000;
+      let currentBlock = await contract.provider.getBlockNumber();
+      
+      // Start with recent blocks and expand if needed
+      while (blockWindow <= 200000 && totalEvents === 0) {
+        try {
+          const events = await contract.queryFilter(
+            contract.filters.CheckinCompleted(),
+            currentBlock - blockWindow,
+            currentBlock
+          );
+          
+          totalEvents = events.length;
+          
+          // If found events, try to extrapolate for entire contract lifetime
+          if (totalEvents > 0) {
+            // Estimate events per block
+            const eventsPerBlock = totalEvents / blockWindow;
+            
+            // Estimate total events based on contract lifetime
+            // (assuming contract deployed around 200k blocks ago, adjust if known)
+            const estimatedContractBlocks = 200000;
+            return Math.round(eventsPerBlock * estimatedContractBlocks);
+          }
+          
+          // Increase window for next attempt
+          blockWindow *= 5;
+        } catch (error) {
+          console.warn(`Error with window size ${blockWindow}:`, error);
+          blockWindow *= 2; // Try with larger window
+        }
+      }
+    } catch (paginationError) {
+      console.warn("Error with smart pagination:", paginationError);
+    }
+    
+    // If everything fails, return a conservative estimate
+    return 0;
   } catch (error) {
-    console.error("Error getting global checkin count:", error);
+    console.error("Error in getTotalCheckins:", error);
     return 0;
   }
 };

@@ -13,7 +13,7 @@ import {
   getProvider, 
   getContract, 
   switchToTeaSepolia,
-  getGlobalCheckinCount
+  getTotalCheckins
 } from '@/utils/web3';
 import { CHECKIN_FEE, TEA_SEPOLIA_CHAIN_ID } from '@/utils/constants';
 import { 
@@ -29,7 +29,7 @@ import {
   FaNetworkWired
 } from 'react-icons/fa';
 
-
+// Notification type
 interface Notification {
   id: string;
   message: string;
@@ -60,9 +60,11 @@ export default function Home() {
   const [isCheckinLoading, setIsCheckinLoading] = useState<boolean>(false);
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false);
   const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
+  const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false);
 
+  // Notification functions
   const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = Math.random().toString(36).substring(2, 9);
     setNotifications(prev => [...prev, { id, message, type }]);
     
     setTimeout(() => {
@@ -74,98 +76,8 @@ export default function Home() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-
-  // Connect wallet function
-  const handleConnectWallet = useCallback(async () => {
-    if (web3State.isLoading) return;
-    
-    try {
-      setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
-    
-      const result = await connectWallet();
-      
-      if (!result || !result.address) {
-        throw new Error("Failed to connect: No address returned");
-      }
-      
-      const { signer, address, chainId, provider } = result;
-      
-      const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID;
-      setShowNetworkAlert(!isCorrectNetwork);
-    
-      const contract = getContract(signer);
-      
-      // Update state
-      setWeb3State({
-        isConnected: true,
-        address,
-        provider,
-        signer,
-        contract,
-        isLoading: false,
-        error: null,
-        chainId,
-      });
-      
-      // Set to localStorage for persistence
-      localStorage.setItem('walletConnected', 'true');
-      localStorage.setItem('walletAddress', address);
-      
-      // Load user data
-      if (isCorrectNetwork) {
-        await Promise.all([
-          loadUserData(address, contract),
-          loadRecentMessages(contract)
-        ]);
-      }
-      
-    } catch (error: any) {
-      console.error('Error connecting wallet:', error);
-      
-      setWeb3State((prev) => ({
-        ...prev,
-        isConnected: false,
-        isLoading: false,
-        error: error.message || 'Failed to connect wallet',
-      }));
-      
-      // Clear any stored connection data
-      localStorage.removeItem('walletConnected');
-      localStorage.removeItem('walletAddress');
-    }
-  }, [web3State.isLoading]); 
-
-  // Disconnect wallet function
-  const handleDisconnectWallet = useCallback(() => {
-    // Reset web3 state
-    setWeb3State({
-      isConnected: false,
-      address: null,
-      provider: null,
-      signer: null,
-      contract: null,
-      isLoading: false,
-      error: null,
-      chainId: null,
-    });
-    
-    // Reset UI state
-    setCheckinStats({
-      userCheckinCount: 0,
-      timeUntilNextCheckin: 0,
-    });
-    setMessages([]);
-    setShowNetworkAlert(false);
-    
-    // Clear local storage
-    localStorage.removeItem('walletConnected');
-    localStorage.removeItem('walletAddress');
-    
-    console.log('Wallet disconnected');
-  }, []);
-
   // Load user data
-  const loadUserData = async (address: string, contract: ethers.Contract) => {
+  const loadUserData = useCallback(async (address: string, contract: ethers.Contract) => {
     try {
       let count: number | BigNumber = 0;
       try {
@@ -228,9 +140,10 @@ export default function Home() {
         timeUntilNextCheckin: 0,
       });
     }
-  };
+  }, []);
 
-  const loadRecentMessages = async (contract: ethers.Contract) => {
+  // Load recent messages
+  const loadRecentMessages = useCallback(async (contract: ethers.Contract) => {
     try {
       setIsLoadingMessages(true);
       const messagesPromise = contract.getRecentGMs();
@@ -254,12 +167,8 @@ export default function Home() {
         setMessages([]);
       }
 
-      // Load global checkin count
-      const globalCount = await getGlobalCheckinCount(contract);
-      setGlobalCheckinCount(globalCount);
-
     } catch (error) {
-      console.error('Error loading recent messages:', error)
+      console.error('Error loading recent messages:', error);
       setMessages([]);
       
       if (web3State.isConnected) {
@@ -279,9 +188,119 @@ export default function Home() {
     } finally {
       setIsLoadingMessages(false);
     }
-  };
+  }, [web3State.isConnected]);
 
-  // Handle Checkin
+  // Load global count
+  const loadGlobalCount = useCallback(async () => {
+    if (!web3State.contract) return;
+    
+    try {
+      setIsLoadingGlobalCount(true);
+      
+      console.log("Loading global check-in count...");
+      const count = await getTotalCheckins(web3State.contract);
+      console.log("Global check-in count:", count);
+      
+      if (count > 0) {
+        setGlobalCheckinCount(count);
+      }
+    } catch (error) {
+      console.error("Error loading global check-in count:", error);
+    } finally {
+      setIsLoadingGlobalCount(false);
+    }
+  }, [web3State.contract]);
+
+  // Connect wallet function
+  const handleConnectWallet = useCallback(async () => {
+    if (web3State.isLoading) return;
+    
+    try {
+      setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
+    
+      const result = await connectWallet();
+      
+      if (!result || !result.address) {
+        throw new Error("Failed to connect: No address returned");
+      }
+      
+      const { signer, address, chainId, provider } = result;
+      
+      const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID;
+      setShowNetworkAlert(!isCorrectNetwork);
+    
+      const contract = getContract(signer);
+      
+      // Update state
+      setWeb3State({
+        isConnected: true,
+        address,
+        provider,
+        signer,
+        contract,
+        isLoading: false,
+        error: null,
+        chainId,
+      });
+      
+      // Set to localStorage for persistence
+      localStorage.setItem('walletConnected', 'true');
+      localStorage.setItem('walletAddress', address);
+      
+      // Load user data
+      if (isCorrectNetwork) {
+        await Promise.all([
+          loadUserData(address, contract),
+          loadRecentMessages(contract)
+        ]);
+      }
+      
+    } catch (error: any) {
+      console.error('Error connecting wallet:', error);
+      
+      setWeb3State((prev) => ({
+        ...prev,
+        isConnected: false,
+        isLoading: false,
+        error: error.message || 'Failed to connect wallet',
+      }));
+      
+      // Clear any stored connection data
+      localStorage.removeItem('walletConnected');
+      localStorage.removeItem('walletAddress');
+    }
+  }, [web3State.isLoading, loadUserData, loadRecentMessages]); 
+
+  // Disconnect wallet function
+  const handleDisconnectWallet = useCallback(() => {
+    // Reset web3 state
+    setWeb3State({
+      isConnected: false,
+      address: null,
+      provider: null,
+      signer: null,
+      contract: null,
+      isLoading: false,
+      error: null,
+      chainId: null,
+    });
+    
+    // Reset UI state
+    setCheckinStats({
+      userCheckinCount: 0,
+      timeUntilNextCheckin: 0,
+    });
+    setMessages([]);
+    setShowNetworkAlert(false);
+    
+    // Clear local storage
+    localStorage.removeItem('walletConnected');
+    localStorage.removeItem('walletAddress');
+    
+    console.log('Wallet disconnected');
+  }, []);
+
+  // Handle checkin
   const handleCheckin = async (message: string) => {
     if (!web3State.contract || !web3State.isConnected) return;
     
@@ -316,8 +335,21 @@ export default function Home() {
       console.log("Transaction confirmed");
       
       if (web3State.address) {
-        await loadUserData(web3State.address, contract);
-        await loadRecentMessages(contract);
+        // Reload user data and recent messages
+        await Promise.all([
+          loadUserData(web3State.address, contract),
+          loadRecentMessages(contract)
+        ]);
+        
+        // Update global checkin count after a successful checkin
+        // Increment the current count by 1 for immediate feedback
+        setGlobalCheckinCount(prevCount => prevCount + 1);
+        
+        // Also trigger a refresh of the actual count from blockchain
+        // but don't await it so UI stays responsive
+        setTimeout(() => {
+          loadGlobalCount();
+        }, 2000);
         
         addNotification("GM successfully posted! ☀️ Have a tea-riffic day!", "success");
       }
@@ -350,6 +382,7 @@ export default function Home() {
       await switchToTeaSepolia();
       setShowNetworkAlert(false);
       
+      // Reconnect with correct network
       await handleConnectWallet();
     } catch (error) {
       console.error('Error switching network:', error);
@@ -361,91 +394,58 @@ export default function Home() {
   useEffect(() => {
     const checkPreviousConnection = async () => {
       try {
-        const ethereum = (window as any).ethereum;
-        if (ethereum) {
+        const wasConnected = localStorage.getItem('walletConnected') === 'true';
+        const storedAddress = localStorage.getItem('walletAddress');
+        
+        if (wasConnected && storedAddress && !web3State.isConnected && !web3State.isLoading) {
+          const ethereum = (window as any).ethereum;
+          if (!ethereum) return;
+          
           const accounts = await ethereum.request({ method: 'eth_accounts' });
-          if (accounts && accounts.length > 0) {
-            handleConnectWallet();
+          if (accounts && accounts.length > 0 && accounts.includes(storedAddress.toLowerCase())) {
+            await handleConnectWallet();
+          } else {
+            localStorage.removeItem('walletConnected');
+            localStorage.removeItem('walletAddress');
           }
         }
       } catch (error) {
         console.error('Error checking previous connection:', error);
+        localStorage.removeItem('walletConnected');
+        localStorage.removeItem('walletAddress');
       }
     };
     
-    checkPreviousConnection();
-  }, []);
+    const timer = setTimeout(() => {
+      checkPreviousConnection();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading]);
 
   // Ensure contract is properly initialized
-useEffect(() => {
-  if (web3State.isConnected && web3State.address && !web3State.contract) {
-    try {
-      const provider = getProvider();
-      if (provider) {
-        const signer = provider.getSigner();
-        const contract = getContract(signer);
-        
-        setWeb3State(prev => ({
-          ...prev,
-          contract,
-          signer,
-          provider
-        }));
-      }
-    } catch (error) {
-      console.error("Error initializing contract:", error);
-    }
-  }
-}, [web3State.isConnected, web3State.address, web3State.contract]);
-
-  // Listen for account changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ethereum = (window as any).ethereum;
-      
-      if (!ethereum) {
-        console.log("No ethereum provider found");
-        return;
-      }
-      
-      // Clean way to handle account changes
-      const handleAccountsChanged = async (accounts: string[]) => {
-        if (accounts.length === 0) {
-          handleDisconnectWallet();
-        } else if (web3State.address !== accounts[0] && web3State.isConnected) {
-          handleConnectWallet();
+    if (web3State.isConnected && web3State.address && !web3State.contract) {
+      try {
+        const provider = getProvider();
+        if (provider) {
+          const signer = provider.getSigner();
+          const contract = getContract(signer);
+          
+          setWeb3State(prev => ({
+            ...prev,
+            contract,
+            signer,
+            provider
+          }));
         }
-      };
-
-      const handleChainChanged = () => {
-        window.location.reload();
-      };
-
-      const handleConnect = () => {
-        console.log("Provider connected event");
-      };
-
-      const handleDisconnect = () => {
-        console.log("Provider disconnected event");
-        handleDisconnectWallet();
-      };
-
-      // Add listeners
-      ethereum.on('accountsChanged', handleAccountsChanged);
-      ethereum.on('chainChanged', handleChainChanged);
-      ethereum.on('connect', handleConnect);
-      ethereum.on('disconnect', handleDisconnect);
-
-      // Clean up listeners
-      return () => {
-        ethereum.removeListener('accountsChanged', handleAccountsChanged);
-        ethereum.removeListener('chainChanged', handleChainChanged);
-        ethereum.removeListener('connect', handleConnect);
-        ethereum.removeListener('disconnect', handleDisconnect);
-      };
+      } catch (error) {
+        console.error("Error initializing contract:", error);
+      }
     }
-  }, [web3State.address, web3State.isConnected, handleConnectWallet, handleDisconnectWallet]);
-  
+  }, [web3State.isConnected, web3State.address, web3State.contract]);
+
+  // Use Ethereum Events hook
   useEthereumEvents({
     accountsChanged: (accounts) => {
       if (accounts.length === 0) {
@@ -462,53 +462,62 @@ useEffect(() => {
     },
   });
 
-  // Refresh data on interval
+  // Load user data and recent messages
   useEffect(() => {
-    if (web3State.isConnected && web3State.address && web3State.contract) {
-      loadUserData(web3State.address, web3State.contract);
-      loadRecentMessages(web3State.contract);
-      
-      const refreshInterval = setInterval(() => {
-        if (web3State.address && web3State.contract) {
-          loadUserData(web3State.address, web3State.contract);
-        }
-      }, 30000);
-      
-      return () => clearInterval(refreshInterval);
-    }
-  }, [web3State.isConnected, web3State.address, web3State.contract]);
-
-  useEffect(() => {
-    const attemptReconnect = async () => {
-      const wasConnected = localStorage.getItem('walletConnected') === 'true';
-      const storedAddress = localStorage.getItem('walletAddress');
-      
-      if (wasConnected && storedAddress && !web3State.isConnected && !web3State.isLoading) {
-        try {
-          const ethereum = (window as any).ethereum;
-          if (!ethereum) return;
-          
-          const accounts = await ethereum.request({ method: 'eth_accounts' });
-          if (accounts && accounts.length > 0 && accounts.includes(storedAddress)) {
-             await handleConnectWallet();
-          } else {
-            localStorage.removeItem('walletConnected');
-            localStorage.removeItem('walletAddress');
-          }
-        } catch (error) {
-          console.error("Error auto-reconnecting:", error);
-          localStorage.removeItem('walletConnected');
-          localStorage.removeItem('walletAddress');
-        }
+    if (!web3State.isConnected || !web3State.address || !web3State.contract) return;
+    
+    console.log("Setting up user data refresh interval");
+    
+    // Initial data load
+    const loadInitialUserData = async () => {
+      try {
+        await Promise.all([
+          loadUserData(web3State.address as string, web3State.contract),
+          loadRecentMessages(web3State.contract)
+        ]);
+      } catch (error) {
+        console.error("Error loading initial user data:", error);
       }
     };
+    
+    // Execute initial load
+    loadInitialUserData();
+    
+    // Set up refresh interval for user data
+    const userDataInterval = setInterval(() => {
+      if (web3State.address && web3State.contract) {
+        loadUserData(web3State.address, web3State.contract);
+        loadRecentMessages(web3State.contract);
+      }
+    }, 30000); // Refresh user data every 30 seconds
+    
+    // Clean up interval when component unmounts or deps change
+    return () => {
+      clearInterval(userDataInterval);
+    };
+  }, [web3State.isConnected, web3State.address, web3State.contract, loadUserData, loadRecentMessages]);
 
-     const timer = setTimeout(() => {
-      attemptReconnect();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading]);
+  // Separate useEffect for global count refresh
+  useEffect(() => {
+    if (!web3State.contract) return;
+    
+    console.log("Setting up global count refresh interval");
+    
+    // Initial global count load
+    loadGlobalCount();
+    
+    // Set up refresh interval for global count
+    const globalCountInterval = setInterval(() => {
+      if (web3State.contract) {
+        loadGlobalCount();
+      }
+    }, 5 * 60 * 1000); // Refresh global count every 5 minutes
+    
+    // Clean up interval when component unmounts or deps change
+    return () => {
+      clearInterval(globalCountInterval);
+    };
+  }, [web3State.contract, loadGlobalCount]);
 
   return (
     <div className="min-h-screen tea-leaf-pattern">
@@ -559,6 +568,7 @@ useEffect(() => {
                 timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
                 isLoading={web3State.isLoading}
                 globalCheckinCount={globalCheckinCount}
+                isLoadingGlobalCount={isLoadingGlobalCount}
               />
               
               <CountdownTimer 
@@ -578,13 +588,13 @@ useEffect(() => {
             </div>
             
             {/* Messages Section */}
-            <div className='lg:col-span-7'>
+            <div className="lg:col-span-7">
               <GMMessageList 
                 messages={messages}
                 isLoading={isLoadingMessages}
                 onRefresh={() => web3State.contract && loadRecentMessages(web3State.contract)}
               />
-              </div>
+            </div>
           </div>
         </WalletRequired>
       </main>
@@ -607,47 +617,48 @@ useEffect(() => {
           </div>
         </div>
       </footer>
+
       {/* Notification container */}
-        <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">
-          {notifications.map((notification) => (
-            <div 
-              key={notification.id}
-              className={`max-w-md rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${
-                notification.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500' :
-                notification.type === 'error' ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500' :
-                notification.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' :
-                'bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500'
-              }`}
-            >
-              <div className="p-4 flex">
-                <div className="flex-shrink-0">
-                  {notification.type === 'success' && <FaCheckCircle className="h-5 w-5 text-emerald-500" />}
-                  {notification.type === 'error' && <FaExclamationCircle className="h-5 w-5 text-red-500" />}
-                  {notification.type === 'info' && <FaInfoCircle className="h-5 w-5 text-blue-500" />}
-                  {notification.type === 'warning' && <FaExclamationCircle className="h-5 w-5 text-orange-500" />}
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className={`text-sm font-medium ${
-                    notification.type === 'success' ? 'text-emerald-700 dark:text-emerald-300' :
-                    notification.type === 'error' ? 'text-red-700 dark:text-red-300' :
-                    notification.type === 'info' ? 'text-blue-700 dark:text-blue-300' :
-                    'text-orange-700 dark:text-orange-300'
-                  }`}>
-                    {notification.message}
-                  </p>
-                </div>
-                <button
-                  onClick={() => removeNotification(notification.id)}
-                  className="ml-4 inline-flex text-gray-400 focus:outline-none focus:text-gray-500 rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  <FaTimes className="h-4 w-4" />
-                </button>
+      <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">
+        {notifications.map((notification) => (
+          <div 
+            key={notification.id}
+            className={`max-w-md rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${
+              notification.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500' :
+              notification.type === 'error' ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500' :
+              notification.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' :
+              'bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500'
+            }`}
+          >
+            <div className="p-4 flex">
+              <div className="flex-shrink-0">
+                {notification.type === 'success' && <FaCheckCircle className="h-5 w-5 text-emerald-500" />}
+                {notification.type === 'error' && <FaExclamationCircle className="h-5 w-5 text-red-500" />}
+                {notification.type === 'info' && <FaInfoCircle className="h-5 w-5 text-blue-500" />}
+                {notification.type === 'warning' && <FaExclamationCircle className="h-5 w-5 text-orange-500" />}
               </div>
-              {/* Progress bar */}
-              <div className="h-1 bg-emerald-500 dark:bg-emerald-600 animate-[progress_5s_linear_forwards]"></div>
+              <div className="ml-3 flex-1">
+                <p className={`text-sm font-medium ${
+                  notification.type === 'success' ? 'text-emerald-700 dark:text-emerald-300' :
+                  notification.type === 'error' ? 'text-red-700 dark:text-red-300' :
+                  notification.type === 'info' ? 'text-blue-700 dark:text-blue-300' :
+                  'text-orange-700 dark:text-orange-300'
+                }`}>
+                  {notification.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeNotification(notification.id)}
+                className="ml-4 inline-flex text-gray-400 focus:outline-none focus:text-gray-500 rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <FaTimes className="h-4 w-4" />
+              </button>
             </div>
-          ))}
-        </div>
+            {/* Progress bar */}
+            <div className="h-1 bg-emerald-500 dark:bg-emerald-600 animate-[progress_5s_linear_forwards]"></div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

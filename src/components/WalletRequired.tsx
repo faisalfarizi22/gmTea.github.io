@@ -28,7 +28,7 @@ const WalletRequired: React.FC<WalletRequiredProps> = ({
           </div>
         </div>
         
-        <h2 className="text-2xl font-bold text-emerald-700">Welcome to GM Onchain</h2>
+        <h2 className="text-2xl font-bold text-emerald-700">Welcome to GMTEA</h2>
         
         <p className="text-gray-600">
           Start your day with a friendly GM on the Tea blockchain. Connect your wallet to check-in daily and join the community.

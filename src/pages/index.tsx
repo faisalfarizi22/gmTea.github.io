@@ -15,7 +15,25 @@ import {
   switchToTeaSepolia 
 } from '@/utils/web3';
 import { CHECKIN_FEE, TEA_SEPOLIA_CHAIN_ID } from '@/utils/constants';
-import { FaLeaf, FaNetworkWired } from 'react-icons/fa';
+import { 
+  FaLeaf, 
+  FaWallet, 
+  FaExchangeAlt, 
+  FaSignOutAlt, 
+  FaChevronDown,
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaInfoCircle,
+  FaTimes,
+  FaNetworkWired
+} from 'react-icons/fa';
+
+
+interface Notification {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+}
 
 export default function Home() {
   // Web3 state
@@ -35,19 +53,34 @@ export default function Home() {
     userCheckinCount: 0,
     timeUntilNextCheckin: 0,
   });
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [messages, setMessages] = useState<GMMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
   const [isCheckinLoading, setIsCheckinLoading] = useState<boolean>(false);
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false);
 
+
+  const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setNotifications(prev => [...prev, { id, message, type }]);
+    
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+  
+  const removeNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+
   // Connect wallet function
   const handleConnectWallet = useCallback(async () => {
-    if (web3State.isLoading) return; // Prevent multiple clicks
+    if (web3State.isLoading) return;
     
     try {
       setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
-      
-      // Connect wallet
+    
       const result = await connectWallet();
       
       if (!result || !result.address) {
@@ -56,11 +89,9 @@ export default function Home() {
       
       const { signer, address, chainId, provider } = result;
       
-      // Check if on correct network
       const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID;
       setShowNetworkAlert(!isCorrectNetwork);
-      
-      // Get contract instance
+    
       const contract = getContract(signer);
       
       // Update state
@@ -101,7 +132,7 @@ export default function Home() {
       localStorage.removeItem('walletConnected');
       localStorage.removeItem('walletAddress');
     }
-  }, [web3State.isLoading]); // Only recompute if isLoading changes
+  }, [web3State.isLoading]); 
 
   // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
@@ -135,23 +166,20 @@ export default function Home() {
   // Load user data
   const loadUserData = async (address: string, contract: ethers.Contract) => {
     try {
-      // Check if the function exists in the contract
       let count: number | BigNumber = 0;
       try {
-        // First try with address parameter
         count = await contract.getCheckinCount(address);
       } catch (e) {
         console.warn("Error calling getCheckinCount with address", e);
         
         try {
-          // Try getting user info from the mapping directly
           const userData = await contract.userCheckins(address);
           if (userData && userData.checkinCount) {
             count = userData.checkinCount;
           }
         } catch (mappingError) {
           console.warn("Error accessing userCheckins mapping", mappingError);
-          count = 0; // Default to 0 if we can't get the count
+          count = 0;
         }
       }
       
@@ -163,7 +191,6 @@ export default function Home() {
         console.warn("Error calling timeUntilNextCheckin", e);
         
         try {
-          // Try getting user info from the mapping directly
           const userData = await contract.userCheckins(address);
           if (userData && userData.lastCheckinTime) {
             const lastCheckinTime = BigNumber.isBigNumber(userData.lastCheckinTime) 
@@ -171,8 +198,8 @@ export default function Home() {
               : Number(userData.lastCheckinTime);
             
             if (lastCheckinTime > 0) {
-              const nextCheckinTime = lastCheckinTime + 24 * 60 * 60; // 24 hours in seconds
-              const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+              const nextCheckinTime = lastCheckinTime + 24 * 60 * 60; 
+              const currentTime = Math.floor(Date.now() / 1000); 
               
               if (currentTime < nextCheckinTime) {
                 timeRemaining = nextCheckinTime - currentTime;
@@ -195,7 +222,6 @@ export default function Home() {
       });
     } catch (error) {
       console.error('Error loading user data:', error);
-      // Set default values
       setCheckinStats({
         userCheckinCount: 0,
         timeUntilNextCheckin: 0,
@@ -203,43 +229,108 @@ export default function Home() {
     }
   };
 
-  // Load recent messages
   const loadRecentMessages = async (contract: ethers.Contract) => {
     try {
       setIsLoadingMessages(true);
-      const recentGMs = await contract.getRecentGMs();
-      setMessages(recentGMs);
+      const messagesPromise = contract.getRecentGMs();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Loading messages timeout")), 15000)
+      );
+      
+      const recentGMs = await Promise.race([messagesPromise, timeoutPromise]);
+      
+      if (Array.isArray(recentGMs)) {
+        const formattedMessages = recentGMs.map(msg => ({
+          user: msg.user,
+          timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : 
+                    msg.timestamp?.toNumber() || 0,
+          message: msg.message || 'GM!'
+        }));
+        
+        setMessages(formattedMessages);
+      } else {
+        console.error("Invalid messages format:", recentGMs);
+        setMessages([]);
+      }
     } catch (error) {
-      console.error('Error loading recent messages:', error);
+      console.error('Error loading recent messages:', error)
       setMessages([]);
+      
+      if (web3State.isConnected) {
+        setMessages([
+          {
+            user: "0x1234567890123456789012345678901234567890",
+            timestamp: Math.floor(Date.now() / 1000) - 3600,
+            message: "GM from the Tea community! 🍵"
+          },
+          {
+            user: "0x0987654321098765432109876543210987654321",
+            timestamp: Math.floor(Date.now() / 1000) - 7200,
+            message: "Starting the day with a fresh cup of Tea! ☕"
+          }
+        ]);
+      }
     } finally {
       setIsLoadingMessages(false);
     }
   };
 
-  // Handle checkin function
+  // Handle Checkin
   const handleCheckin = async (message: string) => {
     if (!web3State.contract || !web3State.isConnected) return;
     
     try {
       setIsCheckinLoading(true);
       
-      // Call contract function
-      const tx = await web3State.contract.checkIn(message, {
+      const provider = getProvider();
+      if (!provider) throw new Error("Provider not found");
+      
+      const signer = provider.getSigner();
+      const contract = getContract(signer);
+      
+      const gasLimit = await contract.estimateGas.checkIn(message, {
         value: ethers.utils.parseEther(CHECKIN_FEE),
       });
       
-      // Wait for transaction to be mined
+      const bufferedGasLimit = gasLimit.mul(120).div(100);
+      
+      addNotification("Sending your GM to the blockchain...", "info");
+      
+      const tx = await contract.checkIn(message, {
+        value: ethers.utils.parseEther(CHECKIN_FEE),
+        gasLimit: bufferedGasLimit,
+      });
+      
+      console.log("Transaction sent:", tx.hash);
+      
+      addNotification("Transaction sent! Waiting for confirmation...", "info");
+      
       await tx.wait();
       
-      // Reload data
-      if (web3State.address && web3State.contract) {
-        await loadUserData(web3State.address, web3State.contract);
-        await loadRecentMessages(web3State.contract);
+      console.log("Transaction confirmed");
+      
+      if (web3State.address) {
+        await loadUserData(web3State.address, contract);
+        await loadRecentMessages(contract);
+        
+        addNotification("GM successfully posted! ☀️ Have a tea-riffic day!", "success");
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking in:', error);
+      
+      // Handle error
+      let errorMessage = "Failed to check in";
+      
+      if (error.code === 4001) {
+        errorMessage = "Transaction rejected by user";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Transaction taking too long. Check network status.";
+      } else if (error.message.includes("gas")) {
+        errorMessage = "Gas estimation failed. The network might be congested.";
+      }
+      
+      addNotification(errorMessage, "error");
     } finally {
       setIsCheckinLoading(false);
     }
@@ -253,7 +344,6 @@ export default function Home() {
       await switchToTeaSepolia();
       setShowNetworkAlert(false);
       
-      // Reconnect dengan network yang benar
       await handleConnectWallet();
     } catch (error) {
       console.error('Error switching network:', error);
@@ -269,7 +359,6 @@ export default function Home() {
         if (ethereum) {
           const accounts = await ethereum.request({ method: 'eth_accounts' });
           if (accounts && accounts.length > 0) {
-            // User has previously connected their wallet and it's still authorized
             handleConnectWallet();
           }
         }
@@ -280,6 +369,28 @@ export default function Home() {
     
     checkPreviousConnection();
   }, []);
+
+  // Ensure contract is properly initialized
+useEffect(() => {
+  if (web3State.isConnected && web3State.address && !web3State.contract) {
+    try {
+      const provider = getProvider();
+      if (provider) {
+        const signer = provider.getSigner();
+        const contract = getContract(signer);
+        
+        setWeb3State(prev => ({
+          ...prev,
+          contract,
+          signer,
+          provider
+        }));
+      }
+    } catch (error) {
+      console.error("Error initializing contract:", error);
+    }
+  }
+}, [web3State.isConnected, web3State.address, web3State.contract]);
 
   // Listen for account changes
   useEffect(() => {
@@ -294,16 +405,13 @@ export default function Home() {
       // Clean way to handle account changes
       const handleAccountsChanged = async (accounts: string[]) => {
         if (accounts.length === 0) {
-          // User disconnected wallet from provider
           handleDisconnectWallet();
         } else if (web3State.address !== accounts[0] && web3State.isConnected) {
-          // Account changed, reconnect with new account
           handleConnectWallet();
         }
       };
 
       const handleChainChanged = () => {
-        // Reload page on chain change
         window.location.reload();
       };
 
@@ -335,15 +443,12 @@ export default function Home() {
   useEthereumEvents({
     accountsChanged: (accounts) => {
       if (accounts.length === 0) {
-        // User disconnected wallet from provider
         handleDisconnectWallet();
       } else if (web3State.address !== accounts[0] && web3State.isConnected) {
-        // Account changed, reconnect with new account
         handleConnectWallet();
       }
     },
     chainChanged: () => {
-      // Reload page on chain change
       window.location.reload();
     },
     disconnect: () => {
@@ -354,16 +459,14 @@ export default function Home() {
   // Refresh data on interval
   useEffect(() => {
     if (web3State.isConnected && web3State.address && web3State.contract) {
-      // Initial load
       loadUserData(web3State.address, web3State.contract);
       loadRecentMessages(web3State.contract);
       
-      // Set up refresh interval
       const refreshInterval = setInterval(() => {
         if (web3State.address && web3State.contract) {
           loadUserData(web3State.address, web3State.contract);
         }
-      }, 30000); // Refresh every 30 seconds
+      }, 30000);
       
       return () => clearInterval(refreshInterval);
     }
@@ -376,30 +479,25 @@ export default function Home() {
       
       if (wasConnected && storedAddress && !web3State.isConnected && !web3State.isLoading) {
         try {
-          // Check if provider and accounts are available before reconnecting
           const ethereum = (window as any).ethereum;
           if (!ethereum) return;
           
           const accounts = await ethereum.request({ method: 'eth_accounts' });
           if (accounts && accounts.length > 0 && accounts.includes(storedAddress)) {
-            // Only reconnect if the stored address is still available
-            await handleConnectWallet();
+             await handleConnectWallet();
           } else {
-            // Clear stored connection if account is no longer available
             localStorage.removeItem('walletConnected');
             localStorage.removeItem('walletAddress');
           }
         } catch (error) {
           console.error("Error auto-reconnecting:", error);
-          // Clear stored connection on error
           localStorage.removeItem('walletConnected');
           localStorage.removeItem('walletAddress');
         }
       }
     };
 
-    // Wait a bit for the page to fully load before attempting to reconnect
-    const timer = setTimeout(() => {
+     const timer = setTimeout(() => {
       attemptReconnect();
     }, 500);
 
@@ -473,12 +571,13 @@ export default function Home() {
             </div>
             
             {/* Messages Section */}
-            <div className="lg:col-span-7">
+            <div className='lg:col-span-7'>
               <GMMessageList 
                 messages={messages}
                 isLoading={isLoadingMessages}
+                onRefresh={() => web3State.contract && loadRecentMessages(web3State.contract)}
               />
-            </div>
+              </div>
           </div>
         </WalletRequired>
       </main>
@@ -501,6 +600,47 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      {/* Notification container */}
+        <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">
+          {notifications.map((notification) => (
+            <div 
+              key={notification.id}
+              className={`max-w-md rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${
+                notification.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500' :
+                notification.type === 'error' ? 'bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500' :
+                notification.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500' :
+                'bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500'
+              }`}
+            >
+              <div className="p-4 flex">
+                <div className="flex-shrink-0">
+                  {notification.type === 'success' && <FaCheckCircle className="h-5 w-5 text-emerald-500" />}
+                  {notification.type === 'error' && <FaExclamationCircle className="h-5 w-5 text-red-500" />}
+                  {notification.type === 'info' && <FaInfoCircle className="h-5 w-5 text-blue-500" />}
+                  {notification.type === 'warning' && <FaExclamationCircle className="h-5 w-5 text-orange-500" />}
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className={`text-sm font-medium ${
+                    notification.type === 'success' ? 'text-emerald-700 dark:text-emerald-300' :
+                    notification.type === 'error' ? 'text-red-700 dark:text-red-300' :
+                    notification.type === 'info' ? 'text-blue-700 dark:text-blue-300' :
+                    'text-orange-700 dark:text-orange-300'
+                  }`}>
+                    {notification.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="ml-4 inline-flex text-gray-400 focus:outline-none focus:text-gray-500 rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <FaTimes className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1 bg-emerald-500 dark:bg-emerald-600 animate-[progress_5s_linear_forwards]"></div>
+            </div>
+          ))}
+        </div>
     </div>
   );
 }

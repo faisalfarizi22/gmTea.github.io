@@ -1,13 +1,6 @@
-// Get environment variables with fallbacks
 export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
-
-// Chain ID for Tea Sepolia Testnet
 export const TEA_SEPOLIA_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_TEA_SEPOLIA_CHAIN_ID || "10218", 10);
-
-// RPC URL for Tea Sepolia Testnet
 export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public";
-
-// Tea Sepolia Testnet Chain Details
 export const TEA_SEPOLIA_CHAIN = {
   chainId: `0x${TEA_SEPOLIA_CHAIN_ID.toString(16)}`,
   chainName: "Tea Sepolia Testnet",
@@ -20,13 +13,10 @@ export const TEA_SEPOLIA_CHAIN = {
   blockExplorerUrls: [process.env.NEXT_PUBLIC_TEA_BLOCK_EXPLORER || "https://sepolia.tea.xyz"],
 };
 
-// Checkin fee in ether
 export const CHECKIN_FEE = process.env.NEXT_PUBLIC_CHECKIN_FEE || "0.01";
 
-// Number of milliseconds in a day
 export const DAY_IN_MS = 86400000;
 
-// Loading states
 export const LOADING_STATES = {
   IDLE: "idle",
   LOADING: "loading",
@@ -34,7 +24,6 @@ export const LOADING_STATES = {
   ERROR: "error",
 };
 
-// Default messages
 export const DEFAULT_MESSAGES = [
   "GM to all Tea enthusiasts! ☕",
   "Starting the day with a fresh cup of Tea! 🍵",
@@ -48,7 +37,6 @@ export const DEFAULT_MESSAGES = [
   "Morning brew and blockchain too! GM! 🌄"
 ];
 
-// Random tea-themed greetings
 export const TEA_GREETINGS = [
   "Tea-rrific morning to everyone!",
   "Steeped in blockchain goodness today!",
@@ -62,7 +50,6 @@ export const TEA_GREETINGS = [
   "Chamomile calm and blockchain charm!"
 ];
 
-// App colors
 export const COLORS = {
   teaLight: "#e6f4ea",
   teaMedium: "#4e8a40",
@@ -71,7 +58,6 @@ export const COLORS = {
   glowColor: "rgba(78, 138, 64, 0.3)"
 };
 
-// Get random tea greeting
 export const getRandomTeaGreeting = () => {
   const randomIndex = Math.floor(Math.random() * TEA_GREETINGS.length);
   return TEA_GREETINGS[randomIndex];

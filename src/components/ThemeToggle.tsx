@@ -10,11 +10,9 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
 
   // On component mount, check for user's preference
   useEffect(() => {
-    // Check if user has a saved preference
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    // Set initial theme based on saved preference or system preference
     const initialDarkMode = savedTheme 
       ? savedTheme === 'dark' 
       : prefersDark;

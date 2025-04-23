@@ -216,15 +216,33 @@ export default function Home() {
     if (web3State.isLoading) return;
     
     try {
+      console.log("handleConnectWallet called - starting wallet connection");
       setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
     
-      const result = await connectWallet();
+      // KUNCI: Periksa jika sudah terhubung melalui ThirdwebProvider
+      const ethereum = (window as any).ethereum;
+      let address, provider, signer, chainId;
       
-      if (!result || !result.address) {
-        throw new Error("Failed to connect: No address returned");
+      if (ethereum && ethereum.selectedAddress) {
+        // Dompet sudah terhubung melalui ThirdwebProvider
+        address = ethereum.selectedAddress;
+        provider = new ethers.providers.Web3Provider(ethereum);
+        signer = provider.getSigner();
+        chainId = parseInt(ethereum.chainId, 16); // Konversi dari hex
+        
+        console.log("Using already connected wallet:", address);
+      } else {
+        // Belum terhubung, gunakan fungsi connectWallet normal
+        const result = await connectWallet();
+        
+        if (!result || !result.address) {
+          throw new Error("Failed to connect: No address returned");
+        }
+        
+        ({ signer, address, chainId, provider } = result);
       }
       
-      const { signer, address, chainId, provider } = result;
+      console.log("Wallet connected successfully:", address);
       
       const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID;
       setShowNetworkAlert(!isCorrectNetwork);
@@ -242,6 +260,8 @@ export default function Home() {
         error: null,
         chainId,
       });
+      
+      console.log("Web3 state updated - isConnected:", true);
       
       // Set to localStorage for persistence
       localStorage.setItem('walletConnected', 'true');
@@ -269,7 +289,7 @@ export default function Home() {
       localStorage.removeItem('walletConnected');
       localStorage.removeItem('walletAddress');
     }
-  }, [web3State.isLoading, loadUserData, loadRecentMessages]); 
+  }, [web3State.isLoading, loadUserData, loadRecentMessages]);
 
   // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
@@ -389,6 +409,16 @@ export default function Home() {
       setWeb3State(prev => ({ ...prev, isLoading: false }));
     }
   }, [handleConnectWallet]);
+
+  
+  // Untuk debugging
+  useEffect(() => {
+    console.log("Web3 state updated:", {
+      isConnected: web3State.isConnected,
+      address: web3State.address,
+      chainId: web3State.chainId
+    });
+  }, [web3State.isConnected, web3State.address, web3State.chainId]);
 
   // Attempt to reconnect wallet on page load
   useEffect(() => {

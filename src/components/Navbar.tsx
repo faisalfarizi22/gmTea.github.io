@@ -1,7 +1,9 @@
+// components/Navbar.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { formatAddress } from '@/utils/web3';
 import ThemeToggle from './ThemeToggle';
 import { FaLeaf, FaWallet, FaExchangeAlt, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
+import ConnectWalletButton from './ConnectWalletButton';
 
 interface NavbarProps {
   address: string | null;
@@ -19,6 +21,8 @@ const Navbar: React.FC<NavbarProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  console.log("Navbar - address:", address, "isConnected:", !!address);
 
   // Add scroll event listener
   useEffect(() => {
@@ -68,53 +72,33 @@ const Navbar: React.FC<NavbarProps> = ({
             
             {/* Wallet Connection */}
             {!address ? (
-              <button
-                onClick={connectWallet}
-                disabled={isConnecting}
-                className="btn-primary glow-effect group"
-              >
-                <FaWallet className={`mr-2 transition-all duration-300 ${isConnecting ? 'animate-spin' : 'group-hover:rotate-12'}`} />
-                <span>
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-                </span>
-              </button>
+              <ConnectWalletButton connectWallet={connectWallet} />
             ) : (
-              <div className="relative" ref={dropdownRef}>
+              <div ref={dropdownRef} className="relative">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white dark:bg-gray-800 border border-emerald-100 dark:border-gray-700 hover:border-emerald-200 dark:hover:border-gray-600 shadow-sm hover:shadow transition-all duration-300 text-emerald-700 dark:text-emerald-300"
+                  className="flex items-center space-x-2 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/30 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="font-medium">{formatAddress(address)}</span>
-                  </div>
-                  <FaChevronDown className={`transition-transform duration-300 text-sm ${dropdownOpen ? 'rotate-180 text-emerald-500' : ''}`} />
+                  <div className="h-2 w-2 bg-emerald-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                    {formatAddress(address)}
+                  </span>
+                  <FaChevronDown className={`h-3 w-3 text-emerald-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-52 rounded-xl shadow-lg bg-white dark:bg-gray-800 ring-1 ring-emerald-100 dark:ring-gray-700 overflow-hidden z-20 border border-emerald-50 dark:border-gray-700 backdrop-blur-lg">
+                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
                     <div className="py-1" role="menu" aria-orientation="vertical">
-                      <button
-                        onClick={() => {
-                          connectWallet();
-                          setDropdownOpen(false);
-                        }}
-                        className="w-full text-left flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors"
-                        role="menuitem"
-                      >
-                        <FaExchangeAlt className="mr-3 text-emerald-500" />
-                        <span>Change Wallet</span>
-                      </button>
                       <button
                         onClick={() => {
                           disconnectWallet();
                           setDropdownOpen(false);
                         }}
-                        className="w-full text-left flex items-center px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-gray-700 transition-colors"
+                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         role="menuitem"
                       >
-                        <FaSignOutAlt className="mr-3 text-emerald-500" />
-                        <span>Disconnect Wallet</span>
+                        <FaSignOutAlt className="mr-2 h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        Disconnect
                       </button>
                     </div>
                   </div>

@@ -1,5 +1,8 @@
-import React from 'react';
+// components/WalletRequired.tsx
+import React, { useState } from 'react';
 import { FaWallet, FaLeaf } from 'react-icons/fa';
+import { motion } from 'framer-motion';
+import CustomConnectModal from './CustomConnectModal';
 
 interface WalletRequiredProps {
   children: React.ReactNode;
@@ -14,6 +17,8 @@ const WalletRequired: React.FC<WalletRequiredProps> = ({
   connectWallet,
   isConnecting
 }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
   if (isConnected) {
     return <>{children}</>;
   }
@@ -34,14 +39,26 @@ const WalletRequired: React.FC<WalletRequiredProps> = ({
           Start your day with a friendly GM on the Tea blockchain. Connect your wallet to check-in daily and join the community.
         </p>
         
-        <button 
-          onClick={connectWallet}
-          disabled={isConnecting}
-          className="btn-primary w-full group"
-        >
-          <FaWallet className={`mr-2 ${isConnecting ? 'animate-spin' : 'group-hover:rotate-12 transition-transform duration-300'}`} />
-          <span>{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
-        </button>
+        <div className="flex justify-center">
+          <motion.button
+            whileHover={{ 
+              scale: 1.02, 
+              boxShadow: "0px 0px 20px #10b981",
+              backgroundColor: "#059669"
+            }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsModalOpen(true)}
+            className="w-auto px-6 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-all duration-200 shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center"
+          >
+            <FaWallet className="inline-block mr-2" /> Connect Wallet
+          </motion.button>
+        </div>
+        
+        <CustomConnectModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          connectWallet={connectWallet}
+        />
         
         <div className="text-xs text-gray-500 flex items-center justify-center gap-2">
           <div className="h-1.5 w-1.5 bg-emerald-500 rounded-full"></div>

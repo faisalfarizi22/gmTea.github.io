@@ -15,7 +15,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.0.1",
-    "react-toast": "^1.0.3"
+    "react-toast": "^1.0.3",
+    "thirdweb": "^5.95.3"
   },
   "devDependencies": {
     "@types/node": "^20",

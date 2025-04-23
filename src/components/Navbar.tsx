@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { formatAddress } from '@/utils/web3';
 import ThemeToggle from './ThemeToggle';
-import { FaLeaf, FaWallet, FaExchangeAlt, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
+import { FaLeaf, FaWallet, FaExchangeAlt, FaSignOutAlt, FaChevronDown, FaComments, FaEnvelope } from 'react-icons/fa';
 import ConnectWalletButton from './ConnectWalletButton';
 
 interface NavbarProps {
@@ -24,7 +24,6 @@ const Navbar: React.FC<NavbarProps> = ({
 
   console.log("Navbar - address:", address, "isConnected:", !!address);
 
-  // Add scroll event listener
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -34,7 +33,6 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -66,7 +64,29 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Forum (coming soon) */}
+            <div className="relative group">
+              <button disabled className="p-2 rounded-lg cursor-not-allowed">
+                <FaComments className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+              </button>
+              <div className="absolute top-full mb-2 w-56 p-2 text-xs text-white text-center bg-emerald-600/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                <strong>Forum (Coming Soon):</strong> 
+                <p> You can create discussion forums and interact with the community.</p>
+              </div>
+            </div>
+
+            {/* Messages (coming soon) */}
+            <div className="relative group">
+              <button disabled className="p-2 rounded-lg cursor-not-allowed">
+                <FaEnvelope className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+              </button>
+              <div className="absolute top-full mb-2 w-48 p-2 text-xs text-white text-center bg-emerald-600/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                <strong>Messages (Coming Soon):</strong>
+                <p> You will be able to send private messages to others.</p>
+              </div>
+            </div>
+
             {/* Theme Toggle Button */}
             <ThemeToggle />
             

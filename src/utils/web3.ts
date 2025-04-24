@@ -2,6 +2,9 @@ import { ethers } from "ethers";
 import GMOnchainABI from "../abis/GMOnchainABI.json";
 import { CONTRACT_ADDRESS, TEA_SEPOLIA_CHAIN, TEA_SEPOLIA_CHAIN_ID } from "./constants";
 
+// Add the deployment block constant
+const DEPLOY_BLOCK = 1155300;
+
 /**
  * Checks if code is running in browser environment
  * Used to prevent SSR issues with window object
@@ -214,161 +217,86 @@ export const isTeaSepoliaNetwork = async (): Promise<boolean> => {
 };
 
 /**
- * Get total global checkins directly from blockchain with optimized approach
+ * Get total global checkins directly from blockchain using the exact DEPLOY_BLOCK
  * @param contract The GMOnchain contract
  * @returns Promise<number> Total global check-ins
  */
 export const getTotalCheckins = async (contract: ethers.Contract): Promise<number> => {
   try {
-    // Method 1: Try to get count from CheckinCompleted events
-    // This is the most accurate approach but might be slow for many events
-    let count = 0;
+    const provider = contract.provider;
+    if (!provider) return 0;
     
-    try {
-      // First try: Get logs from provider directly (potentially faster than contract events)
-      const provider = contract.provider;
-      const contractAddress = contract.address;
-      
-      // Get CheckinCompleted event signature (first topic)
-      // Event: CheckinCompleted(address indexed user, uint256 timestamp, string message, uint256 count)
-      const eventSignature = ethers.utils.id("CheckinCompleted(address,uint256,string,uint256)");
-      
-      // Get the current block number
-      const currentBlock = await provider.getBlockNumber();
-      
-      // Set reasonable block range to search (adjust based on deployment time)
-      // This is a tradeoff between accuracy and performance
-      const fromBlock = currentBlock - 200000; // Search last ~200k blocks
-      
-      // Use getLogs API directly
-      const logs = await provider.getLogs({
-        address: contractAddress,
-        topics: [eventSignature],
-        fromBlock: Math.max(0, fromBlock),
-        toBlock: "latest"
-      });
-      
-      if (logs && logs.length > 0) {
-        console.log(`Found ${logs.length} CheckinCompleted events`);
-        count = logs.length;
-        return count;
-      }
-    } catch (logsError) {
-      console.warn("Error getting logs directly:", logsError);
-    }
+    // Get CheckinCompleted event signature
+    const eventSignature = ethers.utils.id("CheckinCompleted(address,uint256,string,uint256)");
     
-    // Method 2: Try using contract's queryFilter with reasonable chunk size
-    try {
-      const filter = contract.filters.CheckinCompleted();
-      const currentBlock = await contract.provider.getBlockNumber();
-      
-      // Use a moderate chunk size that most providers can handle
-      const CHUNK_SIZE = 5000;
-      const fromBlock = Math.max(0, currentBlock - 50000); // Last 50k blocks
-      
-      for (let i = fromBlock; i < currentBlock; i += CHUNK_SIZE) {
-        const toBlock = Math.min(currentBlock, i + CHUNK_SIZE - 1);
-        try {
-          const events = await contract.queryFilter(filter, i, toBlock);
-          count += events.length;
-        } catch (chunkError) {
-          console.warn(`Error querying chunk ${i} to ${toBlock}:`, chunkError);
-          // Continue with next chunk
-        }
-      }
-      
-      if (count > 0) {
-        return count;
-      }
-    } catch (queryError) {
-      console.warn("Error using queryFilter:", queryError);
-    }
+    // Get current block for calculating total range
+    const currentBlock = await provider.getBlockNumber();
+    console.log(`Scanning from block ${DEPLOY_BLOCK} to ${currentBlock}`);
     
-    // Method 3: Try getting user data from recent GMs
-    try {
-      const recentGMs = await contract.getRecentGMs();
-      let uniqueUsers = new Set();
-      let totalUserCheckins = 0;
+    // Define chunk size for pagination (adjusted to prevent RPC timeout)
+    const CHUNK_SIZE = 10000;
+    let totalCount = 0;
+    
+    // Process in chunks to avoid RPC limitations
+    for (let fromBlock = DEPLOY_BLOCK; fromBlock <= currentBlock; fromBlock += CHUNK_SIZE) {
+      const toBlock = Math.min(currentBlock, fromBlock + CHUNK_SIZE - 1);
       
-      // Get unique users
-      for (const gm of recentGMs) {
-        if (gm && gm.user && !uniqueUsers.has(gm.user)) {
-          uniqueUsers.add(gm.user);
-          
-          // Get this user's check-in count
-          try {
-            const userCount = await contract.getCheckinCount(gm.user);
-            totalUserCheckins += userCount.toNumber();
-          } catch (userError) {
-            console.warn(`Error getting count for user ${gm.user}:`, userError);
-          }
-        }
-      }
-      
-      // If we have some data, estimate total
-      if (uniqueUsers.size > 0 && totalUserCheckins > 0) {
-        // Calculate average check-ins per user
-        const avgCheckinsPerUser = totalUserCheckins / uniqueUsers.size;
+      try {
+        // Get logs for this chunk
+        const logs = await provider.getLogs({
+          address: contract.address,
+          topics: [eventSignature],
+          fromBlock,
+          toBlock
+        });
         
-        // Estimate number of active users (assume recent GMs represent ~20% of active users)
-        const estimatedActiveUsers = uniqueUsers.size * 5;
+        totalCount += logs.length;
+        console.log(`Processed blocks ${fromBlock}-${toBlock}: Found ${logs.length} events (Running total: ${totalCount})`);
+      } catch (error) {
+        console.warn(`Error querying logs for blocks ${fromBlock}-${toBlock}:`, error);
         
-        // Estimate total check-ins
-        const estimatedTotal = Math.round(estimatedActiveUsers * avgCheckinsPerUser);
-        
-        // Return the higher of our estimation or recent GMs length
-        return Math.max(estimatedTotal, recentGMs.length);
-      }
-      
-      // If we just have recent GMs (minimum value)
-      if (recentGMs.length > 0) {
-        return recentGMs.length;
-      }
-    } catch (recentError) {
-      console.warn("Error analyzing recent GMs:", recentError);
-    }
-    
-    // Method 4: Try a simplified approach with smart pagination
-    try {
-      let totalEvents = 0;
-      let blockWindow = 1000;
-      let currentBlock = await contract.provider.getBlockNumber();
-      
-      // Start with recent blocks and expand if needed
-      while (blockWindow <= 200000 && totalEvents === 0) {
-        try {
-          const events = await contract.queryFilter(
-            contract.filters.CheckinCompleted(),
-            currentBlock - blockWindow,
-            currentBlock
-          );
+        // If chunk size is too large, try with smaller chunks
+        if (CHUNK_SIZE > 1000) {
+          // Use smaller chunks for this range
+          const smallerChunkSize = CHUNK_SIZE / 5;
           
-          totalEvents = events.length;
-          
-          // If found events, try to extrapolate for entire contract lifetime
-          if (totalEvents > 0) {
-            // Estimate events per block
-            const eventsPerBlock = totalEvents / blockWindow;
+          for (let smallFromBlock = fromBlock; smallFromBlock <= toBlock; smallFromBlock += smallerChunkSize) {
+            const smallToBlock = Math.min(toBlock, smallFromBlock + smallerChunkSize - 1);
             
-            // Estimate total events based on contract lifetime
-            // (assuming contract deployed around 200k blocks ago, adjust if known)
-            const estimatedContractBlocks = 200000;
-            return Math.round(eventsPerBlock * estimatedContractBlocks);
+            try {
+              const smallerLogs = await provider.getLogs({
+                address: contract.address,
+                topics: [eventSignature],
+                fromBlock: smallFromBlock,
+                toBlock: smallToBlock
+              });
+              
+              totalCount += smallerLogs.length;
+              console.log(`Processed smaller chunk ${smallFromBlock}-${smallToBlock}: Found ${smallerLogs.length} events`);
+            } catch (smallerError) {
+              console.error(`Failed to process smaller chunk ${smallFromBlock}-${smallToBlock}:`, smallerError);
+              // Continue with next chunk
+            }
           }
-          
-          // Increase window for next attempt
-          blockWindow *= 5;
-        } catch (error) {
-          console.warn(`Error with window size ${blockWindow}:`, error);
-          blockWindow *= 2; // Try with larger window
         }
       }
-    } catch (paginationError) {
-      console.warn("Error with smart pagination:", paginationError);
     }
     
-    // If everything fails, return a conservative estimate
-    return 0;
+    // As a fallback, if we still don't have any events
+    if (totalCount === 0) {
+      // Try using contract's getRecentGMs as a minimum value
+      try {
+        const recentGMs = await contract.getRecentGMs();
+        if (recentGMs && recentGMs.length > 0) {
+          console.log(`No events found, using recentGMs length as minimum: ${recentGMs.length}`);
+          return recentGMs.length;
+        }
+      } catch (recentError) {
+        console.warn("Error getting recent GMs:", recentError);
+      }
+    }
+    
+    return totalCount;
   } catch (error) {
     console.error("Error in getTotalCheckins:", error);
     return 0;

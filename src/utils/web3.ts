@@ -35,22 +35,17 @@ export const connectWallet = async () => {
     const ethereum = (window as any).ethereum;
     if (!ethereum) throw new Error("No Ethereum provider found. Please install MetaMask.");
     
-    // Request accounts directly from ethereum provider
-    // This approach is more reliable than using provider.send
     const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
     
     if (!accounts || accounts.length === 0) {
       throw new Error("No accounts returned from wallet");
     }
     
-    // Get provider after accounts are approved to ensure fresh connection
     const provider = new ethers.providers.Web3Provider(ethereum, "any");
     
-    // Get signer from the existing provider
     const signer = provider.getSigner();
-    const address = accounts[0]; // Use the first account returned
+    const address = accounts[0]; 
     
-    // Get network info
     const network = await provider.getNetwork();
     const chainId = network.chainId;
     
@@ -70,13 +65,11 @@ export const switchToTeaSepolia = async () => {
     if (!ethereum) throw new Error("No Ethereum provider found");
     
     try {
-      // Try to switch to the network first
       await ethereum.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: TEA_SEPOLIA_CHAIN.chainId }],
       });
     } catch (switchError: any) {
-      // If the network is not added, add it
       if (switchError.code === 4902) {
         await ethereum.request({
           method: "wallet_addEthereumChain",
@@ -111,12 +104,10 @@ export const getContract = (signerOrProvider: ethers.Signer | ethers.providers.P
 export const formatTimestamp = (timestamp: number): string => {
   const date = new Date(timestamp * 1000);
   
-  // Get today's date for comparison
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
   
-  // Format date based on how recent it is
   if (date.toDateString() === today.toDateString()) {
     return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   } else if (date.toDateString() === yesterday.toDateString()) {
@@ -154,7 +145,6 @@ export const formatTimeRemaining = (seconds: number): string => {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = Math.floor(seconds % 60);
   
-  // Format with leading zeros
   const format = (num: number) => num.toString().padStart(2, '0');
   
   if (days > 0) {
@@ -226,23 +216,18 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
     const provider = contract.provider;
     if (!provider) return 0;
     
-    // Get CheckinCompleted event signature
     const eventSignature = ethers.utils.id("CheckinCompleted(address,uint256,string,uint256)");
     
-    // Get current block for calculating total range
     const currentBlock = await provider.getBlockNumber();
     console.log(`Scanning from block ${DEPLOY_BLOCK} to ${currentBlock}`);
     
-    // Define chunk size for pagination (adjusted to prevent RPC timeout)
     const CHUNK_SIZE = 10000;
     let totalCount = 0;
     
-    // Process in chunks to avoid RPC limitations
     for (let fromBlock = DEPLOY_BLOCK; fromBlock <= currentBlock; fromBlock += CHUNK_SIZE) {
       const toBlock = Math.min(currentBlock, fromBlock + CHUNK_SIZE - 1);
       
       try {
-        // Get logs for this chunk
         const logs = await provider.getLogs({
           address: contract.address,
           topics: [eventSignature],
@@ -255,9 +240,7 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
       } catch (error) {
         console.warn(`Error querying logs for blocks ${fromBlock}-${toBlock}:`, error);
         
-        // If chunk size is too large, try with smaller chunks
         if (CHUNK_SIZE > 1000) {
-          // Use smaller chunks for this range
           const smallerChunkSize = CHUNK_SIZE / 5;
           
           for (let smallFromBlock = fromBlock; smallFromBlock <= toBlock; smallFromBlock += smallerChunkSize) {
@@ -275,16 +258,12 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
               console.log(`Processed smaller chunk ${smallFromBlock}-${smallToBlock}: Found ${smallerLogs.length} events`);
             } catch (smallerError) {
               console.error(`Failed to process smaller chunk ${smallFromBlock}-${smallToBlock}:`, smallerError);
-              // Continue with next chunk
             }
           }
         }
       }
     }
-    
-    // As a fallback, if we still don't have any events
     if (totalCount === 0) {
-      // Try using contract's getRecentGMs as a minimum value
       try {
         const recentGMs = await contract.getRecentGMs();
         if (recentGMs && recentGMs.length > 0) {
@@ -295,7 +274,6 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
         console.warn("Error getting recent GMs:", recentError);
       }
     }
-    
     return totalCount;
   } catch (error) {
     console.error("Error in getTotalCheckins:", error);

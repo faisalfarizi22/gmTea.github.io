@@ -1,9 +1,12 @@
-// components/Navbar.tsx
+// components/Navbar.tsx (update)
 import React, { useState, useRef, useEffect } from 'react';
 import { formatAddress } from '@/utils/web3';
 import ThemeToggle from './ThemeToggle';
-import { FaLeaf, FaWallet, FaExchangeAlt, FaSignOutAlt, FaChevronDown, FaComments, FaEnvelope } from 'react-icons/fa';
+import Link from 'next/link';
+import { FaLeaf, FaWallet, FaSignOutAlt, FaChevronDown, FaComments, FaEnvelope } from 'react-icons/fa';
 import ConnectWalletButton from './ConnectWalletButton';
+import PrivateMessageDrawer from './PrivateMessageDrawer';
+import { useGMTeaChat } from '@/hooks/useGMTeaChat';
 
 interface NavbarProps {
   address: string | null;
@@ -19,10 +22,10 @@ const Navbar: React.FC<NavbarProps> = ({
   isConnecting 
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [messageDrawerOpen, setMessageDrawerOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
-
-  console.log("Navbar - address:", address, "isConnected:", !!address);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -60,32 +63,39 @@ const Navbar: React.FC<NavbarProps> = ({
               </div>
               <span className="ml-2 text-xl font-bold text-emerald-700 dark:text-emerald-300 tracking-tight">
                 GM <span className="text-emerald-500">TEA</span>
+                <span className="absolute top-6 ml-1 text-gray-500 dark:text-gray-300 text-xs font-medium bg-emerald-100/50 dark:bg-emerald-50/10 px-1.5 py-0.5 rounded-md align-middle shadow-md">
+                Testnet
+                </span>
               </span>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            {/* Forum (coming soon) */}
-            <div className="relative group">
-              <button disabled className="p-2 rounded-lg cursor-not-allowed">
-                <FaComments className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-              </button>
-              <div className="absolute top-full mb-2 w-56 p-2 text-xs text-white text-center bg-emerald-600/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                <strong>Forum (Coming Soon):</strong> 
-                <p> You can create discussion forums and interact with the community.</p>
-              </div>
-            </div>
+            {/* Forum Link - now active */}
+            {/* {address && (
+              <Link href="/forum">
+                <div className="p-2 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer">
+                  <FaComments className="h-5 w-5" />
+                </div>
+              </Link>
+            )} */}
 
-            {/* Messages (coming soon) */}
-            <div className="relative group">
-              <button disabled className="p-2 rounded-lg cursor-not-allowed">
-                <FaEnvelope className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-              </button>
-              <div className="absolute top-full mb-2 w-48 p-2 text-xs text-white text-center bg-emerald-600/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                <strong>Messages (Coming Soon):</strong>
-                <p> You will be able to send private messages to others.</p>
+            {/* Messages - now active */}
+            {/* {address && (
+              <div className="relative">
+                <button 
+                  onClick={() => setMessageDrawerOpen(true)}
+                  className="p-2 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer"
+                >
+                  <FaEnvelope className="h-5 w-5" />
+                </button>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </div>
-            </div>
+            )} */}
 
             {/* Theme Toggle Button */}
             <ThemeToggle />
@@ -128,6 +138,12 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Private Message Drawer */}
+      {/* <PrivateMessageDrawer 
+        isOpen={messageDrawerOpen} 
+        onClose={() => setMessageDrawerOpen(false)} 
+      /> */}
     </nav>
   );
 };

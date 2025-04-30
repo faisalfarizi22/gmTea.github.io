@@ -10,7 +10,19 @@ const nextConfig = {
     };
     return config;
   },
-  transpilePackages: ['ethers']
+  transpilePackages: ['ethers'],
+  async rewrites() {
+    return [
+      {
+        source: '/forum',
+        destination: '/forum',
+      },
+      {
+        source: '/forum/:threadId',
+        destination: '/forum/[threadId]',
+      }
+    ];
+  }
 };
 
 module.exports = nextConfig;

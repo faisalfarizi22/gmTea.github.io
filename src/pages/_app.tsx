@@ -3,8 +3,11 @@ import { AppProps } from 'next/app';
 import Head from 'next/head';
 import '@/styles/globals.css';
 import { ThirdwebProvider } from "thirdweb/react";
+import { useRouter } from 'next/router';
 
 function GMApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+
   return (
     <>
       <Head>
@@ -16,7 +19,7 @@ function GMApp({ Component, pageProps }: AppProps) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Head>
-      <ThirdwebProvider>
+      <ThirdwebProvider >
         <Component {...pageProps} />
       </ThirdwebProvider>
     </>

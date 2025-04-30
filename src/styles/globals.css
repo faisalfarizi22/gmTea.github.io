@@ -324,3 +324,157 @@ body {
     width: 0%;
   }
 }
+
+/* Add these styles to your global.css file */
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(10, 185, 149, 0.3);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(10, 185, 149, 0.5);
+}
+
+/* Dark mode scrollbar */
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(10, 185, 149, 0.4);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(10, 185, 149, 0.6);
+}
+
+/* Glassmorphism effects */
+.glass-effect {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+}
+
+.dark .glass-effect {
+  background-color: rgba(31, 41, 55, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Animated gradient backgrounds */
+.gradient-animated {
+  background: linear-gradient(-45deg, #10b981, #3b82f6, #10b981, #0ea5e9);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glow effects for interactive elements */
+.glow-on-hover {
+  transition: all 0.3s ease;
+}
+
+.glow-on-hover:hover {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+}
+
+.dark .glow-on-hover:hover {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+}
+
+/* Subtle animation for buttons */
+.pulse-on-hover {
+  transform-origin: center;
+  transition: all 0.2s ease;
+}
+
+.pulse-on-hover:hover {
+  transform: scale(1.03);
+}
+
+/* Soft shadow that gets deeper on hover */
+.shadow-soft {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease;
+}
+
+.shadow-soft:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.dark .shadow-soft {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.dark .shadow-soft:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* Custom dark background for dark mode */
+.dark .bg-gray-850 {
+  background-color: #141b27;
+}
+
+.dark .bg-gray-750 {
+  background-color: #1e2533;
+}
+
+/* Animation for notifications or new content */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+/* Thread card hover effect */
+.thread-card {
+  transition: all 0.3s ease;
+}
+
+.thread-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.dark .thread-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Button with animated gradient background */
+.btn-gradient {
+  background: linear-gradient(90deg, #10b981, #059669);
+  background-size: 200% auto;
+  transition: 0.5s;
+}
+
+.btn-gradient:hover {
+  background-position: right center;
+}

@@ -17,6 +17,9 @@ export const CHECKIN_FEE = process.env.NEXT_PUBLIC_CHECKIN_FEE || "0.01";
 
 export const DAY_IN_MS = 86400000;
 
+// Add deployment block for event fetching in the leaderboard
+export const DEPLOY_BLOCK = parseInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK || "1155300", 10);
+
 export const LOADING_STATES = {
   IDLE: "idle",
   LOADING: "loading",

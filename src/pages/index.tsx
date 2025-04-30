@@ -6,6 +6,8 @@ import CountdownTimer from '@/components/CountdownTimer';
 import CheckinButton from '@/components/CheckinButton';
 import GMMessageList from '@/components/GMMessageList';
 import WalletRequired from '@/components/WalletRequired';
+import ForumOverlay from '@/components/ForumOverlay';
+import Leaderboard from '@/components/Leaderboard';
 import { useEthereumEvents } from '@/hooks/useEthereumEvents';
 import { GMMessage, Web3State, CheckinStats } from '@/types';
 import { 
@@ -26,7 +28,9 @@ import {
   FaExclamationCircle,
   FaInfoCircle,
   FaTimes,
-  FaNetworkWired
+  FaNetworkWired,
+  FaComments,
+  FaTrophy
 } from 'react-icons/fa';
 
 // Notification type
@@ -61,7 +65,10 @@ export default function Home() {
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false);
   const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
   const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false);
-
+  
+  // Forum overlay state
+  const [isForumOpen, setIsForumOpen] = useState(false);
+  
   // Notification functions
   const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -219,20 +226,20 @@ export default function Home() {
       console.log("handleConnectWallet called - starting wallet connection");
       setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
     
-      // KUNCI: Periksa jika sudah terhubung melalui ThirdwebProvider
+      // Check if already connected through ThirdwebProvider
       const ethereum = (window as any).ethereum;
       let address, provider, signer, chainId;
       
       if (ethereum && ethereum.selectedAddress) {
-        // Dompet sudah terhubung melalui ThirdwebProvider
+        // Wallet already connected through ThirdwebProvider
         address = ethereum.selectedAddress;
         provider = new ethers.providers.Web3Provider(ethereum);
         signer = provider.getSigner();
-        chainId = parseInt(ethereum.chainId, 16); // Konversi dari hex
+        chainId = parseInt(ethereum.chainId, 16); // Convert from hex
         
         console.log("Using already connected wallet:", address);
       } else {
-        // Belum terhubung, gunakan fungsi connectWallet normal
+        // Not connected, use normal connectWallet function
         const result = await connectWallet();
         
         if (!result || !result.address) {
@@ -410,8 +417,16 @@ export default function Home() {
     }
   }, [handleConnectWallet]);
 
+  // Forum handlers
+  const openForum = () => {
+    setIsForumOpen(true);
+  };
   
-  // Untuk debugging
+  const closeForum = () => {
+    setIsForumOpen(false);
+  };
+  
+  // For debugging
   useEffect(() => {
     console.log("Web3 state updated:", {
       isConnected: web3State.isConnected,
@@ -590,6 +605,7 @@ export default function Home() {
           connectWallet={handleConnectWallet}
           isConnecting={web3State.isLoading}
         >
+          {/* Restore original layout - Stats on left, Activity feed on right */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Stats Section */}
             <div className="lg:col-span-5 space-y-6">
@@ -617,7 +633,7 @@ export default function Home() {
               />
             </div>
             
-            {/* Messages Section */}
+            {/* Activity Feed Section */}
             <div className="lg:col-span-7">
               <GMMessageList 
                 messages={messages}
@@ -626,20 +642,41 @@ export default function Home() {
               />
             </div>
           </div>
+
+          {/* Leaderboard Section - Added below the main content */}
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
+              <div className="relative">
+                <FaTrophy className="mr-2 text-emerald-500" /> 
+                <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
+              </div>  Community Leaderboard
+                <span className="ml-2 bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-emerald-900 dark:text-emerald-300">
+                  NEW
+                </span>
+              </h2>
+            </div>
+            
+            <Leaderboard 
+              contract={web3State.contract}
+              currentUserAddress={web3State.address}
+              userCheckinCount={checkinStats.userCheckinCount}
+            />
+          </div>
         </WalletRequired>
       </main>
       
-      <footer className="mt-auto py-6 border-t border-emerald-100">
+      <footer className="mt-auto py-6 border-t border-emerald-100 dark:border-emerald-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center">
             <div className="flex items-center space-x-2">
               <FaLeaf className="h-5 w-5 text-emerald-500" />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 GM Onchain — Built for the Tea Sepolia Testnet
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
                 <div className="h-2 w-2 bg-emerald-500 rounded-full"></div>
                 <span>Daily GM check-ins on the blockchain</span>
               </div>
@@ -647,6 +684,22 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Forum Button - fixed floating action button */}
+      {/* <button 
+        onClick={openForum}
+        className="fixed bottom-6 right-6 z-30 bg-emerald-500 text-white p-3 rounded-full shadow-lg hover:bg-emerald-600 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center justify-center"
+        title="Open Community Forum"
+      >
+        <FaComments className="h-6 w-6" />
+        <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">3</span>
+      </button> */}
+      
+      {/* Forum Overlay */}
+      {/* <ForumOverlay 
+        isOpen={isForumOpen}
+        onClose={closeForum}
+      /> */}
 
       {/* Notification container */}
       <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">

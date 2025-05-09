@@ -9,6 +9,7 @@ interface ConnectionStatusContextType {
   networkLatency: number;
   blockNumber: number | null;
   isRefreshing: boolean;
+  refreshConnection: () => void;  // Added function to refresh connection
 }
 
 // Default context state
@@ -17,7 +18,8 @@ const defaultContext: ConnectionStatusContextType = {
   isStable: false,
   networkLatency: 0,
   blockNumber: null,
-  isRefreshing: false
+  isRefreshing: false,
+  refreshConnection: () => {}  // Default empty function
 };
 
 // Create context
@@ -28,7 +30,7 @@ export const useConnectionStatus = () => useContext(ConnectionStatusContext);
 
 // Status indicator component
 export const ConnectionStatusIndicator: React.FC = () => {
-  const { status, networkLatency, blockNumber, isRefreshing } = useConnectionStatus();
+  const { status, networkLatency, blockNumber, isRefreshing, refreshConnection } = useConnectionStatus();
   
   // Function to refresh the entire page
   const handleRefreshClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -62,8 +64,8 @@ export const ConnectionStatusIndicator: React.FC = () => {
         </p>
       </div>
       
-      {/* Only show refresh button when in connecting/initializing state */}
-      {status === 'initializing' && (
+      {/* Show refresh button when in connecting/initializing state OR when unstable or stuck with high latency */}
+      {(status === 'initializing' || status === 'unstable' || networkLatency > 10) && (
         <button 
           onClick={handleRefreshClick}
           disabled={isRefreshing}
@@ -86,6 +88,9 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
   const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
   const [consecutiveSuccesses, setConsecutiveSuccesses] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [stuckDetected, setStuckDetected] = useState<boolean>(false);
+  const [lastBlockNumber, setLastBlockNumber] = useState<number | null>(null);
+  const [blockStagnantCount, setBlockStagnantCount] = useState<number>(0);
   
   // Function to check network status
   const checkNetworkStatus = async (isManualRefresh = false) => {
@@ -119,8 +124,37 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
       const latency = Math.round(endTime - startTime);
       
       setNetworkLatency(latency);
+      
+      // Check if block number is stuck
+      if (currentBlock !== null) {
+        if (lastBlockNumber === currentBlock) {
+          setBlockStagnantCount(prev => prev + 1);
+        } else {
+          setBlockStagnantCount(0);
+          setLastBlockNumber(currentBlock);
+        }
+      }
+      
       setBlockNumber(currentBlock);
       setLastUpdateTime(Date.now());
+      
+      // Check for stuck condition:
+      // 1. High latency (above 10ms)
+      // 2. Block number hasn't changed for multiple checks
+      const isStuck = (latency > 10 || (blockStagnantCount > 3 && currentBlock !== null));
+      
+      if (isStuck) {
+        setStuckDetected(true);
+        setStatus('unstable');
+        setIsStable(false);
+        setConsecutiveSuccesses(0);
+        return;
+      }
+      
+      // Reset stuck flag if things are working well
+      if (latency < 10 && currentBlock !== null && currentBlock !== lastBlockNumber) {
+        setStuckDetected(false);
+      }
       
       // Special case: if latency is 0ms and blockNumber is null, connection is definitely not stable
       if (latency === 0 && currentBlock === null) {
@@ -130,10 +164,11 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
         return;
       }
       
-      // Determine if connection is stable based on new criteria:
+      // Determine if connection is stable based on criteria:
       // 1. Latency must be below 10ms
       // 2. Block number must be valid (not null)
-      if (latency < 10 && currentBlock !== null) {
+      // 3. Not in a stuck state
+      if (latency < 10 && currentBlock !== null && !stuckDetected) {
         setConsecutiveSuccesses(prev => prev + 1);
         if (consecutiveSuccesses >= 2 || isManualRefresh) {
           setStatus('stable');
@@ -160,6 +195,11 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
     }
   };
   
+  // Function to refresh connection
+  const refreshConnection = () => {
+    window.location.reload();
+  };
+  
   // Effect to check network status
   useEffect(() => {
     let mounted = true;
@@ -175,14 +215,15 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
     }, 2000); // Check more frequently
     
     // Set up timeout to force "stable" status after a certain time, but only if we have a block number
+    // AND latency is acceptable (under 10ms)
     const forceStableTimeout = setTimeout(() => {
       if (mounted && status !== 'stable') {
-        if (blockNumber !== null && networkLatency > 0) {
+        if (blockNumber !== null && networkLatency > 0 && networkLatency < 10 && !stuckDetected) {
           console.log("Forcing stable status after timeout with valid block number");
           setStatus('stable');
           setIsStable(true);
         } else {
-          console.log("Not forcing stable status - no valid block number");
+          console.log("Not forcing stable status - no valid block number or high latency");
           // Try one more time to get a valid connection
           checkNetworkStatus();
         }
@@ -194,7 +235,7 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
       clearInterval(interval);
       clearTimeout(forceStableTimeout);
     };
-  }, [status, consecutiveSuccesses, blockNumber, networkLatency]);
+  }, [status, consecutiveSuccesses, blockNumber, networkLatency, stuckDetected]);
   
   // Create value for context
   const contextValue: ConnectionStatusContextType = {
@@ -202,7 +243,8 @@ export const ConnectionStatusProvider: React.FC<{children: React.ReactNode}> = (
     isStable,
     networkLatency,
     blockNumber,
-    isRefreshing
+    isRefreshing,
+    refreshConnection
   };
   
   return (

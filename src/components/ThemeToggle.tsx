@@ -3,9 +3,15 @@ import { FaSun, FaMoon } from 'react-icons/fa';
 
 interface ThemeToggleProps {
   className?: string;
+  onThemeChange?: (theme: 'light' | 'dark') => void;
+  forceTheme?: 'light' | 'dark' | null;
 }
 
-const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ 
+  className = '',
+  onThemeChange,
+  forceTheme = null
+}) => {
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
   // On component mount, check for user's preference
@@ -27,9 +33,27 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
     }
   }, []);
 
+  // Handle forced theme changes from parent
+  useEffect(() => {
+    if (forceTheme !== null) {
+      const newDarkMode = forceTheme === 'dark';
+      if (darkMode !== newDarkMode) {
+        setDarkMode(newDarkMode);
+        
+        // Apply the theme
+        if (newDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    }
+  }, [forceTheme, darkMode]);
+
   // Toggle theme function
   const toggleTheme = () => {
-    setDarkMode(!darkMode);
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
     
     if (darkMode) {
       document.documentElement.classList.remove('dark');
@@ -37,6 +61,11 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
     } else {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
+    }
+    
+    // Notify parent component if callback provided
+    if (onThemeChange) {
+      onThemeChange(newDarkMode ? 'dark' : 'light');
     }
   };
 

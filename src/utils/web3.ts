@@ -1,6 +1,7 @@
 import { ethers } from "ethers";
 import GMOnchainABI from "../abis/GMOnchainABI.json";
 import { CONTRACT_ADDRESS, TEA_SEPOLIA_CHAIN, TEA_SEPOLIA_CHAIN_ID } from "./constants";
+import { getUserLeaderboardRank } from "./leaderboradUtils";
 
 // Add the deployment block constant
 const DEPLOY_BLOCK = 1155300;
@@ -130,6 +131,16 @@ export const formatTimestamp = (timestamp: number): string => {
 export const formatAddress = (address: string): string => {
   if (!address || address.length < 10) return address;
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+};
+
+/**
+ * Format Ethereum address to shorter version
+ * @param address Full Ethereum address
+ * @returns Shortened address with format "0x1234...5678"
+ */
+export const fullAddress = (address: string): string => {
+  if (!address || address.length < 10) return address;
+  return `${address}`;
 };
 
 /**
@@ -278,5 +289,86 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
   } catch (error) {
     console.error("Error in getTotalCheckins:", error);
     return 0;
+  }
+};
+
+/**
+ * Get user rank and stats data for profile display
+ * @param contract The GMOnchain contract
+ * @param address User's wallet address
+ * @returns Promise with rank and points data
+ */
+export const getUserRankData = async (contract: ethers.Contract, address: string) => {
+  try {
+    // Get user's check-in count directly from contract
+    let checkinCount;
+    try {
+      checkinCount = await contract.getCheckinCount(address);
+    } catch (e) {
+      try {
+        // Fallback to direct mapping access if the function fails
+        const userData = await contract.userCheckins(address);
+        checkinCount = userData.checkinCount || ethers.BigNumber.from(0);
+      } catch (mappingError) {
+        // If all attempts fail, default to zero
+        checkinCount = ethers.BigNumber.from(0);
+      }
+    }
+    
+    // Convert to number for calculations
+    const count = ethers.BigNumber.isBigNumber(checkinCount) 
+      ? checkinCount.toNumber() 
+      : Number(checkinCount);
+    
+    // Get user's rank from leaderboard
+    let userRank = 0;
+    try {
+      const rank = await getUserLeaderboardRank(contract, address);
+      userRank = rank !== null ? rank : 0;
+    } catch (error) {
+      console.warn("Error getting user leaderboard rank:", error);
+      
+      // Fallback: calculate approx rank based on check-in count
+      if (count > 0) {
+        // If we can't get the true rank, estimate based on check-in count
+        // This is just a placeholder until proper rank can be determined
+        const estimatedRank = Math.max(1, Math.floor(100 / (count + 1)));
+        userRank = estimatedRank;
+      }
+    }
+    
+    // Calculate points - 10 points per check-in plus bonuses
+    // This should match your application's point calculation logic
+    let points = count * 10;
+    
+    // Add bonus points based on check-in milestones
+    if (count >= 50) points += 500;
+    else if (count >= 25) points += 250;
+    else if (count >= 10) points += 100;
+    else if (count >= 5) points += 50;
+    
+    // Also add bonus based on rank if available
+    if (userRank > 0 && userRank <= 10) {
+      // Top 10 bonus
+      points += 1000 - ((userRank - 1) * 100);
+    } else if (userRank > 10 && userRank <= 50) {
+      // Top 50 bonus
+      points += 100;
+    }
+    
+    // Return data in consistent format
+    return {
+      rank: ethers.BigNumber.from(userRank),
+      points: ethers.BigNumber.from(points),
+      checkinCount: ethers.BigNumber.from(count)
+    };
+  } catch (error) {
+    console.error("Error getting user rank data:", error);
+    // Return default values in case of error
+    return {
+      rank: ethers.BigNumber.from(0),
+      points: ethers.BigNumber.from(0),
+      checkinCount: ethers.BigNumber.from(0)
+    };
   }
 };

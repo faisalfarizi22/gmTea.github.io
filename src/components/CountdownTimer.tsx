@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { formatTimeRemaining } from '@/utils/web3';
-import { FaHourglassHalf, FaCheck } from 'react-icons/fa';
+import { FaHourglassHalf, FaCheck, FaClock } from 'react-icons/fa';
 
 interface CountdownTimerProps {
   initialSeconds: number;
@@ -58,62 +59,88 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
   const canCheckin = secondsRemaining <= 0;
 
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold mb-4 flex items-center text-emerald-700">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+      className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl border border-gray-200 dark:border-emerald-700/30 p-6 shadow-lg"
+    >
+      <h3 className="text-lg font-semibold mb-4 flex items-center text-emerald-700 dark:text-emerald-300">
         <FaHourglassHalf className="mr-2 text-emerald-500" />
         Countdown to Next GM
       </h3>
       
       <div className="relative mb-6">
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div 
-            className="h-full rounded-full transition-all duration-1000 ease-out"
+        <div className="w-full h-3 bg-gray-200 dark:bg-gray-800/70 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="h-full rounded-full"
             style={{ 
-              width: `${progress}%`,
-              background: 'linear-gradient(90deg, #4e8a40, #6ee7b7)'
+              background: 'linear-gradient(90deg, #059669, #10b981)'
             }}
-          ></div>
+          ></motion.div>
         </div>
-        <div 
-          className="absolute h-5 w-5 rounded-full bg-white border-2 border-emerald-500 top-1/2 transform -translate-y-1/2 transition-all duration-1000"
-          style={{ left: `${progress}%`, transform: 'translateY(-50%) translateX(-50%)' }}
-        ></div>
+        <motion.div 
+          initial={{ left: 0 }}
+          animate={{ left: `${progress}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="absolute h-5 w-5 rounded-full bg-white dark:bg-black border-2 border-emerald-500 top-1/2 transform -translate-y-1/2"
+          style={{ transform: 'translateY(-50%) translateX(-50%)' }}
+        >
+          <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping"></div>
+        </motion.div>
       </div>
       
       {canCheckin ? (
-        <div className="flex flex-col items-center">
-          <div className="mb-4 w-20 h-20 rounded-full bg-green-100 flex items-center justify-center pulse-ring">
-            <FaCheck className="text-2xl text-green-600" />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center"
+        >
+          <div className="mb-4 w-20 h-20 relative">
+            <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
+            <div className="absolute inset-0 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/20 rounded-full">
+              <FaCheck className="text-2xl text-emerald-600 dark:text-emerald-300" />
+            </div>
+            <div className="absolute inset-0 rounded-full animate-pulse opacity-30" style={{ 
+              background: 'radial-gradient(circle at center, #10b981 0%, transparent 70%)'
+            }}></div>
           </div>
-          <p className="text-xl font-bold text-green-600 mb-2">Ready for Check-in!</p>
-          <p className="text-gray-600 text-sm">You can now submit your daily GM</p>
-        </div>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-300 mb-2">Ready for Check-in!</p>
+          <p className="text-gray-600 dark:text-emerald-400/70 text-sm">You can now submit your daily GM</p>
+        </motion.div>
       ) : (
         <div className="flex flex-col items-center">
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-lg bg-emerald-100 flex items-center justify-center shadow-sm">
-                <span className="text-2xl font-bold text-emerald-700">{hours.toString().padStart(2, '0')}</span>
+              <div className="w-16 h-16 rounded-lg bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-700/30">
+                <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{hours.toString().padStart(2, '0')}</span>
               </div>
-              <span className="text-xs text-gray-500 mt-1">HOURS</span>
+              <span className="text-xs text-gray-500 dark:text-emerald-400/60 mt-1">HOURS</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-lg bg-emerald-100 flex items-center justify-center shadow-sm">
-                <span className="text-2xl font-bold text-emerald-700">{minutes.toString().padStart(2, '0')}</span>
+              <div className="w-16 h-16 rounded-lg bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-700/30">
+                <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{minutes.toString().padStart(2, '0')}</span>
               </div>
-              <span className="text-xs text-gray-500 mt-1">MINUTES</span>
+              <span className="text-xs text-gray-500 dark:text-emerald-400/60 mt-1">MINUTES</span>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-16 h-16 rounded-lg bg-emerald-100 flex items-center justify-center shadow-sm">
-                <span className="text-2xl font-bold text-emerald-700">{seconds.toString().padStart(2, '0')}</span>
+              <div className="w-16 h-16 rounded-lg bg-emerald-100 dark:bg-emerald-900/20 flex items-center justify-center shadow-sm border border-emerald-200 dark:border-emerald-700/30">
+                <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{seconds.toString().padStart(2, '0')}</span>
+                <div className="absolute h-1 w-1 rounded-full bg-emerald-500 animate-ping"></div>
               </div>
-              <span className="text-xs text-gray-500 mt-1">SECONDS</span>
+              <span className="text-xs text-gray-500 dark:text-emerald-400/60 mt-1">SECONDS</span>
             </div>
           </div>
-          <p className="text-sm text-gray-600 mt-2">until your next daily GM check-in</p>
+          <div className="flex items-center text-sm text-gray-600 dark:text-emerald-300/70 mt-2">
+            <FaClock className="mr-2 text-emerald-500/70 h-3 w-3" />
+            <span>until your next daily GM check-in</span>
+          </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

@@ -1,4 +1,8 @@
 export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+export const USERNAME_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_GMTEAUSERNAME_ADDRESS || "0x0000000000000000000000000000000000000000";
+export const REFERRAL_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEAREFERRAL_ADDRESS || "0x0000000000000000000000000000000000000000";
+export const BADGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEABADGE_ADDRESS || "0x3008E2AB11193C92DE8a1c3b9314e69342EdAFD2";
+export const MESSAGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEACHAT_ADDRESS
 export const TEA_SEPOLIA_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_TEA_SEPOLIA_CHAIN_ID || "10218", 10);
 export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public";
 export const TEA_SEPOLIA_CHAIN = {
@@ -59,6 +63,40 @@ export const COLORS = {
   teaDark: "#2e5327",
   teaDeep: "#1e4020",
   glowColor: "rgba(78, 138, 64, 0.3)"
+};
+
+// Badge tier information
+export const BADGE_TIERS = {
+  COMMON: {
+    id: 0,
+    name: "Common",
+    color: "#6b7280", // Gray
+    price: "1"
+  },
+  UNCOMMON: {
+    id: 1,
+    name: "Uncommon",
+    color: "#10b981", // Emerald
+    price: "5"
+  },
+  RARE: {
+    id: 2,
+    name: "Rare",
+    color: "#3b82f6", // Blue
+    price: "12"
+  },
+  EPIC: {
+    id: 3,
+    name: "Epic",
+    color: "#8b5cf6", // Purple
+    price: "18"
+  },
+  LEGENDARY: {
+    id: 4,
+    name: "Legendary",
+    color: "#f59e0b", // Amber/Gold
+    price: "24"
+  }
 };
 
 export const getRandomTeaGreeting = () => {

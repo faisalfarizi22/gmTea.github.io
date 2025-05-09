@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers, BigNumber } from 'ethers';
 import Navbar from '@/components/Navbar';
 import StatsCard from '@/components/StatsCard';
@@ -10,6 +10,7 @@ import ForumOverlay from '@/components/ForumOverlay';
 import Leaderboard from '@/components/Leaderboard';
 import { useEthereumEvents } from '@/hooks/useEthereumEvents';
 import { GMMessage, Web3State, CheckinStats } from '@/types';
+import { getUserHighestTier, getUserBadges } from '@/utils/badgeWeb3';
 import { 
   connectWallet, 
   getProvider, 
@@ -20,18 +21,21 @@ import {
 import { CHECKIN_FEE, TEA_SEPOLIA_CHAIN_ID } from '@/utils/constants';
 import { 
   FaLeaf, 
-  FaWallet, 
-  FaExchangeAlt, 
-  FaSignOutAlt, 
-  FaChevronDown,
   FaCheckCircle,
   FaExclamationCircle,
   FaInfoCircle,
   FaTimes,
   FaNetworkWired,
-  FaComments,
-  FaTrophy
+  FaTrophy,
+  FaMedal
 } from 'react-icons/fa';
+
+import BadgeMintSection from '@/components/BadgeMintSection';
+import { useRouter } from 'next/router';
+import AudioPlayer from '@/components/AudioPlayer';
+import Footer from '@/components/Footer';
+
+
 
 // Notification type
 interface Notification {
@@ -66,9 +70,58 @@ export default function Home() {
   const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
   const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false);
   
-  // Forum overlay state
+  // Forum state - keep for future implementation but removed floating button
   const [isForumOpen, setIsForumOpen] = useState(false);
   
+  // Reference to leaderboard section for scrolling
+  const leaderboardRef = useRef<HTMLDivElement>(null);
+  
+  // Function to scroll to leaderboard
+  const scrollToLeaderboard = () => {
+    if (leaderboardRef.current) {
+      // Add a small delay to ensure smooth scrolling after any state changes
+      setTimeout(() => {
+        leaderboardRef.current?.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  };
+
+  const badgeMintSectionRef = useRef<HTMLDivElement>(null);
+
+// Function to scroll to the badge mint section
+const scrollToMintSection = useCallback(() => {
+  if (badgeMintSectionRef.current) {
+    // Add a small delay to ensure smooth scrolling after any state changes
+    setTimeout(() => {
+      const navbarHeight = 80; // Approximate height of navbar
+      const yOffset = -navbarHeight; // Account for fixed navbar
+      
+      // Safe check if the element is still available
+      if (badgeMintSectionRef.current) {
+        const element = badgeMintSectionRef.current;
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        
+        window.scrollTo({
+          top: y,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  }
+}, []);
+  
+
+  // Inside your Home component
+const router = useRouter();
+
+const handleMintClick = () => {
+  router.push('/mint'); // Navigate to your mint page
+};
+
+
   // Notification functions
   const addNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -153,47 +206,99 @@ export default function Home() {
   const loadRecentMessages = useCallback(async (contract: ethers.Contract) => {
     try {
       setIsLoadingMessages(true);
+      
+      // First check if we have cached messages
+      const cachedMessages = localStorage.getItem('gmtea_recentMessages');
+      let parsedMessages: GMMessage[] = [];
+      let cacheValid = false;
+      
+      if (cachedMessages) {
+        try {
+          const parsed = JSON.parse(cachedMessages);
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 10 * 60 * 1000) { // 10 minute cache
+            parsedMessages = parsed.data;
+            cacheValid = true;
+            
+            // Show cached messages immediately
+            setMessages(parsedMessages);
+            setIsLoadingMessages(false);
+          }
+        } catch (e) {
+          console.warn("Error parsing cached messages:", e);
+        }
+      }
+      
+      // Set up a timeout for the fetch operation
       const messagesPromise = contract.getRecentGMs();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Loading messages timeout")), 15000)
       );
       
-      const recentGMs = await Promise.race([messagesPromise, timeoutPromise]);
-      
-      if (Array.isArray(recentGMs)) {
-        const formattedMessages = recentGMs.map(msg => ({
-          user: msg.user,
-          timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : 
-                    msg.timestamp?.toNumber() || 0,
-          message: msg.message || 'GM!'
-        }));
+      // Try to fetch fresh data
+      try {
+        const recentGMs = await Promise.race([messagesPromise, timeoutPromise]);
+        
+        if (Array.isArray(recentGMs)) {
+          const formattedMessages = recentGMs.map(msg => ({
+            user: msg.user,
+            timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : 
+                      msg.timestamp?.toNumber() || 0,
+            message: msg.message || 'GM!'
+          }));
+            
+          setMessages(formattedMessages);
           
-        setMessages(formattedMessages);
-      } else {
-        console.error("Invalid messages format:", recentGMs);
-        setMessages([]);
-      }
-
-    } catch (error) {
-      console.error('Error loading recent messages:', error);
-      setMessages([]);
-      
-      if (web3State.isConnected) {
-        setMessages([
-          {
-            user: "0x1234567890123456789012345678901234567890",
-            timestamp: Math.floor(Date.now() / 1000) - 3600,
-            message: "GM from the Tea community! 🍵"
-          },
-          {
-            user: "0x0987654321098765432109876543210987654321",
-            timestamp: Math.floor(Date.now() / 1000) - 7200,
-            message: "Starting the day with a fresh cup of Tea! ☕"
+          // Cache the messages
+          localStorage.setItem('gmtea_recentMessages', JSON.stringify({
+            data: formattedMessages,
+            timestamp: Date.now()
+          }));
+        } else {
+          console.error("Invalid messages format:", recentGMs);
+          // Keep using cached messages if available
+          if (!cacheValid) {
+            setMessages([]);
           }
-        ]);
+        }
+      } catch (error) {
+        console.error('Error loading recent messages:', error);
+        
+        // If timeout occurred but we have cached messages, keep showing them
+        if (cacheValid) {
+          // Just keep the cached messages visible and show a subtle notification
+          const timeoutNotification = document.getElementById('timeout-notification');
+          if (timeoutNotification) {
+            timeoutNotification.classList.remove('hidden');
+            setTimeout(() => {
+              timeoutNotification.classList.add('hidden');
+            }, 5000);
+          }
+        } else {
+          // If no cache is available, show fallback messages
+          if (web3State.isConnected) {
+            setMessages([
+              {
+                user: "0x1234567890123456789012345678901234567890",
+                timestamp: Math.floor(Date.now() / 1000) - 3600,
+                message: "GM from the Tea community! 🍵"
+              },
+              {
+                user: "0x0987654321098765432109876543210987654321",
+                timestamp: Math.floor(Date.now() / 1000) - 7200,
+                message: "Starting the day with a fresh cup of Tea! ☕"
+              }
+            ]);
+          } else {
+            setMessages([]);
+          }
+        }
+      } finally {
+        setIsLoadingMessages(false);
       }
-    } finally {
+    } catch (error) {
+      console.error('Error in loadRecentMessages:', error);
       setIsLoadingMessages(false);
+      setMessages([]);
     }
   }, [web3State.isConnected]);
 
@@ -352,7 +457,7 @@ export default function Home() {
         value: ethers.utils.parseEther(CHECKIN_FEE),
         gasLimit: bufferedGasLimit,
       });
-      
+
       console.log("Transaction sent:", tx.hash);
       
       addNotification("Transaction sent! Waiting for confirmation...", "info");
@@ -417,14 +522,14 @@ export default function Home() {
     }
   }, [handleConnectWallet]);
 
-  // Forum handlers
-  const openForum = () => {
+  // Forum handlers - kept for future implementation
+  const openForum = useCallback(() => {
     setIsForumOpen(true);
-  };
+  }, []);
   
-  const closeForum = () => {
+  const closeForum = useCallback(() => {
     setIsForumOpen(false);
-  };
+  }, []);
   
   // For debugging
   useEffect(() => {
@@ -571,6 +676,8 @@ export default function Home() {
         connectWallet={handleConnectWallet}
         disconnectWallet={handleDisconnectWallet}
         isConnecting={web3State.isLoading}
+        scrollToLeaderboard={scrollToLeaderboard}
+        scrollToMintSection={scrollToMintSection}
       />
       
       <main className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -605,7 +712,7 @@ export default function Home() {
           connectWallet={handleConnectWallet}
           isConnecting={web3State.isLoading}
         >
-          {/* Restore original layout - Stats on left, Activity feed on right */}
+          {/* Original layout - Stats on left, Activity feed on right */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Stats Section */}
             <div className="lg:col-span-5 space-y-6">
@@ -642,18 +749,104 @@ export default function Home() {
               />
             </div>
           </div>
+          
+          {/* Badge Mint Section */}
+          {web3State.isConnected && (
+            <div ref={badgeMintSectionRef} className="badge-mint-section" data-section="badge-mint">
+              <div className="pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
+                     
+                  </h2>
+                  <div className="flex-1 mx-4 relative">
+                    <div className="h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-70"></div>
+                    {/* Animated light effect */}
+                    <div 
+                      className="absolute top-0 h-px w-20 bg-emerald-300 animate-gradient-x" 
+                      style={{
+                        boxShadow: '0 0 8px 1px rgba(16, 185, 129, 0.6)',
+                        background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent)'
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+        {/* Contracts section with Coming Soon overlay */}
+        <div className="relative">
+          {/* Coming Soon Overlay for Contracts */}
+          <div className="absolute inset-0 z-10 backdrop-blur-lg bg-emerald-900/40 flex items-center justify-center rounded-lg">
+            <div className="text-center">
+              <h2 className="text-emerald-300 text-xl font-bold tracking-wider">COMING SOON</h2>
+              <p className="text-emerald-200/80 mt-1 text-sm">under development</p>
+            </div>
+          </div>
+                <BadgeMintSection 
+                  address={web3State.address || ''} 
+                  signer={web3State.signer}
+                  onMintComplete={async () => {
+                    // Refresh data after successful mint
+                    if (web3State.contract) {
+                      // Refresh global count data
+                      loadGlobalCount();
+                      
+                      // Refresh user data if available
+                      if (web3State.address) {
+                        // Refresh basic user data
+                        loadUserData(web3State.address, web3State.contract);
+                        
+                        // Specifically refresh badge ownership data
+                        try {
+                          // Refresh highest tier data
+                          const newHighestTier = await getUserHighestTier(web3State.address);
+                          console.log("Updated highest badge tier:", newHighestTier);
+                          
+                          // Refresh user badges collection
+                          const userBadges = await getUserBadges(web3State.address);
+                          console.log("Updated badge collection:", userBadges);
+                          
+                          // Update any cached badge data
+                          localStorage.removeItem(`gmtea_highestTier_${web3State.address.toLowerCase()}`);
+                          localStorage.removeItem(`gmtea_userBadges_${web3State.address.toLowerCase()}`);
+                          
+                          // If you have any state for badges in the main component, update it here
+                          // For example: setUserBadges(userBadges);
+                          
+                          // Dispatch a custom event that other components can listen for
+                          const badgeUpdateEvent = new CustomEvent('badgeUpdate', { 
+                            detail: { 
+                              address: web3State.address,
+                              highestTier: newHighestTier,
+                              badges: userBadges
+                            } 
+                          });
+                          window.dispatchEvent(badgeUpdateEvent);
+                        } catch (error) {
+                          console.error("Error refreshing badge data:", error);
+                        }
+                      }
+                      
+                      // Reload recent messages to show any mint events
+                      loadRecentMessages(web3State.contract);
+                      
+                      console.log("Dashboard data and badge ownership refreshed after successful mint");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            </div>
+            </div>
+          )}
 
-          {/* Leaderboard Section - Added below the main content */}
-          <div className="mt-8">
+          {/* Leaderboard Section - with ref for scrolling */}
+          <div ref={leaderboardRef} className="mt-8 pt-4 scroll-mt-28">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
-              <div className="relative">
-                <FaTrophy className="mr-2 text-emerald-500" /> 
-                <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
-              </div>  Community Leaderboard
-                <span className="ml-2 bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded dark:bg-emerald-900 dark:text-emerald-300">
-                  NEW
-                </span>
+                <div className="relative">
+                  <FaTrophy className="mr-2 text-emerald-500" /> 
+                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
+                </div>  
+                Community Leaderboard
               </h2>
             </div>
             
@@ -663,43 +856,20 @@ export default function Home() {
               userCheckinCount={checkinStats.userCheckinCount}
             />
           </div>
+
+          {/* Audio Player - Fixed position */}
+          <AudioPlayer initialVolume={0.3} />
+
         </WalletRequired>
       </main>
       
-      <footer className="mt-auto py-6 border-t border-emerald-100 dark:border-emerald-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <FaLeaf className="h-5 w-5 text-emerald-500" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                GM Onchain — Built for the Tea Sepolia Testnet
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                <div className="h-2 w-2 bg-emerald-500 rounded-full"></div>
-                <span>Daily GM check-ins on the blockchain</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer/>
 
-      {/* Forum Button - fixed floating action button */}
-      {/* <button 
-        onClick={openForum}
-        className="fixed bottom-6 right-6 z-30 bg-emerald-500 text-white p-3 rounded-full shadow-lg hover:bg-emerald-600 hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center justify-center"
-        title="Open Community Forum"
-      >
-        <FaComments className="h-6 w-6" />
-        <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">3</span>
-      </button> */}
-      
-      {/* Forum Overlay */}
-      {/* <ForumOverlay 
+      {/* Forum Overlay - kept for future implementation */}
+      <ForumOverlay 
         isOpen={isForumOpen}
         onClose={closeForum}
-      /> */}
+      /> 
 
       {/* Notification container */}
       <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">
@@ -745,3 +915,4 @@ export default function Home() {
     </div>
   );
 }
+

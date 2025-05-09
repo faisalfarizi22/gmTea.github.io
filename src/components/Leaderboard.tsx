@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   FaTrophy,
   FaSpinner,
@@ -22,11 +23,15 @@ import {
   getWalletStats,
   type LeaderboardEntry,
 } from "../utils/leaderboradUtils"
-import { COLORS } from "@/utils/constants"
+import ColoredUsername from "@/components/user/ColoredUsername"
+import AvatarWithFrame from "@/components/user/AvatarWithFrame"
+import { getUserHighestTier, checkUsername } from "@/utils/badgeWeb3"
 
 // Extend the LeaderboardEntry type from utils
 interface LeaderboardEntryWithUserFlag extends LeaderboardEntry {
   isCurrentUser: boolean
+  username?: string | null;
+  badgeTier?: number;
 }
 
 interface LeaderboardProps {
@@ -53,8 +58,63 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
   const [activeWallets, setActiveWallets] = useState<number>(0)
   const [todayCheckins, setTodayCheckins] = useState<number>(0)
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true)
+  const [usernamesCache, setUsernamesCache] = useState<Record<string, string | null>>({})
+  const [badgeTiersCache, setBadgeTiersCache] = useState<Record<string, number>>({})
 
   const ENTRIES_PER_PAGE = 10
+  
+  // Calculate total pages based on total entries and entries per page
+  const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE)
+
+  const getAvatarUrl = (address: string): string => 
+    `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
+
+  const loadUserData = async (addresses: string[]) => {
+    const uniqueAddresses = Array.from(new Set(addresses));
+    const newUsernamesCache = { ...usernamesCache };
+    const newBadgeTiersCache = { ...badgeTiersCache };
+    let updatedEntries = false;
+
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < uniqueAddresses.length; i += BATCH_SIZE) {
+      const batch = uniqueAddresses.slice(i, i + BATCH_SIZE);
+      
+      await Promise.all(batch.map(async (address) => {
+        try {
+          if (!newUsernamesCache[address]) {
+            const username = await checkUsername(address);
+            newUsernamesCache[address] = username;
+            updatedEntries = true;
+          }
+          
+          if (newBadgeTiersCache[address] === undefined) {
+            const badgeTier = await getUserHighestTier(address);
+            newBadgeTiersCache[address] = badgeTier;
+            updatedEntries = true;
+          }
+        } catch (error) {
+          console.error(`Error loading data for ${address}:`, error);
+        }
+      }));
+      
+      if (i + BATCH_SIZE < uniqueAddresses.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    if (updatedEntries) {
+      setUsernamesCache(newUsernamesCache);
+      setBadgeTiersCache(newBadgeTiersCache);
+      
+      const updatedLeaderboard = leaderboard.map(entry => ({
+        ...entry,
+        username: newUsernamesCache[entry.address] || null,
+        badgeTier: newBadgeTiersCache[entry.address] || -1
+      }));
+      
+      setLeaderboard(updatedLeaderboard);
+    }
+  };
 
   /**
    * Load wallet statistics
@@ -82,44 +142,46 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
     }
   }
 
-  /**
+ /**
    * Load leaderboard data from the blockchain
    */
-  const loadLeaderboard = async (page = 1, jumpToUser = false) => {
-    if (!contract) return
+ const loadLeaderboard = async (page = 1, jumpToUser = false) => {
+  if (!contract) return
 
-    try {
-      if (page === 1) {
-        setIsLoading(true)
-      } else {
-        setIsLoadingMore(true)
-      }
+  try {
+    if (page === 1) {
+      setIsLoading(true)
+    } else {
+      setIsLoadingMore(true)
+    }
 
-      if (jumpToUser) {
-        setIsJumpingToUser(true)
-      }
+    if (jumpToUser) {
+      setIsJumpingToUser(true)
+    }
 
-      setError(null)
+    setError(null)
 
-      // Calculate the limit based on whether we're loading the first page or more
-      // For the first page, we'll get 1000 entries to calculate total, but only display ENTRIES_PER_PAGE
-      const limit = page === 1 ? 1000 : page * ENTRIES_PER_PAGE
+    // Calculate the limit based on whether we're loading the first page or more
+    // For the first page, we'll get 1000 entries to calculate total, but only display ENTRIES_PER_PAGE
+    const limit = page === 1 ? 1000 : page * ENTRIES_PER_PAGE
 
-      // Fetch leaderboard data using our utility function
-      const leaderboardData = await getLeaderboardData(contract, limit)
+    // Fetch leaderboard data using our utility function
+    const leaderboardData = await getLeaderboardData(contract, limit)
 
-      // Store total entries count on first load
-      if (page === 1) {
-        setTotalEntries(leaderboardData.length)
+    // Store total entries count on first load
+    if (page === 1) {
+      setTotalEntries(leaderboardData.length)
 
-        // Also load wallet statistics when we first load the leaderboard
-        loadWalletStats()
-      }
+      // Also load wallet statistics when we first load the leaderboard
+      loadWalletStats()
+    }
 
       // Add the isCurrentUser flag to each entry
       const allUsers: LeaderboardEntryWithUserFlag[] = leaderboardData.map((entry) => ({
         ...entry,
         isCurrentUser: currentUserAddress ? entry.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
+        username: usernamesCache[entry.address] || null,
+        badgeTier: badgeTiersCache[entry.address] || -1
       }))
 
       // Get user's rank if they have a connected wallet
@@ -162,6 +224,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
 
       // Set leaderboard data for the current page
       setLeaderboard(pageEntries)
+      loadUserData(pageEntries.map(entry => entry.address));
     } catch (error) {
       console.error("Error loading leaderboard:", error)
       setError("Failed to load leaderboard data")
@@ -186,6 +249,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
       const pageEntries = mockData.slice(startIndex, endIndex)
 
       setLeaderboard(pageEntries)
+      loadUserData(pageEntries.map(entry => entry.address));
 
       // Set mock user rank
       if (currentUserAddress) {
@@ -224,7 +288,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
 
   // Handle page change
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= Math.ceil(totalEntries / ENTRIES_PER_PAGE)) {
+    if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage)
     }
   }
@@ -237,9 +301,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden border border-emerald-100 dark:border-emerald-900/30 transition-all duration-300">
-      {/* Header with emerald styling */}
-      <div className="bg-emerald-50 dark:bg-emerald-100 py-4 px-6 border-b border-emerald-100 dark:border-emerald-800/30">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-emerald-700/30"
+    >
+      {/* Header with glassmorphism effect */}
+      <div className="bg-emerald-50 dark:bg-emerald-900/20 py-4 px-6 border-b border-emerald-100 dark:border-emerald-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="relative mr-3">
@@ -247,10 +316,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
               <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-600 flex items-center">
+              <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
                 GM Check-in Champions
               </h2>
-              <p className="text-emerald-600 dark:text-emerald-500 text-sm">
+              <p className="text-emerald-600 dark:text-emerald-400/70 text-sm">
                 Top users who consistently show up and check in
               </p>
             </div>
@@ -261,9 +330,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
             <button
               onClick={jumpToUserRank}
               disabled={isJumpingToUser}
-              className="flex items-center space-x-2 bg-emerald-50 dark:bg-transparent px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/30 transition-colors text-sm text-emerald-700 dark:text-emerald-500 border border-emerald-200 dark:border-emerald-800"
+              className="flex items-center space-x-2 bg-emerald-50 dark:bg-transparent px-3 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/30 transition-colors text-sm text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/30"
             >
-              <FaUser className="h-3 w-3 text-emerald-300" />
+              <FaUser className="h-3 w-3 text-emerald-500" />
               <span>Jump to My Rank (#{userRank})</span>
             </button>
           )}
@@ -307,403 +376,367 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
       {/* Content */}
       <div className="p-4">
         {isLoading ? (
-          <LoadingState />
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="relative w-20 h-20">
+              <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
+              <div className="absolute inset-2 rounded-full border-2 border-dashed border-emerald-400 animate-spin"></div>
+              <div className="absolute inset-4 rounded-full border-2 border-emerald-300/60 animate-ping"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FaLeaf className="text-emerald-400 text-2xl animate-pulse" />
+              </div>
+            </div>
+            <p className="text-emerald-600 dark:text-emerald-400 mt-4 font-medium">Loading leaderboard data...</p>
+          </div>
         ) : error ? (
-          <ErrorState error={error} onRetry={() => loadLeaderboard(1)} />
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+              <FaLeaf className="text-red-500 dark:text-red-400 text-2xl" />
+            </div>
+            <p className="text-red-500 dark:text-red-400 font-medium">{error}</p>
+            <button
+              onClick={() => loadLeaderboard(1)}
+              className="mt-4 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 text-emerald-700 dark:text-emerald-300 rounded-lg transition-colors text-sm flex items-center mx-auto"
+            >
+              <FaRedo className="mr-2 h-3 w-3" /> Try Again
+            </button>
+          </div>
         ) : (
-          <LeaderboardContent
-            leaderboard={leaderboard}
-            userRank={userRank}
-            currentUserAddress={currentUserAddress}
-            userCheckinCount={userCheckinCount}
-            onRefresh={() => loadLeaderboard(currentPage)}
-            currentPage={currentPage}
-            totalPages={Math.ceil(totalEntries / ENTRIES_PER_PAGE)}
-            onPageChange={handlePageChange}
-            isLoadingMore={isLoadingMore}
-            entriesPerPage={ENTRIES_PER_PAGE}
-          />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="leaderboard-content"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {/* Current user stats if they're on the leaderboard */}
+              {currentUserAddress && (userRank || userCheckinCount > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg mb-6 border border-emerald-100 dark:border-emerald-800/30 transition-all duration-300"
+                >
+                  <div className="flex flex-col md:flex-row items-center md:items-start justify-between">
+                    <div className="mb-3 md:mb-0">
+                      <p className="font-medium text-emerald-800 dark:text-emerald-300 flex items-center">
+                        <span className="mr-2">👋</span> Your Leaderboard Status
+                      </p>
+                      <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
+                        {userRank ? (
+                          userRank === 1 ? (
+                            <span className="flex items-center text-emerald-700 dark:text-emerald-300 font-bold">
+                              <FaTrophy className="mr-1 text-yellow-500" /> You're at the top of the leaderboard!
+                            </span>
+                          ) : (
+                            <span>
+                              You're ranked <span className="font-bold text-emerald-700 dark:text-emerald-300">#{userRank}</span> out
+                              of all users
+                            </span>
+                          )
+                        ) : userCheckinCount > 0 ? (
+                          <span>Keep checking in to climb the ranks!</span>
+                        ) : (
+                          <span>Complete your first check-in to join the leaderboard!</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="bg-white dark:bg-black/60 px-4 py-2 rounded-full shadow-sm border border-emerald-200 dark:border-emerald-800/30">
+                        <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center">
+                          <FaCheckCircle className="w-4 h-4 mr-1 text-emerald-500" />
+                          {userCheckinCount || 0} check-ins
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Leaderboard table */}
+              {leaderboard.length > 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="overflow-x-auto bg-white dark:bg-black/60 border border-gray-100 dark:border-emerald-800/20 rounded-xl shadow-sm"
+                >
+                  <table className="w-full">
+                    <thead className="bg-emerald-50 dark:bg-emerald-900/30 border-b border-emerald-100 dark:border-emerald-800/30">
+                      <tr>
+                        <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                          Rank
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                          Check-ins
+                        </th>
+                        <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider hidden md:table-cell">
+                          Last Check-in
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-100 dark:divide-emerald-800/30">
+                      {isLoadingMore
+                        ? // Loading placeholder rows
+                          Array.from({ length: ENTRIES_PER_PAGE }).map((_, index) => (
+                            <tr key={`loading-${index}`} className="animate-pulse">
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                              </td>
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                              </td>
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                              </td>
+                              <td className="py-3 px-4 whitespace-nowrap hidden md:table-cell">
+                                <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                              </td>
+                            </tr>
+                          ))
+                        : leaderboard.map((entry, index) => {
+                            // Calculate the actual rank based on the current page
+                            const actualRank = (currentPage - 1) * ENTRIES_PER_PAGE + index + 1
+
+                            return (
+                              <motion.tr
+                                key={entry.address}
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 + index * 0.03 }}
+                                className={`transition-colors duration-150 ${
+                                  entry.isCurrentUser
+                                    ? "bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-800/30"
+                                    : index % 2 === 0
+                                      ? "bg-white dark:bg-black/30 hover:bg-gray-50 dark:hover:bg-gray-800/10"
+                                      : "bg-gray-50 dark:bg-gray-800/10 hover:bg-gray-100 dark:hover:bg-gray-700/10"
+                                }`}
+                                style={entry.isCurrentUser ? { borderLeft: `4px solid #10b981` } : {}}
+                              >
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    {actualRank === 1 ? (
+                                      <div className="w-8 h-8 flex items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400">
+                                        <FaTrophy className="text-yellow-500" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-8 h-8 flex items-center justify-center">
+                                        <span
+                                          className={`font-mono ${entry.isCurrentUser ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}
+                                        >
+                                          #{actualRank}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <div className="flex items-center">
+                                    {/* Avatar with Frame */}
+                                    <div className="h-6 w-6 rounded-full mr-2 overflow-hidden">
+                                      <AvatarWithFrame
+                                        avatarUrl={getAvatarUrl(entry.address)}
+                                        badgeTier={entry.badgeTier || -1}
+                                        size="xs"
+                                      />
+                                    </div>
+                                    
+                                    {/* Username with Color atau Address */}
+                                    {entry.username ? (
+                                      <div className={entry.isCurrentUser ? "font-bold" : ""}>
+                                        <ColoredUsername 
+                                          username={entry.username} 
+                                          badgeTier={entry.badgeTier || -1} 
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span
+                                        className={`${
+                                          entry.isCurrentUser
+                                            ? "font-bold text-emerald-600 dark:text-emerald-400"
+                                            : "text-gray-700 dark:text-gray-300"
+                                        }`}
+                                      >
+                                        {formatAddress(entry.address)}
+                                      </span>
+                                    )}
+                                    
+                                    {entry.isCurrentUser && (
+                                      <span className="ml-2 px-2 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 rounded-full">
+                                        You
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap font-medium">
+                                  <div className="flex items-center">
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-full text-sm ${
+                                        actualRank === 1
+                                          ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                                          : "bg-emerald-100 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200"
+                                      }`}
+                                    >
+                                      {entry.checkinCount}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                  {entry.lastCheckin ? formatTimestamp(entry.lastCheckin) : "N/A"}
+                                </td>
+                              </motion.tr>
+                            )
+                          })}
+                    </tbody>
+                  </table>
+                </motion.div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mb-4">
+                    <FaLeaf className="text-emerald-500 dark:text-emerald-400 text-3xl" />
+                  </div>
+                  <p className="text-gray-600 dark:text-emerald-300 text-lg font-medium mb-2">No check-ins recorded yet</p>
+                  <p className="text-gray-500 dark:text-emerald-400/70 text-center">Be the first to check in and start the leaderboard!</p>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center mt-6 space-x-2">
+                  {/* Previous button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || isLoadingMore}
+                    className={`p-2 rounded-md ${
+                      currentPage === 1 || isLoadingMore
+                        ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                        : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                    }`}
+                  >
+                    <FaChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  {/* Page numbers - generate intelligently */}
+                  {(() => {
+                    const pages = []
+                    const maxVisible = 5
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+                    let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+                    
+                    if (endPage - startPage + 1 < maxVisible) {
+                      startPage = Math.max(1, endPage - maxVisible + 1)
+                    }
+                    
+                    // Always show first page
+                    if (startPage > 1) {
+                      pages.push(
+                        <button
+                          key={1}
+                          onClick={() => handlePageChange(1)}
+                          disabled={isLoadingMore}
+                          className="w-8 h-8 flex items-center justify-center rounded-md text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                        >
+                          1
+                        </button>
+                      )
+                      
+                      // Add ellipsis if needed
+                      if (startPage > 2) {
+                        pages.push(
+                          <span key="ellipsis1" className="text-gray-500 dark:text-gray-400">
+                            ...
+                          </span>
+                        )
+                      }
+                    }
+                    
+                    // Add visible pages
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => handlePageChange(i)}
+                          disabled={isLoadingMore}
+                          className={`w-8 h-8 flex items-center justify-center rounded-md ${
+                            i === currentPage
+                              ? "bg-emerald-500 text-white"
+                              : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      )
+                    }
+                    
+                    // Always show last page
+                    if (endPage < totalPages) {
+                      // Add ellipsis if needed
+                      if (endPage < totalPages - 1) {
+                        pages.push(
+                          <span key="ellipsis2" className="text-gray-500 dark:text-gray-400">
+                            ...
+                          </span>
+                        )
+                      }
+                      
+                      pages.push(
+                        <button
+                          key={totalPages}
+                          onClick={() => handlePageChange(totalPages)}
+                          disabled={isLoadingMore}
+                          className="w-8 h-8 flex items-center justify-center rounded-md text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                        >
+                          {totalPages}
+                        </button>
+                      )
+                    }
+                    
+                    return pages
+                  })()}
+
+                  {/* Next button */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || isLoadingMore}
+                    className={`p-2 rounded-md ${
+                      currentPage === totalPages || isLoadingMore
+                        ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                        : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                    }`}
+                  >
+                    <FaChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Message for users not on the leaderboard */}
+              {currentUserAddress && !userRank && leaderboard.length > 0 && userCheckinCount === 0 && (
+                <div className="mt-6 p-4 border-t border-emerald-100 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-emerald-300/70 text-center">
+                    You haven't made it to the leaderboard yet. Keep checking in daily to climb the ranks!
+                  </p>
+                </div>
+              )}
+
+              {/* Refresh button */}
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => loadLeaderboard(currentPage)}
+                  disabled={isLoadingMore}
+                  className="inline-flex items-center px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-300 rounded-lg transition-colors text-sm shadow-sm border border-emerald-200 dark:border-emerald-700/30"
+                >
+                  <FaRedo className={`w-3 h-3 mr-2 ${isLoadingMore ? "animate-spin" : ""}`} />
+                  Refresh Leaderboard
+                </button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }
-
-// Loading state component
-const LoadingState = () => (
-  <div className="flex flex-col items-center justify-center py-8">
-    <FaSpinner className="animate-spin text-emerald-500 text-2xl mb-2" />
-    <p className="text-gray-500 dark:text-gray-400">Loading leaderboard...</p>
-  </div>
-)
-
-// Error state component
-const ErrorState = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-  <div className="text-center py-8">
-    <p className="text-red-500">{error}</p>
-    <button
-      onClick={onRetry}
-      className="mt-2 text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 text-sm transition-colors"
-    >
-      Try Again
-    </button>
-  </div>
-)
-
-// Pagination component
-const Pagination = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  isLoading,
-}: {
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  isLoading: boolean
-}) => {
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = []
-
-    // Always show first page
-    pages.push(1)
-
-    // Calculate range around current page
-    let rangeStart = Math.max(2, currentPage - 1)
-    let rangeEnd = Math.min(totalPages - 1, currentPage + 1)
-
-    // Adjust range to always show 3 pages if possible
-    if (rangeEnd - rangeStart < 2) {
-      if (rangeStart === 2) {
-        rangeEnd = Math.min(totalPages - 1, rangeEnd + 1)
-      } else if (rangeEnd === totalPages - 1) {
-        rangeStart = Math.max(2, rangeStart - 1)
-      }
-    }
-
-    // Add ellipsis after first page if needed
-    if (rangeStart > 2) {
-      pages.push("...")
-    }
-
-    // Add range pages
-    for (let i = rangeStart; i <= rangeEnd; i++) {
-      pages.push(i)
-    }
-
-    // Add ellipsis before last page if needed
-    if (rangeEnd < totalPages - 1) {
-      pages.push("...")
-    }
-
-    // Always show last page if there's more than one page
-    if (totalPages > 1) {
-      pages.push(totalPages)
-    }
-
-    return pages
-  }
-
-  const pageNumbers = getPageNumbers()
-
-  return (
-    <div className="flex items-center justify-center mt-6 space-x-2">
-      {/* Previous button */}
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1 || isLoading}
-        className={`p-2 rounded-md ${
-          currentPage === 1 || isLoading
-            ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
-            : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-        }`}
-      >
-        <FaChevronLeft className="h-4 w-4" />
-      </button>
-
-      {/* Page numbers */}
-      {pageNumbers.map((page, index) => (
-        <button
-          key={index}
-          onClick={() => (typeof page === "number" ? onPageChange(page) : null)}
-          disabled={isLoading || page === "..."}
-          className={`w-8 h-8 flex items-center justify-center rounded-md ${
-            page === currentPage
-              ? "bg-emerald-500 text-white"
-              : page === "..."
-                ? "text-gray-500 dark:text-gray-400 cursor-default"
-                : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-          }`}
-        >
-          {page}
-        </button>
-      ))}
-
-      {/* Next button */}
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages || isLoading}
-        className={`p-2 rounded-md ${
-          currentPage === totalPages || isLoading
-            ? "text-gray-400 dark:text-gray-600 cursor-not-allowed"
-            : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-        }`}
-      >
-        <FaChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  )
-}
-
-// Leaderboard content component
-const LeaderboardContent = ({
-  leaderboard,
-  userRank,
-  currentUserAddress,
-  userCheckinCount,
-  onRefresh,
-  currentPage,
-  totalPages,
-  onPageChange,
-  isLoadingMore,
-  entriesPerPage,
-}: {
-  leaderboard: LeaderboardEntryWithUserFlag[]
-  userRank: number | null
-  currentUserAddress: string | null
-  userCheckinCount: number
-  onRefresh: () => void
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  isLoadingMore: boolean
-  entriesPerPage: number
-}) => {
-  if (leaderboard.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-500 dark:text-gray-400">No check-ins recorded yet. Be the first to check in!</p>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {/* Current user stats if they're on the leaderboard */}
-      {currentUserAddress && (userRank || userCheckinCount > 0) && (
-        <UserStats userRank={userRank} userCheckinCount={userCheckinCount} />
-      )}
-
-      {/* Leaderboard table */}
-      <LeaderboardTable
-        leaderboard={leaderboard}
-        currentPage={currentPage}
-        entriesPerPage={entriesPerPage}
-        isLoadingMore={isLoadingMore}
-      />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={onPageChange}
-          isLoading={isLoadingMore}
-        />
-      )}
-
-      {/* Message for users not on the leaderboard */}
-      {currentUserAddress && !userRank && leaderboard.length > 0 && userCheckinCount === 0 && (
-        <div className="mt-4 p-4 border-t border-emerald-100 dark:border-emerald-800/30">
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-            You haven't made it to the leaderboard yet. Keep checking in daily to climb the ranks!
-          </p>
-        </div>
-      )}
-
-      {/* Refresh button */}
-      <div className="mt-4 text-right">
-        <button
-          onClick={onRefresh}
-          disabled={isLoadingMore}
-          className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 text-sm flex items-center justify-center mx-auto transition-colors disabled:opacity-50"
-        >
-          <FaRedo className={`w-3 h-3 mr-1 ${isLoadingMore ? "animate-spin" : ""}`} />
-          Refresh Leaderboard
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// User stats component
-const UserStats = ({
-  userRank,
-  userCheckinCount,
-}: {
-  userRank: number | null
-  userCheckinCount: number
-}) => (
-  <div className="bg-emerald-50 dark:bg-emerald-900/30 p-4 rounded-lg mb-6 border border-emerald-100 dark:border-emerald-800/30 transition-all duration-300">
-    <div className="flex flex-col md:flex-row items-center md:items-start justify-between">
-      <div className="mb-3 md:mb-0">
-        <p className="font-medium text-emerald-800 dark:text-emerald-300 flex items-center">
-          <span className="mr-2">👋</span> Your Leaderboard Status
-        </p>
-        <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
-          {userRank ? (
-            userRank === 1 ? (
-              <span className="flex items-center text-emerald-700 dark:text-emerald-300 font-bold">
-                <FaTrophy className="mr-1 text-yellow-500" /> You're at the top of the leaderboard!
-              </span>
-            ) : (
-              <span>
-                You're ranked <span className="font-bold text-emerald-700 dark:text-emerald-300">#{userRank}</span> out
-                of all users
-              </span>
-            )
-          ) : userCheckinCount > 0 ? (
-            <span>Keep checking in to climb the ranks!</span>
-          ) : (
-            <span>Complete your first check-in to join the leaderboard!</span>
-          )}
-        </p>
-      </div>
-      <div className="flex flex-col items-center">
-        <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm border border-emerald-200 dark:border-emerald-800/30">
-          <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center">
-            <FaCheckCircle className="w-4 h-4 mr-1 text-emerald-500" />
-            {userCheckinCount || 0} check-ins
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-)
-
-// Leaderboard table component
-const LeaderboardTable = ({
-  leaderboard,
-  currentPage,
-  entriesPerPage,
-  isLoadingMore,
-}: {
-  leaderboard: LeaderboardEntryWithUserFlag[]
-  currentPage: number
-  entriesPerPage: number
-  isLoadingMore: boolean
-}) => (
-  <div className="overflow-x-auto">
-    <table className="w-full">
-      <thead className="bg-emerald-50 dark:bg-emerald-900/30 border-b border-emerald-100 dark:border-emerald-800/30">
-        <tr>
-          <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-            Rank
-          </th>
-          <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-            Address
-          </th>
-          <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-            Check-ins
-          </th>
-          <th className="py-3 px-4 text-left text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wider hidden md:table-cell">
-            Last Check-in
-          </th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-emerald-100 dark:divide-emerald-800/30">
-        {isLoadingMore
-          ? // Loading placeholder rows
-            Array.from({ length: entriesPerPage }).map((_, index) => (
-              <tr key={`loading-${index}`} className="animate-pulse">
-                <td className="py-3 px-4 whitespace-nowrap">
-                  <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </td>
-                <td className="py-3 px-4 whitespace-nowrap">
-                  <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </td>
-                <td className="py-3 px-4 whitespace-nowrap">
-                  <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </td>
-                <td className="py-3 px-4 whitespace-nowrap hidden md:table-cell">
-                  <div className="h-6 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                </td>
-              </tr>
-            ))
-          : leaderboard.map((entry, index) => {
-              // Calculate the actual rank based on the current page
-              const actualRank = (currentPage - 1) * entriesPerPage + index + 1
-
-              return (
-                <tr
-                  key={entry.address}
-                  className={`transition-colors duration-150 ${
-                    entry.isCurrentUser
-                      ? "bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-800/30"
-                      : index % 2 === 0
-                        ? "bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                        : "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-                  style={entry.isCurrentUser ? { borderLeft: `4px solid ${COLORS.teaMedium}` } : {}}
-                >
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {actualRank === 1 ? (
-                        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400">
-                          <FaTrophy className="text-yellow-500" />
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 flex items-center justify-center">
-                          <span
-                            className={`font-mono ${entry.isCurrentUser ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}
-                          >
-                            #{actualRank}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span
-                        className={`${
-                          entry.isCurrentUser
-                            ? "font-bold text-emerald-600 dark:text-emerald-400"
-                            : "text-gray-700 dark:text-gray-300"
-                        }`}
-                      >
-                        {formatAddress(entry.address)}
-                      </span>
-                      {entry.isCurrentUser && (
-                        <span className="ml-2 px-2 py-0.5 text-xs bg-emerald-100 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 rounded-full">
-                          You
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap font-medium">
-                    <div className="flex items-center">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-sm ${
-                          actualRank === 1
-                            ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
-                            : "bg-emerald-100 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200"
-                        }`}
-                      >
-                        {entry.checkinCount}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
-                    {entry.lastCheckin ? formatTimestamp(entry.lastCheckin) : "N/A"}
-                  </td>
-                </tr>
-              )
-            })}
-      </tbody>
-    </table>
-  </div>
-)
 
 export default Leaderboard

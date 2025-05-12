@@ -12,7 +12,7 @@ export const TIER_POINT_REWARDS = {
   // Common (Tier 0)
   0: {
     checkinPoints: 10,
-    checkinBoost: 1.1, // Diubah dari 1.05x menjadi 1.1x
+    checkinBoost: 1.1, // Diubah dari 1.1x menjadi 1.1x
     achievementPoints: {
       firstCheckin: 50,
       streak7Days: 50,

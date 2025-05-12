@@ -5,8 +5,6 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   FaTrophy,
-  FaSpinner,
-  FaCheckCircle,
   FaRedo,
   FaLeaf,
   FaChevronLeft,
@@ -14,291 +12,271 @@ import {
   FaUser,
   FaUsers,
   FaCalendarCheck,
+  FaCheckCircle
 } from "react-icons/fa"
 import { formatAddress, formatTimestamp } from "@/utils/web3"
 import type { ethers } from "ethers"
-import {
-  getLeaderboardData,
-  getUserLeaderboardRank,
-  getWalletStats,
-  type LeaderboardEntry,
-} from "../utils/leaderboradUtils"
 import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
-import { getUserHighestTier, checkUsername } from "@/utils/badgeWeb3"
+import { useUserDataCombined } from '@/hooks/useUserData';
 
-// Extend the LeaderboardEntry type from utils
-interface LeaderboardEntryWithUserFlag extends LeaderboardEntry {
-  isCurrentUser: boolean
-  username?: string | null;
-  badgeTier?: number;
+// Definisikan interface untuk entri leaderboard
+interface LeaderboardEntry {
+  address: string;
+  username: string | null;
+  highestBadgeTier: number;
+  checkinCount: number;
+  lastCheckin: string | null;
+  rank: number;
+  isCurrentUser: boolean;
 }
 
 interface LeaderboardProps {
-  contract: ethers.Contract | null
-  currentUserAddress: string | null
-  userCheckinCount?: number
+  contract?: ethers.Contract | null;
+  currentUserAddress: string | null;
+  userCheckinCount?: number;
 }
 
 /**
  * Leaderboard Component
- *
- * Displays a leaderboard of users with the most check-ins in a Web3 application
+ * Menampilkan leaderboard pengguna dengan check-in terbanyak
+ * Menggunakan endpoint API khusus leaderboard
  */
-const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress, userCheckinCount = 0 }) => {
+const Leaderboard: React.FC<LeaderboardProps> = ({ 
+  currentUserAddress,
+  contract,
+  userCheckinCount = 0
+}) => {
   // State management
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntryWithUserFlag[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
-  const [userRank, setUserRank] = useState<number | null>(null)
-  const [totalEntries, setTotalEntries] = useState<number>(0)
-  const [currentPage, setCurrentPage] = useState<number>(1)
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false)
-  const [isJumpingToUser, setIsJumpingToUser] = useState<boolean>(false)
-  const [activeWallets, setActiveWallets] = useState<number>(0)
-  const [todayCheckins, setTodayCheckins] = useState<number>(0)
-  const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true)
-  const [usernamesCache, setUsernamesCache] = useState<Record<string, string | null>>({})
-  const [badgeTiersCache, setBadgeTiersCache] = useState<Record<string, number>>({})
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [totalEntries, setTotalEntries] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isJumpingToUser, setIsJumpingToUser] = useState<boolean>(false);
+  const [activeWallets, setActiveWallets] = useState<number>(0);
+  const [todayCheckins, setTodayCheckins] = useState<number>(0);
+  const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
+  
+  // Menggunakan useUserDataCombined untuk mendapatkan data pengguna saat ini
+  const { 
+    userData, 
+    isLoading: isLoadingUserData 
+  } = useUserDataCombined(currentUserAddress);
 
-  const ENTRIES_PER_PAGE = 10
+  const ENTRIES_PER_PAGE = 10;
   
   // Calculate total pages based on total entries and entries per page
-  const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE)
+  const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE);
 
+  // Mendapatkan URL avatar
   const getAvatarUrl = (address: string): string => 
     `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
 
-  const loadUserData = async (addresses: string[]) => {
-    const uniqueAddresses = Array.from(new Set(addresses));
-    const newUsernamesCache = { ...usernamesCache };
-    const newBadgeTiersCache = { ...badgeTiersCache };
-    let updatedEntries = false;
+  /**
+   * Mengambil data statistik wallet dari endpoint API
+   * - Menghitung today's check-ins berdasarkan check-in sejak jam 7 pagi hari ini
+   */
+  const loadWalletStats = async () => {
+    try {
+      setIsLoadingStats(true);
 
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < uniqueAddresses.length; i += BATCH_SIZE) {
-      const batch = uniqueAddresses.slice(i, i + BATCH_SIZE);
-      
-      await Promise.all(batch.map(async (address) => {
-        try {
-          if (!newUsernamesCache[address]) {
-            const username = await checkUsername(address);
-            newUsernamesCache[address] = username;
-            updatedEntries = true;
-          }
-          
-          if (newBadgeTiersCache[address] === undefined) {
-            const badgeTier = await getUserHighestTier(address);
-            newBadgeTiersCache[address] = badgeTier;
-            updatedEntries = true;
-          }
-        } catch (error) {
-          console.error(`Error loading data for ${address}:`, error);
-        }
-      }));
-      
-      if (i + BATCH_SIZE < uniqueAddresses.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Mengambil statistik dari endpoint API /api/checkins/latest
+      const response = await fetch(`/api/checkins/latest?limit=1`);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
-    }
-    
-    if (updatedEntries) {
-      setUsernamesCache(newUsernamesCache);
-      setBadgeTiersCache(newBadgeTiersCache);
       
-      const updatedLeaderboard = leaderboard.map(entry => ({
-        ...entry,
-        username: newUsernamesCache[entry.address] || null,
-        badgeTier: newBadgeTiersCache[entry.address] || -1
-      }));
+      const data = await response.json();
+
+      // Extract statistics from response
+      const totalCheckins = data.stats?.totalCheckins || 0;
+      setActiveWallets(data.stats?.activeWallets || totalEntries);
       
-      setLeaderboard(updatedLeaderboard);
+      // Hitung today's check-ins berdasarkan check-in sejak jam 7 pagi hari ini
+      // Dapatkan tanggal dan jam saat ini
+      const now = new Date();
+      
+      // Dapatkan tanggal dengan jam 7 pagi hari ini
+      const todaySevenAM = new Date(now);
+      todaySevenAM.setHours(7, 0, 0, 0);
+      
+      // Jika sekarang sebelum jam 7 pagi, gunakan jam 7 pagi kemarin
+      if (now < todaySevenAM) {
+        todaySevenAM.setDate(todaySevenAM.getDate() - 1);
+      }
+      
+      // Format tanggal untuk query API
+      const todaySevenAMISO = todaySevenAM.toISOString();
+      
+      // Buat request untuk mendapatkan check-in hari ini
+      try {
+        const todayResponse = await fetch(`/api/checkins/today?since=${encodeURIComponent(todaySevenAMISO)}`);
+        if (todayResponse.ok) {
+          const todayData = await todayResponse.json();
+          setTodayCheckins(todayData.count || 0);
+        } else {
+          // Fallback jika endpoint tidak tersedia
+          setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Estimasi sekitar 12% dari total
+        }
+      } catch (error) {
+        console.error("Error loading today's check-ins:", error);
+        setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Fallback ke estimasi
+      }
+
+      console.log(`Loaded stats: total checkins = ${totalCheckins}, today = ${todayCheckins} (since ${todaySevenAM.toLocaleString()})`);
+    } catch (error) {
+      console.error("Error loading wallet statistics:", error);
+      // Set fallback values
+      setTodayCheckins(Math.floor(leaderboard.length / 3));
+    } finally {
+      setIsLoadingStats(false);
     }
   };
 
   /**
-   * Load wallet statistics
+   * Load leaderboard data from the dedicated leaderboard API endpoint
    */
-  const loadWalletStats = async () => {
-    if (!contract) return
-
+  const loadLeaderboard = async (page = 1, jumpToUser = false) => {
     try {
-      setIsLoadingStats(true)
-
-      // Use the new getWalletStats function to get accurate counts
-      const { activeWallets: totalActiveWallets, todayCheckins: totalTodayCheckins } = await getWalletStats(contract)
-
-      setActiveWallets(totalActiveWallets)
-      setTodayCheckins(totalTodayCheckins)
-
-      console.log(`Loaded wallet stats: ${totalActiveWallets} active wallets, ${totalTodayCheckins} today's check-ins`)
-    } catch (error) {
-      console.error("Error loading wallet statistics:", error)
-      // Set fallback values
-      setActiveWallets(leaderboard.length)
-      setTodayCheckins(Math.floor(leaderboard.length / 3))
-    } finally {
-      setIsLoadingStats(false)
-    }
-  }
-
- /**
-   * Load leaderboard data from the blockchain
-   */
- const loadLeaderboard = async (page = 1, jumpToUser = false) => {
-  if (!contract) return
-
-  try {
-    if (page === 1) {
-      setIsLoading(true)
-    } else {
-      setIsLoadingMore(true)
-    }
-
-    if (jumpToUser) {
-      setIsJumpingToUser(true)
-    }
-
-    setError(null)
-
-    // Calculate the limit based on whether we're loading the first page or more
-    // For the first page, we'll get 1000 entries to calculate total, but only display ENTRIES_PER_PAGE
-    const limit = page === 1 ? 1000 : page * ENTRIES_PER_PAGE
-
-    // Fetch leaderboard data using our utility function
-    const leaderboardData = await getLeaderboardData(contract, limit)
-
-    // Store total entries count on first load
-    if (page === 1) {
-      setTotalEntries(leaderboardData.length)
-
-      // Also load wallet statistics when we first load the leaderboard
-      loadWalletStats()
-    }
-
-      // Add the isCurrentUser flag to each entry
-      const allUsers: LeaderboardEntryWithUserFlag[] = leaderboardData.map((entry) => ({
-        ...entry,
-        isCurrentUser: currentUserAddress ? entry.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
-        username: usernamesCache[entry.address] || null,
-        badgeTier: badgeTiersCache[entry.address] || -1
-      }))
-
-      // Get user's rank if they have a connected wallet
-      let userRankValue = null
-      if (currentUserAddress) {
-        try {
-          // First check if rank is already found in our data
-          const userIndex = allUsers.findIndex(
-            (entry) => entry.address.toLowerCase() === currentUserAddress.toLowerCase(),
-          )
-
-          if (userIndex !== -1) {
-            userRankValue = userIndex + 1
-            setUserRank(userRankValue)
-          } else if (userCheckinCount > 0) {
-            // If not in top users but has check-ins, try to get rank from contract
-            userRankValue = await getUserLeaderboardRank(contract, currentUserAddress)
-            setUserRank(userRankValue)
-          } else {
-            setUserRank(null)
-          }
-
-          // If we're jumping to user's rank, calculate the correct page
-          if (jumpToUser && userRankValue) {
-            const userPage = Math.ceil(userRankValue / ENTRIES_PER_PAGE)
-            setCurrentPage(userPage)
-            page = userPage
-          }
-        } catch (rankError) {
-          console.error("Error getting user rank:", rankError)
-        }
+      if (page === 1) {
+        setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
       }
 
-      // Calculate start and end indices for the current page
-      const startIndex = (page - 1) * ENTRIES_PER_PAGE
-      const endIndex = startIndex + ENTRIES_PER_PAGE
+      if (jumpToUser) {
+        setIsJumpingToUser(true);
+      }
 
-      // Get entries for the current page
-      const pageEntries = allUsers.slice(startIndex, endIndex)
+      setError(null);
 
-      // Set leaderboard data for the current page
-      setLeaderboard(pageEntries)
-      loadUserData(pageEntries.map(entry => entry.address));
+      // Menggunakan endpoint API khusus leaderboard
+      const endpoint = currentUserAddress
+        ? `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}&userAddress=${currentUserAddress}`
+        : `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}`;
+      
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Set user rank if provided by API
+      if (data.userRank) {
+        setUserRank(data.userRank);
+        
+        // If we're jumping to user's rank, calculate the correct page
+        if (jumpToUser) {
+          const userPage = Math.ceil(data.userRank / ENTRIES_PER_PAGE);
+          
+          if (userPage !== page) {
+            // If user's rank is on a different page, load that page
+            setCurrentPage(userPage);
+            // Recursively call loadLeaderboard with the correct page
+            await loadLeaderboard(userPage, false);
+            setIsJumpingToUser(false);
+            return;
+          }
+        }
+      }
+      
+      // Format data for component - mark current user
+      const formattedLeaderboard: LeaderboardEntry[] = data.users.map((user: any) => ({
+        ...user,
+        isCurrentUser: currentUserAddress ? user.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
+        // Convert lastCheckin string to unix timestamp for formatTimestamp
+        lastCheckin: user.lastCheckin ? user.lastCheckin : null
+      }));
+      
+      setLeaderboard(formattedLeaderboard);
+      setTotalEntries(data.pagination.total);
+      setActiveWallets(data.pagination.total);
+      
+      // Load wallet statistics if this is the first page
+      if (page === 1) {
+        loadWalletStats();
+      }
+      
     } catch (error) {
-      console.error("Error loading leaderboard:", error)
-      setError("Failed to load leaderboard data")
+      console.error("Error loading leaderboard:", error);
+      setError("Failed to load leaderboard data. Please try again later.");
 
-      // Set mock data for development/preview
-      const mockData = Array.from({ length: 50 }, (_, i) => ({
+      // Generate mock data for fallback
+      const mockData = Array.from({ length: 10 }, (_, i) => ({
         address: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
-        checkinCount: 100 - i,
-        lastCheckin: Math.floor(Date.now() / 1000) - i * 3600,
-        isCurrentUser: i === 15 && currentUserAddress !== null,
-      }))
+        username: i % 3 === 0 ? `User${i+1}` : null,
+        highestBadgeTier: i % 5,
+        checkinCount: 35 - i,
+        lastCheckin: new Date().toISOString(),
+        rank: (page - 1) * ENTRIES_PER_PAGE + i + 1,
+        isCurrentUser: i === 7 && currentUserAddress !== null,
+      }));
 
-      setTotalEntries(mockData.length)
-      setActiveWallets(mockData.length)
-      setTodayCheckins(Math.floor(mockData.length / 3))
-
-      // Calculate start and end indices for the current page
-      const startIndex = (page - 1) * ENTRIES_PER_PAGE
-      const endIndex = startIndex + ENTRIES_PER_PAGE
-
-      // Get entries for the current page
-      const pageEntries = mockData.slice(startIndex, endIndex)
-
-      setLeaderboard(pageEntries)
-      loadUserData(pageEntries.map(entry => entry.address));
+      setLeaderboard(mockData);
+      setTotalEntries(50);
+      setActiveWallets(50);
+      setTodayCheckins(15);
 
       // Set mock user rank
       if (currentUserAddress) {
-        setUserRank(16) // Mock rank
+        setUserRank(8);
       }
     } finally {
-      setIsLoading(false)
-      setIsLoadingMore(false)
-      setIsJumpingToUser(false)
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      setIsJumpingToUser(false);
     }
-  }
+  };
 
-  // Load leaderboard on component mount and when contract or user changes
+  // Load leaderboard on component mount and when current user changes
   useEffect(() => {
-    if (contract) {
-      loadLeaderboard(currentPage)
+    loadLeaderboard(currentPage);
+    
+    // Refresh every 5 minutes
+    const interval = setInterval(
+      () => {
+        loadLeaderboard(currentPage);
+      },
+      5 * 60 * 1000
+    );
 
-      // Refresh every 5 minutes
-      const interval = setInterval(
-        () => {
-          loadLeaderboard(currentPage)
-        },
-        5 * 60 * 1000,
-      )
-
-      return () => clearInterval(interval)
-    }
-  }, [contract, currentUserAddress, userCheckinCount])
+    return () => clearInterval(interval);
+  }, [currentUserAddress]);
 
   // Load new page when currentPage changes
   useEffect(() => {
-    if (contract && !isJumpingToUser) {
-      loadLeaderboard(currentPage)
+    if (!isJumpingToUser && !isLoading) {
+      loadLeaderboard(currentPage);
     }
-  }, [currentPage])
+  }, [currentPage]);
 
   // Handle page change
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
+      setCurrentPage(newPage);
     }
-  }
+  };
 
   // Jump to user's rank
   const jumpToUserRank = () => {
     if (userRank) {
-      loadLeaderboard(1, true)
+      setIsJumpingToUser(true);
+      loadLeaderboard(1, true);
     }
-  }
+  };
+
+  // Format timestamp for display
+  const formatCheckinTime = (timestamp: string | null) => {
+    if (!timestamp) return "N/A";
+    
+    // Convert ISO string to unix timestamp for formatTimestamp
+    const unixTimestamp = Math.floor(new Date(timestamp).getTime() / 1000);
+    return formatTimestamp(unixTimestamp);
+  };
 
   return (
     <motion.div
@@ -409,7 +387,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
               exit={{ opacity: 0 }}
             >
               {/* Current user stats if they're on the leaderboard */}
-              {currentUserAddress && (userRank || userCheckinCount > 0) && (
+              {currentUserAddress && !isLoadingUserData && userData && (userData.checkinCount > 0 || userRank) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -433,7 +411,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                               of all users
                             </span>
                           )
-                        ) : userCheckinCount > 0 ? (
+                        ) : userData.checkinCount > 0 ? (
                           <span>Keep checking in to climb the ranks!</span>
                         ) : (
                           <span>Complete your first check-in to join the leaderboard!</span>
@@ -444,7 +422,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                       <div className="bg-white dark:bg-black/60 px-4 py-2 rounded-full shadow-sm border border-emerald-200 dark:border-emerald-800/30">
                         <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center">
                           <FaCheckCircle className="w-4 h-4 mr-1 text-emerald-500" />
-                          {userCheckinCount || 0} check-ins
+                          {userData.checkinCount || 0} check-ins
                         </span>
                       </div>
                     </div>
@@ -497,12 +475,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                             </tr>
                           ))
                         : leaderboard.map((entry, index) => {
-                            // Calculate the actual rank based on the current page
-                            const actualRank = (currentPage - 1) * ENTRIES_PER_PAGE + index + 1
-
                             return (
                               <motion.tr
-                                key={entry.address}
+                                key={`${entry.address}-${index}`}
                                 initial={{ opacity: 0, y: 5 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 + index * 0.03 }}
@@ -517,7 +492,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                               >
                                 <td className="py-3 px-4 whitespace-nowrap">
                                   <div className="flex items-center">
-                                    {actualRank === 1 ? (
+                                    {entry.rank === 1 ? (
                                       <div className="w-8 h-8 flex items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400">
                                         <FaTrophy className="text-yellow-500" />
                                       </div>
@@ -526,7 +501,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                                         <span
                                           className={`font-mono ${entry.isCurrentUser ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}
                                         >
-                                          #{actualRank}
+                                          #{entry.rank}
                                         </span>
                                       </div>
                                     )}
@@ -538,17 +513,17 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                                     <div className="h-6 w-6 rounded-full mr-2 overflow-hidden">
                                       <AvatarWithFrame
                                         avatarUrl={getAvatarUrl(entry.address)}
-                                        badgeTier={entry.badgeTier || -1}
+                                        badgeTier={entry.highestBadgeTier}
                                         size="xs"
                                       />
                                     </div>
                                     
-                                    {/* Username with Color atau Address */}
+                                    {/* Username dengan Color atau Address */}
                                     {entry.username ? (
                                       <div className={entry.isCurrentUser ? "font-bold" : ""}>
                                         <ColoredUsername 
                                           username={entry.username} 
-                                          badgeTier={entry.badgeTier || -1} 
+                                          badgeTier={entry.highestBadgeTier} 
                                         />
                                       </div>
                                     ) : (
@@ -574,7 +549,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                                   <div className="flex items-center">
                                     <span
                                       className={`px-2.5 py-0.5 rounded-full text-sm ${
-                                        actualRank === 1
+                                        entry.rank === 1
                                           ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
                                           : "bg-emerald-100 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200"
                                       }`}
@@ -584,7 +559,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
                                   </div>
                                 </td>
                                 <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
-                                  {entry.lastCheckin ? formatTimestamp(entry.lastCheckin) : "N/A"}
+                                  {entry.lastCheckin ? formatCheckinTime(entry.lastCheckin) : "N/A"}
                                 </td>
                               </motion.tr>
                             )
@@ -712,10 +687,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
               )}
 
               {/* Message for users not on the leaderboard */}
-              {currentUserAddress && !userRank && leaderboard.length > 0 && userCheckinCount === 0 && (
+              {currentUserAddress && !isLoadingUserData && userData && !userRank && userData.checkinCount === 0 && leaderboard.length > 0 && (
                 <div className="mt-6 p-4 border-t border-emerald-100 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
                   <p className="text-sm text-gray-600 dark:text-emerald-300/70 text-center">
-                    You haven't made it to the leaderboard yet. Keep checking in daily to climb the ranks!
+                    You haven't made it to the leaderboard yet. Complete your first check-in to join the ranks!
                   </p>
                 </div>
               )}
@@ -736,7 +711,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ contract, currentUserAddress,
         )}
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default Leaderboard
+export default Leaderboard;

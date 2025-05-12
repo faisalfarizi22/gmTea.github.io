@@ -95,11 +95,11 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
       icon: <FaBolt />,
       title: "Check-in Boost Multiplier",
       tiers: {
-        0: "1.05x",
-        1: "1.12x",
-        2: "1.25x",
-        3: "1.5x",
-        4: "1.8x",
+        0: "1.1x",
+        1: "1.2x",
+        2: "1.3x",
+        3: "1.4x",
+        4: "1.5x",
       },
     },
     {

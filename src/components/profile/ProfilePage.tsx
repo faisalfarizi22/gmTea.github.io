@@ -18,37 +18,46 @@ import AchievementsTab from "@/components/profile/tabs/AchievementsTab"
 import ReferralsTab from "@/components/profile/tabs/ReferralsTab"
 import BenefitsTab from "@/components/profile/tabs/BenefitsTab"
 import { useEthereumEvents } from "@/hooks/useEthereumEvents"
-import { useUserData } from "@/hooks/useUserData"
+import { useUserDataCombined, useTierBenefits } from "@/hooks/useUserData" 
 import { useNotifications } from "@/hooks/useNotifications"
 import { getAvatarUrl } from "../profile/utils/profileUtils"
 import { TEA_SEPOLIA_CHAIN_ID } from "@/utils/constants"
 import { connectWallet, switchToTeaSepolia, getContract } from "@/utils/web3"
 import { getUserSocialBenefits } from "@/utils/socialBenefitsUtils"
 import { UserSocialBenefits } from "@/types/user"
-import type { Web3State } from "@/types"
-import { ethers } from "ethers"
+import Footer from "../Footer"
+import { useWalletState } from "@/hooks/useWalletState";
 
 // Type for the active tab
 type ActiveTab = "overview" | "badges" | "achievements" | "referrals" | "benefits"
 
 export default function ProfilePage() {
-  // Web3 state
-  const [web3State, setWeb3State] = useState<Web3State>({
-    isConnected: false,
-    address: null,
-    provider: null,
-    signer: null,
-    contract: null,
-    isLoading: false,
-    error: null,
-    chainId: null,
-  })
+  // Get current account using ThirdWeb
+  const { 
+  web3State, 
+  connectWallet, 
+  disconnectWallet, 
+  switchNetwork 
+} = useWalletState();
 
+const { 
+  address, 
+  signer, 
+  provider, 
+  isConnected,
+  isLoading: isWalletConnecting,
+  chainId: walletChainId 
+} = web3State;
+  
+const adaptedConnectWallet = async (): Promise<void> => {
+  await connectWallet();
+};
   // UI state
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false)
   const [showUsernameModal, setShowUsernameModal] = useState<boolean>(false)
   const [showPointsBreakdown, setShowPointsBreakdown] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview")
+  const [isConnecting, setIsConnecting] = useState<boolean>(false)
   const [socialBenefits, setSocialBenefits] = useState<UserSocialBenefits>({
     usernameColor: null,
     avatarFrame: null,
@@ -66,113 +75,29 @@ export default function ProfilePage() {
     removeNotification 
   } = useNotifications()
 
-  // Use userData hook
+  // Use userData from database
   const {
-    userData: {
-      checkinCount,
-      leaderboardRank,
-      leaderboardPoints,
-      hasUsername,
-      username,
-      hasReferrer,
-      highestTier,
-      userBadges,
-      activeBenefits,
-      referralStats,
-      isLoadingUserData,
-      dataLoaded
-    },
-    loadUserData
-  } = useUserData({
-    web3State,
-    addNotification
-  })
-
+    userData,
+    badges,
+    checkins,
+    referrals,
+    activities,
+    isLoading: isLoadingUserData,
+    refetch: refreshUserData
+  } = useUserDataCombined(address)
+  
   // Connect wallet function
   const handleConnectWallet = useCallback(async () => {
-    if (web3State.isLoading) return
-
     try {
-      console.log("Connecting wallet...")
-      setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }))
-
-      // Check if already connected through provider
-      const ethereum = (window as any).ethereum
-      let address, provider, signer, chainId
-
-      if (ethereum && ethereum.selectedAddress) {
-        // Wallet already connected
-        address = ethereum.selectedAddress
-        provider = new ethers.providers.Web3Provider(ethereum)
-        signer = provider.getSigner()
-        chainId = Number.parseInt(ethereum.chainId, 16)
-      } else {
-        // Not connected, use normal connectWallet function
-        const result = await connectWallet()
-
-        if (!result || !result.address) {
-          throw new Error("Failed to connect: No address returned")
-        }
-        ;({ signer, address, chainId, provider } = result)
-      }
-
-      const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID
-      setShowNetworkAlert(!isCorrectNetwork)
-
-      const contract = getContract(signer)
-
-      // Update state
-      setWeb3State({
-        isConnected: true,
-        address,
-        provider,
-        signer,
-        contract,
-        isLoading: false,
-        error: null,
-        chainId,
-      })
-
-      // Set to localStorage for persistence
-      localStorage.setItem("walletConnected", "true")
-      localStorage.setItem("walletAddress", address)
-
-      // Load user data
-      if (isCorrectNetwork) {
-        await loadUserData(address, contract)
-      }
-    } catch (error: any) {
-      console.error("Error connecting wallet:", error)
-
-      setWeb3State((prev) => ({
-        ...prev,
-        isConnected: false,
-        isLoading: false,
-        error: error.message || "Failed to connect wallet",
-      }))
-
-      addNotification(error.message || "Failed to connect wallet", "error")
-
-      // Clear any stored connection data
-      localStorage.removeItem("walletConnected")
-      localStorage.removeItem("walletAddress")
+      await connectWallet();
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      addNotification("Failed to connect wallet", "error");
     }
-  }, [web3State.isLoading, loadUserData, addNotification])
+  }, [connectWallet, addNotification]);
 
   // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
-    // Reset web3 state
-    setWeb3State({
-      isConnected: false,
-      address: null,
-      provider: null,
-      signer: null,
-      contract: null,
-      isLoading: false,
-      error: null,
-      chainId: null,
-    })
-
     // Reset UI state
     setShowNetworkAlert(false)
     setShowUsernameModal(false)
@@ -188,7 +113,7 @@ export default function ProfilePage() {
   // Switch network function
   const handleSwitchNetwork = useCallback(async () => {
     try {
-      setWeb3State((prev) => ({ ...prev, isLoading: true }))
+      setIsConnecting(true)
 
       await switchToTeaSepolia()
       setShowNetworkAlert(false)
@@ -197,7 +122,8 @@ export default function ProfilePage() {
       await handleConnectWallet()
     } catch (error) {
       console.error("Error switching network:", error)
-      setWeb3State((prev) => ({ ...prev, isLoading: false }))
+    } finally {
+      setIsConnecting(false)
     }
   }, [handleConnectWallet])
 
@@ -208,7 +134,7 @@ export default function ProfilePage() {
         const wasConnected = localStorage.getItem("walletConnected") === "true"
         const storedAddress = localStorage.getItem("walletAddress")
 
-        if (wasConnected && storedAddress && !web3State.isConnected && !web3State.isLoading) {
+        if (wasConnected && storedAddress && !address && !isConnecting) {
           const ethereum = (window as any).ethereum
           if (!ethereum) return
 
@@ -232,14 +158,14 @@ export default function ProfilePage() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading])
+  }, [handleConnectWallet, address, isConnecting])
 
   // Use Ethereum Events hook
   useEthereumEvents({
     accountsChanged: (accounts) => {
       if (accounts.length === 0) {
         handleDisconnectWallet()
-      } else if (web3State.address !== accounts[0] && web3State.isConnected) {
+      } else if (accounts[0] !== address) {
         handleConnectWallet()
       }
     },
@@ -251,45 +177,53 @@ export default function ProfilePage() {
     },
   })
 
-  // Load user data on connection - with debounce to prevent multiple loads
+  // Debug log for signer in ProfilePage
   useEffect(() => {
-    if (!web3State.isConnected || !web3State.address || !web3State.contract) return
-
-    // Add a check to prevent redundant loading
-    if (!dataLoaded && !isLoadingUserData) {
-      loadUserData(web3State.address, web3State.contract)
+    console.log("ProfilePage - signer status:", !!signer);
+    
+    if (signer) {
+      signer.getAddress().then(signerAddress => {
+        console.log("ProfilePage - verified signer address:", signerAddress);
+      }).catch(err => {
+        console.error("Error getting signer address:", err);
+      });
     }
+  }, [signer]);
 
-    // Set up refresh interval - update every 2 minutes (increased from 1 minute)
+  // Set up refresh interval for user data
+  useEffect(() => {
+    if (!address) return
+
+    // Set up refresh interval - update every 2 minutes
     const refreshInterval = setInterval(() => {
-      if (web3State.address && web3State.contract && !isLoadingUserData) {
-        loadUserData(web3State.address, web3State.contract)
+      if (address && !isLoadingUserData) {
+        refreshUserData()
       }
     }, 120000)
 
     return () => clearInterval(refreshInterval)
-  }, [web3State.isConnected, web3State.address, web3State.contract, loadUserData, dataLoaded, isLoadingUserData])
+  }, [address, refreshUserData, isLoadingUserData])
 
   // Update social benefits when highest tier changes
   useEffect(() => {
-    setSocialBenefits(getUserSocialBenefits(highestTier))
-  }, [highestTier])
+    if (userData) {
+      setSocialBenefits(getUserSocialBenefits(userData.highestBadgeTier))
+    }
+  }, [userData])
 
   // Handle username registration completion
   const handleRegistrationComplete = async () => {
-    if (!web3State.address || !web3State.contract) return
-
-    // Reload user data to update username status
-    await loadUserData(web3State.address, web3State.contract)
-
+    // Refresh user data to update username status
+    refreshUserData()
+    
     // Hide username modal
     setShowUsernameModal(false)
   }
 
   // Copy address to clipboard
   const copyAddressToClipboard = () => {
-    if (web3State.address) {
-      navigator.clipboard.writeText(web3State.address)
+    if (address) {
+      navigator.clipboard.writeText(address)
       addNotification("Address copied to clipboard!", "success")
     }
   }
@@ -297,11 +231,12 @@ export default function ProfilePage() {
   // Handle referral rewards claim completion
   const handleRewardsClaimComplete = () => {
     // Refresh user data after claiming rewards
-    if (web3State.address && web3State.contract) {
-      loadUserData(web3State.address, web3State.contract)
-      addNotification("Rewards claimed successfully!", "success")
-    }
+    refreshUserData()
+    addNotification("Rewards claimed successfully!", "success")
   }
+
+  // Check if user has a referrer
+  const hasReferrer = userData?.referrer ? true : false
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black/90 tea-leaf-pattern text-gray-800 dark:text-emerald-50">
@@ -311,15 +246,15 @@ export default function ProfilePage() {
       </Head>
 
       <Navbar
-        address={web3State.address}
-        connectWallet={handleConnectWallet}
-        disconnectWallet={handleDisconnectWallet}
-        isConnecting={web3State.isLoading}
-      />
+          address={address}
+          connectWallet={adaptedConnectWallet}
+          disconnectWallet={disconnectWallet}
+          isConnecting={isWalletConnecting}
+        />
 
       <main className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Network alert */}
-        {showNetworkAlert && (
+        {walletChainId && walletChainId !== TEA_SEPOLIA_CHAIN_ID && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -337,7 +272,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <button
-                    onClick={handleSwitchNetwork}
+                    onClick={switchNetwork}
                     className="px-4 py-1.5 rounded-lg bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all shadow-md"
                   >
                     Switch Network
@@ -349,12 +284,13 @@ export default function ProfilePage() {
         )}
 
         <WalletRequired
-          isConnected={web3State.isConnected}
-          connectWallet={handleConnectWallet}
-          isConnecting={web3State.isLoading}
-        >
+            isConnected={isConnected}
+            connectWallet={adaptedConnectWallet}
+            isConnecting={isWalletConnecting}
+          >
+
           {/* Main Profile Content */}
-          {!web3State.isConnected || (isLoadingUserData && !dataLoaded) ? (
+          {!address || isLoadingUserData ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="relative w-20 h-20">
                 <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
@@ -365,12 +301,12 @@ export default function ProfilePage() {
                 </div>
               </div>
               <p className="text-emerald-500 dark:text-emerald-300 mt-6 font-medium tracking-wide">
-                {web3State.isConnected
+                {address
                   ? "Loading digital credentials..."
                   : "Connect wallet to access your digital profile"}
               </p>
               <p className="text-emerald-600/60 dark:text-emerald-500/60 text-sm mt-2">
-                {web3State.isConnected ? "Retrieving your on-chain data" : "Authentication required"}
+                {address ? "Retrieving your on-chain data" : "Authentication required"}
               </p>
             </div>
           ) : (
@@ -382,11 +318,11 @@ export default function ProfilePage() {
             >
               {/* Profile Header */}
               <ProfileHeader 
-                address={web3State.address}
-                username={username}
-                highestTier={highestTier}
-                avatarUrl={web3State.address ? getAvatarUrl(web3State.address) : null}
-                hasUsername={hasUsername}
+                address={address}
+                username={userData?.username || null}
+                highestTier={userData?.highestBadgeTier || -1}
+                avatarUrl={address ? getAvatarUrl(address) : null}
+                hasUsername={!!userData?.username}
                 showUsernameModal={() => setShowUsernameModal(true)}
                 copyAddressToClipboard={copyAddressToClipboard}
               />
@@ -396,33 +332,38 @@ export default function ProfilePage() {
                 <ProfileTabs
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
-                  referralStats={referralStats}
+                  badgeCount={badges.length}
+                  checkinCount={userData?.checkinCount || 0}
+                  referralCount={referrals.length}
                 />
                 
                 <div className="p-6">
                   {/* Tab content */}
-                  {activeTab === "overview" && web3State.address && (
+                  {activeTab === "overview" && address && (
                     <OverviewTab
-                        address={web3State.address}
-                        checkinCount={checkinCount}
-                        leaderboardRank={leaderboardRank}
-                        highestTier={highestTier}
-                        userBadges={userBadges}
-                        setShowPointsBreakdown={setShowPointsBreakdown}
-                        setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
-                        activeBenefits={activeBenefits}
+                      address={address}
+                      checkinCount={userData?.checkinCount || 0}
+                      leaderboardRank={userData?.rank || 0}
+                      highestTier={userData?.highestBadgeTier || -1}
+                      userBadges={badges}
+                      setShowPointsBreakdown={setShowPointsBreakdown}
+                      setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
+                      activeBenefits={[]} // Can be computed based on tier
                     />
-                    )}
+                  )}
                   
                   {activeTab === "badges" && (
-                    <BadgesTab address={web3State.address} />
+                    <BadgesTab 
+                      address={address} 
+                      badges={badges}
+                    />
                   )}
                   
                   {activeTab === "achievements" && (
                     <AchievementsTab
-                      checkinCount={checkinCount}
-                      username={username}
-                      highestTier={highestTier}
+                      checkinCount={userData?.checkinCount || 0}
+                      username={userData?.username || null}
+                      highestTier={userData?.highestBadgeTier || -1}
                     />
                   )}
                   
@@ -430,7 +371,7 @@ export default function ProfilePage() {
                     <ReferralsTab
                       address={web3State.address}
                       signer={web3State.signer}
-                      username={username}
+                      username={userData?.username || null}
                       showUsernameModal={() => setShowUsernameModal(true)}
                       onRewardsClaimComplete={handleRewardsClaimComplete}
                     />
@@ -438,9 +379,9 @@ export default function ProfilePage() {
                   
                   {activeTab === "benefits" && (
                     <BenefitsTab
-                      highestTier={highestTier}
-                      address={web3State.address}
-                      username={username}
+                      highestTier={userData?.highestBadgeTier || -1}
+                      address={address}
+                      username={userData?.username || null}
                       socialBenefits={socialBenefits}
                     />
                   )}
@@ -450,24 +391,23 @@ export default function ProfilePage() {
           )}
 
           {/* Username Registration Modal */}
-          {showUsernameModal && web3State.address && web3State.signer && (
+          {showUsernameModal && address && (
             <UsernameModal
-              address={web3State.address}
-              signer={web3State.signer}
+              address={address}
+              signer={signer}
               hasReferrer={hasReferrer}
               onClose={() => setShowUsernameModal(false)}
               onRegistrationComplete={handleRegistrationComplete}
             />
           )}
-
           {/* Points Breakdown Modal */}
-          {showPointsBreakdown && web3State.address && (
+          {showPointsBreakdown && address && userData && (
             <PointsBreakdownModal
               onClose={() => setShowPointsBreakdown(false)}
-              address={web3State.address}
-              checkinCount={checkinCount}
-              leaderboardRank={leaderboardRank}
-              highestTier={highestTier}
+              address={address}
+              checkinCount={userData.checkinCount}
+              leaderboardRank={userData.rank || 0}
+              highestTier={userData.highestBadgeTier}
             />
           )}
 
@@ -476,24 +416,7 @@ export default function ProfilePage() {
         </WalletRequired>
       </main>
 
-      <footer className="mt-auto py-8 border-t border-gray-200 dark:border-emerald-800/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <div className="h-5 w-5 bg-emerald-500 dark:bg-emerald-500 rounded-full"></div>
-              <p className="text-sm text-gray-600 dark:text-emerald-300/70">
-                GM Onchain — Built for the Tea Sepolia Testnet
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-emerald-300/70">
-                <div className="h-2 w-2 bg-emerald-500 dark:bg-emerald-500 rounded-full"></div>
-                <span>Daily GM check-ins on the blockchain</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      
 
       {/* Notifications */}
       <ProfileNotifications 

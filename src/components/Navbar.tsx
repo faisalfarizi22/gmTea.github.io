@@ -298,7 +298,7 @@ const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        className={`fixed top-0 left-0 right-0 z-10 transition-all duration-500 ${
           scrolled ? "bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-md" : "bg-transparent"
         }`}
       >
@@ -366,16 +366,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   {activeMenu === "leaderboard" && (
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
                   )}
-                </button>
-
-                {/* Deploy */}
-                <button className={`relative text-sm font-medium px-1 py-2 transition-colors ${
-                    activeMenu === "leaderboard"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
-                  }`}
-                >
-                  Deploy
                 </button>
               </div>
             )}
@@ -463,21 +453,11 @@ const Navbar: React.FC<NavbarProps> = ({
                             <span className="text-sm text-gray-700 dark:text-gray-300">Referral rewards</span>
                           </div>
                           <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                            {totalRewardAmount.toFixed(4)} TEA
+                            {totalRewardAmount.toFixed(4)} ETH
                           </span>
                         </div>
 
                         {/* Profile Page */}
-                        <div className="space-y-4">
-                        {/* Contracts section with Coming Soon overlay */}
-                        <div className="relative">
-                          {/* Coming Soon Overlay for Contracts */}
-                          <div className="absolute inset-0 z-20 backdrop-blur-md bg-emerald-900/40 flex items-center justify-center rounded-lg">
-                            <div className="text-center">
-                              <h2 className="text-emerald-300 text-xs font-bold tracking-wider">COMING SOON</h2>
-                              <p className="text-emerald-200/80 mt-1 text-xs">Profile under development</p>
-                            </div>
-                          </div>
                         <button
                           onClick={() => handleNav("profile")}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
@@ -485,8 +465,6 @@ const Navbar: React.FC<NavbarProps> = ({
                           <FaIdCard className="text-emerald-500" size={14} />
                           <span className="text-sm text-gray-700 dark:text-gray-300">Profile page</span>
                         </button>
-                        </div>
-                        </div>
 
                         {/* On-chain Activity */}
                         <button

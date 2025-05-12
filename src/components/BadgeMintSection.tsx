@@ -28,6 +28,12 @@ interface BadgeMintSectionProps {
   address: string
   signer: ethers.Signer | null
   onMintComplete?: () => void
+  badges?: Array<{
+    tokenId: number;
+    tier: number;
+    mintedAt: string | number;
+    transactionHash?: string;
+  }>
 }
 
 // Transaction state type
@@ -44,7 +50,7 @@ interface BadgeSupply {
   currentSupply: number
 }
 
-const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, onMintComplete }) => {
+const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, onMintComplete, badges = [] }) => {
   const [highestTier, setHighestTier] = useState<number>(-1)
   const [selectedTier, setSelectedTier] = useState<number>(-1)
   const [isLoading, setIsLoading] = useState(true)
@@ -69,7 +75,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       name: "Common",
       color: BADGE_TIERS.COMMON.color,
       description: "Entry-level badge with basic benefits",
-      checkinBoost: "1.05x",
+      checkinBoost: "1.1x",
       referralReward: "5%",
       icon: <FaLeaf />,
     },
@@ -78,7 +84,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       name: "Uncommon",
       color: BADGE_TIERS.UNCOMMON.color,
       description: "Enhanced benefits and special features",
-      checkinBoost: "1.12x",
+      checkinBoost: "1.2x",
       referralReward: "10%",
       icon: <FaLeaf />,
     },
@@ -87,7 +93,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       name: "Rare",
       color: BADGE_TIERS.RARE.color,
       description: "Premium access and additional perks",
-      checkinBoost: "1.25x",
+      checkinBoost: "1.3x",
       referralReward: "15%",
       icon: <FaLeaf />,
     },
@@ -96,7 +102,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       name: "Epic",
       color: BADGE_TIERS.EPIC.color,
       description: "Superior benefits and exclusive features",
-      checkinBoost: "1.5x",
+      checkinBoost: "1.4x",
       referralReward: "20%",
       icon: <FaLeaf />,
     },
@@ -105,13 +111,190 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       name: "Legendary",
       color: BADGE_TIERS.LEGENDARY.color,
       description: "Ultimate tier with maximum rewards",
-      checkinBoost: "1.8x",
+      checkinBoost: "1.5x",
       referralReward: "25%",
       icon: <FaLeaf />,
     },
   ]
 
-  // Load user's highest tier, contract prices, supplies, and username
+  // Check if user has minted a specific tier - use badges from database
+  const hasUserMintedTier = (tier: number): boolean => {
+    if (!badges || !Array.isArray(badges)) {
+      return false;
+    }
+    return badges.some(badge => badge.tier === tier);
+  };
+  
+  // Compute highest tier based on badges prop
+  useEffect(() => {
+    console.log("Badges from props:", badges);
+    
+    // Calculate highestTier directly from badges array
+    let maxTier = -1;
+    
+    if (badges && badges.length > 0) {
+      // Find highest tier from badges
+      for (const badge of badges) {
+        if (badge.tier > maxTier) {
+          maxTier = badge.tier;
+        }
+      }
+      console.log("Highest tier from badges:", maxTier);
+    } else {
+      console.log("No badges found, default to -1");
+    }
+    
+    // Update highest tier state
+    setHighestTier(maxTier);
+    
+    // Set selected tier based on highest tier from badges
+    if (maxTier === -1) {
+      setSelectedTier(0); // No badges, select COMMON
+    } else if (maxTier < 4) {
+      setSelectedTier(maxTier + 1); // Select next tier
+    } else {
+      setSelectedTier(-1); // Has all badges
+    }
+  }, [badges]);
+
+  // Perbaikan pada fungsi loadContractData
+const loadContractData = async () => {
+  try {
+    setLoadingPrices(true);
+    setLoadingSupplies(true);
+
+    // Dapatkan provider dari signer yang diberikan jika tersedia
+    let provider = null;
+    if (signer) {
+      provider = signer.provider;
+    }
+
+    // Fallback ke getProvider() jika signer tidak ada
+    if (!provider) {
+      provider = getProvider();
+    }
+
+    if (!provider) {
+      console.error("Provider not available");
+      return;
+    }
+
+    // Gunakan contract instance langsung dengan address dan ABI
+    const badgeContract = new ethers.Contract(
+      BADGE_CONTRACT_ADDRESS,
+      GMTeaBadgeABI,
+      provider
+    );
+
+    console.log("Loading contract data using contract at:", BADGE_CONTRACT_ADDRESS);
+
+    // Load prices for all tiers
+    const prices = [];
+    const supplies = [];
+
+    for (let i = 0; i < 5; i++) {
+      try {
+        // Get price
+        const price = await badgeContract.tierPrices(i);
+        console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
+        prices.push(ethers.utils.formatEther(price));
+
+        // Get supplies
+        const maxSupply = await badgeContract.tierMaxSupplies(i);
+        const currentSupply = await badgeContract.tierCurrentSupplies(i);
+
+        console.log(`Tier ${i} supply:`, {
+          max: maxSupply.toNumber(),
+          current: currentSupply.toNumber()
+        });
+
+        supplies.push({
+          maxSupply: maxSupply.toNumber(),
+          currentSupply: currentSupply.toNumber(),
+        });
+      } catch (tierError) {
+        console.error(`Error fetching data for tier ${i}:`, tierError);
+        prices.push("0");
+        supplies.push({
+          maxSupply: 1000,
+          currentSupply: 0
+        });
+      }
+    }
+
+    setContractPrices(prices);
+    setBadgeSupplies(supplies);
+  } catch (error) {
+    console.error("Error in loadContractData:", error);
+    // Set default values if error occurs
+    setContractPrices(["0", "0", "0", "0", "0"]);
+    setBadgeSupplies([
+      { maxSupply: 1000, currentSupply: 0 },
+      { maxSupply: 1000, currentSupply: 0 },
+      { maxSupply: 1000, currentSupply: 0 },
+      { maxSupply: 1000, currentSupply: 0 },
+      { maxSupply: 1000, currentSupply: 0 }
+    ]);
+  } finally {
+    setLoadingPrices(false);
+    setLoadingSupplies(false);
+  }
+};
+
+useEffect(() => {
+  const loadData = async () => {
+    if (!address) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Compute highest tier from badges
+      let maxTier = -1;
+      if (badges && badges.length > 0) {
+        for (const badge of badges) {
+          if (badge.tier > maxTier) {
+            maxTier = badge.tier;
+          }
+        }
+      }
+      
+      // Update highest tier state
+      setHighestTier(maxTier);
+      
+      // Set selected tier based on highest tier
+      if (maxTier === -1) {
+        setSelectedTier(0); // No badges, select COMMON
+      } else if (maxTier < 4) {
+        setSelectedTier(maxTier + 1); // Select next tier
+      } else {
+        setSelectedTier(-1); // Has all badges
+      }
+
+      // Load username
+      try {
+        const userUsername = await checkUsername(address);
+        setUsername(userUsername);
+      } catch (error) {
+        console.error("Error loading username:", error);
+        setUsername(null);
+      }
+
+      // Load contract data
+      await loadContractData();
+    } catch (error) {
+      console.error("Error loading user and contract data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  loadData();
+}, [address, signer, badges]);
+
+  // Load user's username, contract prices and supplies
   useEffect(() => {
     const loadUserData = async () => {
       if (!address) {
@@ -122,19 +305,6 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       try {
         setIsLoading(true)
 
-        // Load user's highest tier
-        const tier = await getUserHighestTier(address)
-        setHighestTier(tier)
-
-        // Set selected tier based on highest tier
-        if (tier === -1) {
-          setSelectedTier(0) // No badges, select COMMON
-        } else if (tier < 4) {
-          setSelectedTier(tier + 1) // Select next tier
-        } else {
-          setSelectedTier(-1) // Has all badges
-        }
-
         // Load username
         try {
           const userUsername = await checkUsername(address)
@@ -144,7 +314,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
           setUsername(null)
         }
       } catch (error) {
-        console.error("Error loading user tier:", error)
+        console.error("Error loading user data:", error)
       } finally {
         setIsLoading(false)
       }
@@ -152,169 +322,139 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
 
     const loadContractData = async () => {
       try {
-        setLoadingPrices(true)
-        setLoadingSupplies(true)
+        setLoadingPrices(true);
+        setLoadingSupplies(true);
 
-        const provider = getProvider()
-        if (!provider) return
+        // Ambil provider
+        const provider = getProvider();
+        if (!provider) {
+          console.error("Provider not available for loading contract data");
+          return;
+        }
 
-        const badgeContract = getBadgeContract(provider)
+        // Buat instance contract
+        const badgeContract = getBadgeContract(provider);
+        if (!badgeContract) {
+          console.error("Badge contract not initialized correctly");
+          return;
+        }
+
+        console.log("Loading contract data from contract:", BADGE_CONTRACT_ADDRESS);
+
+        // Tambahkan debugging untuk melihat apakah contract method tersedia
+        console.log("Contract methods:", 
+          "tierPrices:", typeof badgeContract.tierPrices, 
+          "tierMaxSupplies:", typeof badgeContract.tierMaxSupplies,
+          "tierCurrentSupplies:", typeof badgeContract.tierCurrentSupplies
+        );
 
         // Load prices for all tiers
-        const prices = []
-        const supplies = []
+        const prices = [];
+        const supplies = [];
 
         for (let i = 0; i < 5; i++) {
-          // Get price
-          const price = await badgeContract.tierPrices(i)
-          prices.push(ethers.utils.formatEther(price))
+          try {
+            // Get price with explicit timeout and error handling
+            const pricePromise = badgeContract.tierPrices(i);
+            const price = await Promise.race([
+              pricePromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Price fetch timeout")), 10000))
+            ]);
+            
+            console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
+            prices.push(ethers.utils.formatEther(price));
 
-          // Get supplies
-          const maxSupply = await badgeContract.tierMaxSupplies(i)
-          const currentSupply = await badgeContract.tierCurrentSupplies(i)
+            // Get max supply
+            const maxSupplyPromise = badgeContract.tierMaxSupplies(i);
+            const maxSupply = await Promise.race([
+              maxSupplyPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Max supply fetch timeout")), 10000))
+            ]);
 
-          supplies.push({
-            maxSupply: maxSupply.toNumber(),
-            currentSupply: currentSupply.toNumber(),
-          })
+            // Get current supply
+            const currentSupplyPromise = badgeContract.tierCurrentSupplies(i);
+            const currentSupply = await Promise.race([
+              currentSupplyPromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Current supply fetch timeout")), 10000))
+            ]);
+
+            console.log(`Tier ${i} supply:`, {
+              max: maxSupply.toNumber(),
+              current: currentSupply.toNumber()
+            });
+
+            supplies.push({
+              maxSupply: maxSupply.toNumber(),
+              currentSupply: currentSupply.toNumber(),
+            });
+          } catch (tierError) {
+            console.error(`Error fetching data for tier ${i}:`, tierError);
+            // Set default values if failed
+            prices[i] = prices[i] || "0";
+            supplies[i] = supplies[i] || { maxSupply: 1000, currentSupply: 0 };
+          }
         }
 
-        setContractPrices(prices)
-        setBadgeSupplies(supplies)
-      } catch (error) {
-        console.error("Error loading contract data:", error)
-      } finally {
-        setLoadingPrices(false)
-        setLoadingSupplies(false)
-      }
-    }
+        // Only update state if we have valid data
+        if (prices.length > 0) {
+          setContractPrices(prices);
+          console.log("Updated contract prices:", prices);
+        }
 
+        if (supplies.length > 0) {
+          setBadgeSupplies(supplies);
+          console.log("Updated badge supplies:", supplies);
+        }
+      } catch (error) {
+        console.error("Error loading contract data:", error);
+      } finally {
+        setLoadingPrices(false);
+        setLoadingSupplies(false);
+      }
+    };
+
+    const loadData = async () => {
+    if (address) {
+      await Promise.all([
+        loadUserData(),
+        loadContractData() // Pastikan ini dijalankan bersamaan
+      ]);
+    }
+  };
+    loadData()
     loadUserData()
     loadContractData()
-  }, [address])
-
-  // Handle confirmation polling when transaction is pending
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
-
-    if (txState.status === "pending" && txState.txHash) {
-      // Poll for transaction receipt
-      intervalId = setInterval(async () => {
-        try {
-          const provider = getProvider()
-          if (!provider) return
-
-          const receipt = await provider.getTransactionReceipt(txState.txHash!)
-
-          if (receipt) {
-            clearInterval(intervalId!)
-
-            if (receipt.status === 1) {
-              // Transaction successful
-              console.log("Transaction successful!", receipt)
-
-              try {
-                // Refresh highest tier after successful mint
-                const newTier = await getUserHighestTier(address)
-
-                // Update highest tier state
-                setHighestTier(newTier)
-
-                // Set next tier as selected for minting
-                if (newTier < 4) {
-                  // Move directly to the next tier
-                  const nextTier = newTier + 1
-                  setSelectedTier(nextTier)
-
-                  // Pre-select the tier element to scroll it into view when modal is closed
-                  setTimeout(() => {
-                    const tierElement = document.getElementById(`tier-${nextTier}`)
-                    if (tierElement) {
-                      tierElement.scrollIntoView({ behavior: "smooth", block: "center" })
-                    }
-                  }, 300)
-                } else {
-                  setSelectedTier(-1) // Has all badges
-                }
-
-                // Also reload supplies
-                const badgeContract = getBadgeContract(provider)
-                const newSupplies = [...badgeSupplies]
-
-                // Update the just-minted tier's supply
-                const justMintedTier = selectedTier
-                if (justMintedTier >= 0 && justMintedTier < newSupplies.length) {
-                  const currentSupply = await badgeContract.tierCurrentSupplies(justMintedTier)
-                  newSupplies[justMintedTier].currentSupply = currentSupply.toNumber()
-                  setBadgeSupplies(newSupplies)
-                }
-
-                // Update transaction state to success
-                setTxState((prev) => ({
-                  ...prev,
-                  status: "success",
-                  confirmations: receipt.confirmations,
-                }))
-
-                // Show success modal
-                setShowSuccessModal(true)
-
-                // Notify parent component
-                if (onMintComplete) {
-                  onMintComplete()
-                }
-              } catch (error) {
-                console.error("Error updating tier data:", error)
-                // Still show success even if tier update fails
-                setTxState((prev) => ({
-                  ...prev,
-                  status: "success",
-                  confirmations: receipt.confirmations,
-                }))
-                setShowSuccessModal(true)
-              }
-            } else {
-              // Transaction failed
-              setTxState((prev) => ({
-                ...prev,
-                status: "error",
-                error: "Transaction failed on the blockchain",
-              }))
-            }
-          }
-        } catch (error) {
-          console.error("Error checking transaction receipt:", error)
-        }
-      }, 3000)
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId)
-    }
-  }, [txState.status, txState.txHash, address, onMintComplete, badgeSupplies, selectedTier])
+  }, [address, signer])
 
   // Get tier price from contract
   const getTierPrice = (tier: number): string => {
-    if (contractPrices.length > 0 && tier < contractPrices.length) {
-      return contractPrices[tier]
-    }
-    return "0"
+  if (contractPrices && contractPrices.length > tier && tier >= 0) {
+    return contractPrices[tier] || "0";
+  }
+  return "0";
+};
+
+// Get tier status with improved handling of missing supplies data
+const getTierStatus = (tier: number): string => {
+  // Check if user owns this tier using badges
+  if (hasUserMintedTier(tier)) {
+    return "owned";
   }
 
-  // Get tier status: available, owned, locked, or sold out
-  const getTierStatus = (tier: number): string => {
-    if (highestTier >= tier) {
-      return "owned"
-    }
+  // Check if this is the next tier after the highest one
+  if (tier === highestTier + 1) {
+    return "available";
+  }
 
-    if (tier === highestTier + 1) {
-      return "available"
+  // Check if this tier is sold out - with safeguard for missing data
+  if (badgeSupplies && badgeSupplies.length > tier && tier >= 0) {
+    const supply = badgeSupplies[tier];
+    if (supply && supply.currentSupply >= supply.maxSupply) {
+      return "sold out";
     }
+  }
 
-    if (badgeSupplies.length > tier && badgeSupplies[tier].currentSupply >= badgeSupplies[tier].maxSupply) {
-      return "sold out"
-    }
-
+    // Otherwise, tier is locked
     return "locked"
   }
 
@@ -324,7 +464,7 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
     if (highestTier === -1 && tier === 0) return true
 
     // If user already has this tier or higher, they can't mint it
-    if (tier <= highestTier) return false
+    if (hasUserMintedTier(tier)) return false
 
     // User can only mint the next tier after their highest one
     return tier === highestTier + 1
@@ -332,60 +472,55 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
 
   // Handle mint process
   const handleMint = async (): Promise<void> => {
-    if (!address || !signer || selectedTier < 0 || selectedTier >= badgeTiers.length || !username) {
-      console.log("Basic validation failed:", { address, signer, selectedTier, username })
-      return
-    }
+  if (!address || !signer || selectedTier < 0 || selectedTier >= badgeTiers.length || !username) {
+    console.log("Basic validation failed:", { address, signer, selectedTier, username })
+    return
+  }
 
-    try {
-      // Set transaction state to preparing
+  try {
+    // Set transaction state to preparing
+    setTxState({
+      status: "preparing",
+      error: null,
+      txHash: null,
+      confirmations: 0,
+    })
+
+    // Use a timeout to ensure UI updates before continuing
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Check if user already has this tier badge (using database badges)
+    console.log("Checking if user has already minted this tier...")
+    if (hasUserMintedTier(selectedTier)) {
+      console.log("User already owns this badge tier")
       setTxState({
-        status: "preparing",
-        error: null,
+        status: "error",
+        error: `You already own the ${badgeTiers[selectedTier].name} badge`,
         txHash: null,
         confirmations: 0,
       })
+      return
+    }
 
-      // Use a timeout to ensure UI updates before continuing
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    // Set state to awaiting wallet confirmation immediately
+    console.log("Setting status to awaiting_wallet")
+    setTxState((prev) => ({ ...prev, status: "awaiting_wallet" }))
 
-      // Check if user already has this tier badge
-      console.log("Checking if user has already minted this tier...")
-      try {
-        const hasMinted = await hasUserMintedTier(address, selectedTier)
-        if (hasMinted) {
-          console.log("User already owns this badge tier")
-          setTxState({
-            status: "error",
-            error: `You already own the ${badgeTiers[selectedTier].name} badge`,
-            txHash: null,
-            confirmations: 0,
-          })
-          return
-        }
-      } catch (error) {
-        console.log("Error checking tier ownership, continuing anyway:", error)
-      }
+    // Create contract instance directly with signer
+    console.log("Creating contract instance...")
+    const badgeContractAddress = BADGE_CONTRACT_ADDRESS
+    const badgeContract = new ethers.Contract(badgeContractAddress, GMTeaBadgeABI, signer)
 
-      // Set state to awaiting wallet confirmation immediately
-      console.log("Setting status to awaiting_wallet")
-      setTxState((prev) => ({ ...prev, status: "awaiting_wallet" }))
+    // Get price directly from the contract
+    console.log("Getting price from contract...")
+    const contractPrice = await badgeContract.tierPrices(selectedTier)
+    console.log(`Price for tier ${selectedTier} from contract: ${ethers.utils.formatEther(contractPrice)} ETH`)
 
-      // Create contract instance directly with signer
-      console.log("Creating contract instance...")
-      const badgeContractAddress = BADGE_CONTRACT_ADDRESS
-      const badgeContract = new ethers.Contract(badgeContractAddress, GMTeaBadgeABI, signer)
+    // Always use high gas limit for referral processing
+    const gasLimit = 1000000
 
-      // Get price directly from the contract
-      console.log("Getting price from contract...")
-      const contractPrice = await badgeContract.tierPrices(selectedTier)
-      console.log(`Price for tier ${selectedTier} from contract: ${ethers.utils.formatEther(contractPrice)} ETH`)
-
-      // Always use high gas limit for referral processing
-      const gasLimit = 1000000
-
-      // Direct contract call
-      console.log("About to request wallet confirmation...")
+    // Direct contract call
+    console.log("About to request wallet confirmation...")
       try {
         const tx = await badgeContract.mintBadge(address, selectedTier, {
           value: contractPrice, // Use price from contract
@@ -399,6 +534,41 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
           txHash: tx.hash,
           confirmations: 0,
         })
+
+        // Wait for transaction confirmation
+        console.log("Waiting for transaction confirmation...")
+        const receipt = await tx.wait();
+        console.log("Transaction confirmed!", receipt);
+
+        // PENTING: Set txState ke success SETELAH transaksi berhasil dikonfirmasi
+        setTxState({
+          status: "success",
+          error: null,
+          txHash: tx.hash,
+          confirmations: receipt.confirmations || 1
+        });
+
+        // Update highest tier & show success modal
+        if (selectedTier > highestTier) {
+          setHighestTier(selectedTier);
+        }
+
+        // Update supply count for the tier
+        setBadgeSupplies(prevSupplies => {
+          const newSupplies = [...prevSupplies];
+          if (newSupplies[selectedTier]) {
+            newSupplies[selectedTier].currentSupply += 1;
+          }
+          return newSupplies;
+        });
+
+        // Show success modal
+        setShowSuccessModal(true);
+
+        // Call onMintComplete callback
+        if (onMintComplete) {
+          onMintComplete();
+        }
       } catch (txError: any) {
         console.error("Transaction failed:", txError)
         setTxState({

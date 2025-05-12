@@ -423,138 +423,112 @@ const Footer: React.FC<FooterProps> = ({
               <span className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500/50"></span>
             </h4>
             <div className="space-y-4">
-              {/* Contracts section with Coming Soon overlay */}
-              <div className="relative">
-                {/* Coming Soon Overlay for Contracts */}
-                <div className="absolute inset-0 z-20 backdrop-blur-md bg-emerald-900/40 flex items-center justify-center rounded-lg">
-                  <div className="text-center">
-                    <h2 className="text-emerald-300 text-sm font-bold tracking-wider">COMING SOON</h2>
-                    <p className="text-emerald-200/80 mt-1 text-xs">Contract details under development</p>
-                  </div>
-                </div>
-
-                {/* Original Contracts Content - Blurred */}
-                <div className="blur-sm">
-                  {expandedSection === 'contracts' ? (
-                    <div className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
-                      <div 
-                        className="flex items-center justify-between cursor-pointer"
-                        onClick={() => toggleSection('contracts')}
-                      >
-                        <div className="flex items-center gap-2">
-                          <FaLeaf className="text-emerald-400" />
-                          <div>
-                            <span className="text-emerald-300 font-medium">Tea Protocol</span>
-                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Testnet</span>
-                          </div>
-                        </div>
-                        <FaChevronUp className="text-emerald-400" />
-                      </div>
-                      
-                      <div className="mt-4 grid grid-cols-1 gap-3">
-                        {contracts.map((contract) => (
-                          <div key={contract.id} className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="text-emerald-400">{contract.icon}</div>
-                              <span className="text-sm text-gray-300">{contract.name}</span>
-                            </div>
-                            <div 
-                              className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(contract.address);
-                                alert("Contract address copied to clipboard!");
-                              }}
-                            >
-                              {contract.address.substring(0, 6)}...{contract.address.substring(contract.address.length - 4)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4 cursor-pointer hover:bg-emerald-800/30 transition-colors"
-                      onClick={() => toggleSection('contracts')}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FaLeaf className="text-emerald-400" />
-                          <div>
-                            <span className="text-emerald-300 font-medium">Tea Protocol</span>
-                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Testnet</span>
-                          </div>
-                        </div>
-                        <FaChevronDown className="text-emerald-400" />
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {contracts.slice(0, 3).map((contract) => (
-                          <div key={contract.id} className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300 flex items-center gap-1">
-                            <div className="text-emerald-400">{contract.icon}</div>
-                            {contract.name}
-                          </div>
-                        ))}
-                        {contracts.length > 3 && (
-                          <div className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300">
-                            +{contracts.length - 3} more
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Community stats section with Coming Soon overlay */}
-              <div className="relative">
-                {/* Coming Soon Overlay for Community */}
-                <div className="absolute inset-0 z-20 backdrop-blur-md bg-emerald-900/40 flex items-center justify-center rounded-lg">
-                  <div className="text-center">
-                    <h2 className="text-emerald-300 text-sm font-bold tracking-wider">COMING SOON</h2>
-                    <p className="text-emerald-200/80 mt-1 text-xs">Community statistics under development</p>
-                  </div>
-                </div>
-
-                {/* Original Community Content - Blurred */}
-                <div className="blur-sm bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
+              {expandedSection === 'contracts' ? (
+                <div className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
                   <div 
                     className="flex items-center justify-between cursor-pointer"
-                    onClick={() => toggleSection('community')}
+                    onClick={() => toggleSection('contracts')}
                   >
                     <div className="flex items-center gap-2">
-                      <FaUsers className="text-emerald-400" />
-                      <span className="text-emerald-300 font-medium">Community Stats</span>
+                      <FaLeaf className="text-emerald-400" />
+                      <div>
+                        <span className="text-emerald-300 font-medium">Tea Protocol</span>
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Testnet</span>
+                      </div>
                     </div>
-                    {expandedSection === 'community' ? (
-                      <FaChevronUp className="text-emerald-400" />
-                    ) : (
-                      <FaChevronDown className="text-emerald-400" />
-                    )}
+                    <FaChevronUp className="text-emerald-400" />
                   </div>
                   
-                  {expandedSection === 'community' && (
-                    <div className="mt-4 space-y-3">
-                      <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                        <div className="text-gray-300 text-sm flex justify-between">
-                          <span>Total Users</span>
-                          <span className="text-emerald-300 font-medium">12,450+</span>
+                  <div className="mt-4 grid grid-cols-1 gap-3">
+                    {contracts.map((contract) => (
+                      <div key={contract.id} className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="text-emerald-400">{contract.icon}</div>
+                          <span className="text-sm text-gray-300">{contract.name}</span>
+                        </div>
+                        <div 
+                          className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(contract.address);
+                            alert("Contract address copied to clipboard!");
+                          }}
+                        >
+                          {contract.address.substring(0, 6)}...{contract.address.substring(contract.address.length - 4)}
                         </div>
                       </div>
-                      <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                        <div className="text-gray-300 text-sm flex justify-between">
-                          <span>Daily Active Users</span>
-                          <span className="text-emerald-300 font-medium">3,200+</span>
-                        </div>
-                      </div>
-                      <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                        <div className="text-gray-300 text-sm flex justify-between">
-                          <span>Total Transactions</span>
-                          <span className="text-emerald-300 font-medium">1.2M+</span>
-                        </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4 cursor-pointer hover:bg-emerald-800/30 transition-colors"
+                  onClick={() => toggleSection('contracts')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FaLeaf className="text-emerald-400" />
+                      <div>
+                        <span className="text-emerald-300 font-medium">Tea Protocol</span>
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Testnet</span>
                       </div>
                     </div>
+                    <FaChevronDown className="text-emerald-400" />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {contracts.slice(0, 3).map((contract) => (
+                      <div key={contract.id} className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300 flex items-center gap-1">
+                        <div className="text-emerald-400">{contract.icon}</div>
+                        {contract.name}
+                      </div>
+                    ))}
+                    {contracts.length > 3 && (
+                      <div className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300">
+                        +{contracts.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
+                <div 
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleSection('community')}
+                >
+                  <div className="flex items-center gap-2">
+                    <FaUsers className="text-emerald-400" />
+                    <span className="text-emerald-300 font-medium">Community Stats</span>
+                  </div>
+                  {expandedSection === 'community' ? (
+                    <FaChevronUp className="text-emerald-400" />
+                  ) : (
+                    <FaChevronDown className="text-emerald-400" />
                   )}
                 </div>
+                
+                {expandedSection === 'community' && (
+                  <div className="mt-4 space-y-3">
+                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
+                      <div className="text-gray-300 text-sm flex justify-between">
+                        <span>Total Users</span>
+                        <span className="text-emerald-300 font-medium">12,450+</span>
+                      </div>
+                    </div>
+                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
+                      <div className="text-gray-300 text-sm flex justify-between">
+                        <span>Daily Active Users</span>
+                        <span className="text-emerald-300 font-medium">3,200+</span>
+                      </div>
+                    </div>
+                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
+                      <div className="text-gray-300 text-sm flex justify-between">
+                        <span>Total Transactions</span>
+                        <span className="text-emerald-300 font-medium">1.2M+</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

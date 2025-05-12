@@ -44,6 +44,13 @@ interface Notification {
   type: 'success' | 'error' | 'info' | 'warning';
 }
 
+interface UserBadge {
+  tokenId: number;
+  tier: number;
+  mintedAt: number;
+  transactionHash?: string; // optional jika kadang-kadang ada
+}
+
 export default function Home() {
   // Web3 state
   const [web3State, setWeb3State] = useState<Web3State>({
@@ -69,7 +76,8 @@ export default function Home() {
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false);
   const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
   const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false);
-  
+  const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
+
   // Forum state - keep for future implementation but removed floating button
   const [isForumOpen, setIsForumOpen] = useState(false);
   
@@ -112,6 +120,25 @@ const scrollToMintSection = useCallback(() => {
     }, 100);
   }
 }, []);
+
+useEffect(() => {
+  const loadBadgeData = async () => {
+    if (web3State.address) {
+      try {
+        const badges = await getUserBadges(web3State.address);
+        setUserBadges(badges);
+        console.log("Loaded user badges:", badges);
+      } catch (error) {
+        console.error("Error loading user badges:", error);
+        setUserBadges([]);
+      }
+    }
+  };
+  
+  if (web3State.isConnected && web3State.address) {
+    loadBadgeData();
+  }
+}, [web3State.isConnected, web3State.address]);
   
 
   // Inside your Home component
@@ -717,11 +744,8 @@ const handleMintClick = () => {
             {/* Stats Section */}
             <div className="lg:col-span-5 space-y-6">
               <StatsCard 
-                checkinCount={checkinStats.userCheckinCount}
+                address={web3State.address}
                 timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
-                isLoading={web3State.isLoading}
-                globalCheckinCount={globalCheckinCount}
-                isLoadingGlobalCount={isLoadingGlobalCount}
               />
               
               <CountdownTimer 
@@ -770,19 +794,21 @@ const handleMintClick = () => {
                     ></div>
                   </div>
                 </div>
-                <div className="space-y-4">
-        {/* Contracts section with Coming Soon overlay */}
-        <div className="relative">
-          {/* Coming Soon Overlay for Contracts */}
-          <div className="absolute inset-0 z-10 backdrop-blur-lg bg-emerald-900/40 flex items-center justify-center rounded-lg">
-            <div className="text-center">
-              <h2 className="text-emerald-300 text-xl font-bold tracking-wider">COMING SOON</h2>
-              <p className="text-emerald-200/80 mt-1 text-sm">under development</p>
-            </div>
-          </div>
+
+                {/* Contracts section with Coming Soon overlay */}
+                <div className="relative">
+                  {/* Coming Soon Overlay for Contracts */}
+                  <div className="absolute inset-0 z-10 backdrop-blur-lg bg-emerald-900/40 flex items-center justify-center rounded-lg">
+                    <div className="text-center">
+                      <h2 className="text-emerald-300 text-xl font-bold tracking-wider">COMING SOON</h2>
+                      <p className="text-emerald-200/80 mt-1 text-sm">under development</p>
+                    </div>
+                  </div>
+                
                 <BadgeMintSection 
                   address={web3State.address || ''} 
                   signer={web3State.signer}
+                  badges={userBadges} // Tambahkan prop badges
                   onMintComplete={async () => {
                     // Refresh data after successful mint
                     if (web3State.contract) {
@@ -801,22 +827,22 @@ const handleMintClick = () => {
                           console.log("Updated highest badge tier:", newHighestTier);
                           
                           // Refresh user badges collection
-                          const userBadges = await getUserBadges(web3State.address);
-                          console.log("Updated badge collection:", userBadges);
+                          const updatedBadges = await getUserBadges(web3State.address);
+                          console.log("Updated badge collection:", updatedBadges);
+                          
+                          // Update user badges state
+                          setUserBadges(updatedBadges);
                           
                           // Update any cached badge data
                           localStorage.removeItem(`gmtea_highestTier_${web3State.address.toLowerCase()}`);
                           localStorage.removeItem(`gmtea_userBadges_${web3State.address.toLowerCase()}`);
-                          
-                          // If you have any state for badges in the main component, update it here
-                          // For example: setUserBadges(userBadges);
                           
                           // Dispatch a custom event that other components can listen for
                           const badgeUpdateEvent = new CustomEvent('badgeUpdate', { 
                             detail: { 
                               address: web3State.address,
                               highestTier: newHighestTier,
-                              badges: userBadges
+                              badges: updatedBadges
                             } 
                           });
                           window.dispatchEvent(badgeUpdateEvent);
@@ -832,30 +858,28 @@ const handleMintClick = () => {
                     }
                   }}
                 />
+                </div>
               </div>
-            </div>
-            </div>
             </div>
           )}
 
           {/* Leaderboard Section - with ref for scrolling */}
-          <div ref={leaderboardRef} className="mt-8 pt-4 scroll-mt-28">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
-                <div className="relative">
-                  <FaTrophy className="mr-2 text-emerald-500" /> 
-                  <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
-                </div>  
-                Community Leaderboard
-              </h2>
+          {/* Leaderboard Section - with ref for scrolling */}
+            <div ref={leaderboardRef} className="mt-8 pt-4 scroll-mt-28">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
+                  <div className="relative">
+                    <FaTrophy className="mr-2 text-emerald-500" /> 
+                    <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
+                  </div>  
+                  Community Leaderboard
+                </h2>
+              </div>
+              
+              <Leaderboard 
+                currentUserAddress={web3State.address}
+              />
             </div>
-            
-            <Leaderboard 
-              contract={web3State.contract}
-              currentUserAddress={web3State.address}
-              userCheckinCount={checkinStats.userCheckinCount}
-            />
-          </div>
 
           {/* Audio Player - Fixed position */}
           <AudioPlayer initialVolume={0.3} />

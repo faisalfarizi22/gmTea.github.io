@@ -14,15 +14,19 @@ type ActiveTab = "overview" | "badges" | "achievements" | "referrals" | "benefit
 interface ProfileTabsProps {
   activeTab: ActiveTab
   setActiveTab: (tab: ActiveTab) => void
-  referralStats: {
-    pendingRewards: string
-  }
+  badgeCount?: number
+  checkinCount?: number
+  referralCount?: number
+  pendingReferralRewards?: string
 }
 
 export default function ProfileTabs({ 
   activeTab, 
   setActiveTab,
-  referralStats 
+  badgeCount = 0,
+  checkinCount = 0,
+  referralCount = 0,
+  pendingReferralRewards = "0"
 }: ProfileTabsProps) {
   return (
     <div className="border-b border-gray-200 dark:border-emerald-800/30">
@@ -53,9 +57,6 @@ export default function ProfileTabs({
           onClick={() => setActiveTab("referrals")}
           icon={<FaUsers className="mr-2 h-4 w-4" />}
           label="Referrals"
-          badge={Number.parseFloat(referralStats.pendingRewards) > 0 ? 
-            `${Number.parseFloat(referralStats.pendingRewards).toFixed(2)} TEA` : 
-            undefined}
         />
         
         <TabButton 

@@ -162,27 +162,27 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
   const getBadgeTierInfo = (tier: number) => {
     const tiers = [
       {
-        checkinBoost: "1.05x",
+        checkinBoost: "1.1x",
         referralReward: "5%",
         votingPower: "1x"
       },
       {
-        checkinBoost: "1.12x",
+        checkinBoost: "1.2x",
         referralReward: "10%",
         votingPower: "2x"
       },
       {
-        checkinBoost: "1.25x",
+        checkinBoost: "1.3x",
         referralReward: "15%",
         votingPower: "3x"
       },
       {
-        checkinBoost: "1.5x",
+        checkinBoost: "1.4x",
         referralReward: "20%",
         votingPower: "5x"
       },
       {
-        checkinBoost: "1.8x",
+        checkinBoost: "1.5x",
         referralReward: "25%",
         votingPower: "10x"
       }

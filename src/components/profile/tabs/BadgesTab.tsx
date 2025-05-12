@@ -1,35 +1,25 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { useEffect, useState } from "react"
-import { getUserBadges } from "@/utils/badgeWeb3"
 import UserBadges from "@/components/UserBadges" 
 
 interface BadgesTabProps {
-  address: string | null
+  address: string | null;
+  badges?: Array<{
+    tokenId: number;
+    tier: number;
+    tierName: string;
+    mintedAt: string;
+    transactionHash: string;
+    referrer?: string;
+  }>;
 }
 
-export default function BadgesTab({ address }: BadgesTabProps) {
-  const [userBadges, setUserBadges] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState<boolean>(true)
-
-  useEffect(() => {
-    const fetchUserBadges = async () => {
-      if (!address) return
-
-      setIsLoading(true)
-      try {
-        const badgesResult = await getUserBadges(address)
-        setUserBadges(badgesResult || [])
-      } catch (e) {
-        console.warn("Error loading badges:", e)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchUserBadges()
-  }, [address])
+export default function BadgesTab({ address, badges = [] }: BadgesTabProps) {
+  // The UserBadges component will handle the data fetching internally
+  // We just need to pass the wallet address
+  
+  const isLoading = !address;
 
   if (isLoading) {
     return (
@@ -57,7 +47,11 @@ export default function BadgesTab({ address }: BadgesTabProps) {
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Use the imported UserBadges component */}
+      {/* 
+        Pass the address to UserBadges component
+        The UserBadges component will handle fetching the badges data
+        from the API endpoint based on this address
+      */}
       {address && <UserBadges address={address} />}
     </motion.div>
   )

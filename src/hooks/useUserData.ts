@@ -1,201 +1,349 @@
-import { useState, useCallback } from "react"
-import { ethers } from "ethers"
-import { Web3State } from "@/types"
-import { getUserHighestTier, getUserBadges, checkUsername, checkReferrer, getProvider } from "@/utils/badgeWeb3"
-import { getUserLeaderboardRank } from "@/utils/leaderboradUtils"
-import { getUserBenefits, getUserReferralStats } from "@/utils/rewardsUtils"
-import { NotificationType } from "./useNotifications"
+import { useState, useEffect } from 'react';
+import { 
+  useUserData as useUserDBData, 
+  useUserBadges, 
+  useUserCheckins, 
+  useUserReferrals 
+} from './useDBData';
 
+// Define interfaces for strongly typed data
 interface UserData {
-  checkinCount: number
-  leaderboardRank: number
-  leaderboardPoints: number
-  hasUsername: boolean | null
-  username: string | null
-  hasReferrer: boolean
-  highestTier: number
-  userBadges: any[]
-  activeBenefits: string[]
-  referralStats: {
-    totalReferrals: number
-    totalRewards: string
-    pendingRewards: string
-    highestTier: number
-  }
-  isLoadingUserData: boolean
-  dataLoaded: boolean
+  address: string;
+  username: string | null;
+  highestBadgeTier: number;
+  checkinCount: number;
+  points: number;
+  referrer?: string;
+  lastCheckin?: string;
+  createdAt: string;
+  updatedAt: string;
+  rank?: number;
 }
 
-interface UseUserDataProps {
-  web3State: Web3State
-  addNotification: (message: string, type: NotificationType) => void
+interface BadgeData {
+  tokenId: number;
+  tier: number;
+  tierName: string;
+  mintedAt: string;
+  transactionHash: string;
+  referrer?: string;
 }
 
-export function useUserData({ web3State, addNotification }: UseUserDataProps) {
-  // Initialize user data state with default values
-  const [userData, setUserData] = useState<UserData>({
-    checkinCount: 0,
-    leaderboardRank: 0,
-    leaderboardPoints: 0,
-    hasUsername: null,
-    username: null,
-    hasReferrer: false,
-    highestTier: -1,
-    userBadges: [],
-    activeBenefits: [],
-    referralStats: {
-      totalReferrals: 0,
-      totalRewards: "0",
-      pendingRewards: "0",
-      highestTier: 0,
-    },
-    isLoadingUserData: false,
-    dataLoaded: false
-  })
+interface CheckinData {
+  checkinNumber: number;
+  timestamp: string;
+  transactionHash: string;
+  blockNumber?: number;
+  message?: string;
+  points?: number;
+}
 
-  // Load user data
-  const loadUserData = useCallback(async (address: string, contract: ethers.Contract) => {
-    if (!address || !contract) {
-      setUserData(prev => ({ ...prev, isLoadingUserData: false }))
-      return
-    }
+interface ReferralData {
+  referee: string;
+  referrer: string;
+  timestamp: string;
+  transactionHash: string;
+  rewardsClaimed: boolean;
+  rewardsAmount: string;
+}
 
-    setUserData(prev => ({ ...prev, isLoadingUserData: true }))
-    addNotification("Loading your profile data...", "info")
+interface UsernameHistory {
+  username: string;
+  oldUsername?: string;
+  timestamp: string;
+  transactionHash: string;
+}
 
-    try {
-      // Get check-in count
-      let count = 0
-      try {
-        const checkinData = await contract.getCheckinCount(address)
-        count = ethers.BigNumber.isBigNumber(checkinData) ? checkinData.toNumber() : Number(checkinData)
-      } catch (e) {
-        console.warn("Error loading check-in count:", e)
+interface Activity {
+  type: string;
+  timestamp: string;
+  details: any;
+}
 
-        try {
-          // Fallback to direct mapping access if function fails
-          const userDataResult = await contract.userCheckins(address)
-          if (userDataResult && userDataResult.checkinCount) {
-            count = ethers.BigNumber.isBigNumber(userDataResult.checkinCount)
-              ? userDataResult.checkinCount.toNumber()
-              : Number(userDataResult.checkinCount)
-          }
-        } catch (mappingError) {
-          console.warn("Error accessing user data:", mappingError)
-        }
-      }
+// Define expected response interfaces based on API structure
+interface UserResponse {
+  user?: UserData;
+  usernameHistory?: UsernameHistory[];
+}
 
-      // Get leaderboard rank
-      let rank = 0
-      try {
-        const userRank = await getUserLeaderboardRank(contract, address)
-        rank = userRank !== null ? userRank : 0
-      } catch (rankError) {
-        console.warn("Error getting leaderboard rank:", rankError)
-        // Fallback rank calculation
-        rank = count > 0 ? Math.max(1, Math.floor(100 / (count + 1))) : 0
-      }
+interface BadgesResponse {
+  badges?: BadgeData[];
+  stats?: {
+    totalBadges: number;
+  };
+}
 
-      // Calculate points - 10 points per check-in plus bonuses
-      let points = count * 10
+interface CheckinsResponse {
+  checkins?: CheckinData[];
+  stats?: {
+    total: number;
+  };
+}
 
-      // Add bonus points based on check-in milestones
-      if (count >= 50) points += 500
-      else if (count >= 25) points += 250
-      else if (count >= 10) points += 100
-      else if (count >= 5) points += 50
+interface ReferralsResponse {
+  referrals?: ReferralData[];
+  stats?: {
+    total: number;
+  };
+}
 
-      // Also add bonus based on rank if available
-      if (rank > 0 && rank <= 10) {
-        // Top 10 bonus
-        points += 1000 - (rank - 1) * 100
-      } else if (rank > 10 && rank <= 50) {
-        // Top 50 bonus
-        points += 100
-      }
+/**
+ * Enhanced hook for fetching and combining user data
+ * @param walletAddress User's wallet address
+ * @returns Consolidated user data and loading state
+ */
+export function useUserDataCombined(walletAddress: string | null) {
+  // Initialize states with proper types
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [badges, setBadges] = useState<BadgeData[]>([]);
+  const [checkins, setCheckins] = useState<CheckinData[]>([]);
+  const [referrals, setReferrals] = useState<ReferralData[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch data from our API endpoints
+  const { 
+    data: userResponseRaw, 
+    isLoading: userLoading, 
+    error: userError, 
+    refetch: refetchUser 
+  } = useUserDBData(walletAddress);
 
-      // Check if user has a username
-      let usernameResult = null
-      let hasUsernameResult = null
-      let hasReferrerResult = false
+  useEffect(() => {
+    if (userError && (userError.message.includes('404') || userError.message.includes('Not Found'))) {
+      console.warn('API endpoint not found, using fallback data', walletAddress);
       
-      try {
-        const badgeProvider = getProvider()
-        if (badgeProvider) {
-          usernameResult = await checkUsername(address)
-          hasUsernameResult = !!usernameResult
-          
-          // Check if user has a referrer (only if they have a username)
-          if (hasUsernameResult) {
-            hasReferrerResult = await checkReferrer(address)
-          }
-        }
-      } catch (e) {
-        console.warn("Error checking username:", e)
-      }
-
-      // Load user badges and tier information
-      let highestTierResult = -1
-      let userBadgesResult: any[] = []
-      
-      try {
-        highestTierResult = await getUserHighestTier(address)
-        userBadgesResult = await getUserBadges(address) || []
-      } catch (e) {
-        console.warn("Error loading badges:", e)
-      }
-
-      // Load active benefits
-      let benefitsResult: string[] = []
-      try {
-        benefitsResult = await getUserBenefits(address) || []
-      } catch (e) {
-        console.warn("Error loading benefits:", e)
-      }
-
-      // Load referral stats
-      let referralStatsResult = {
-        totalReferrals: 0,
-        totalRewards: "0",
-        pendingRewards: "0",
-        highestTier: 0,
-      }
-      
-      try {
-        const stats = await getUserReferralStats(address)
-        if (stats) {
-          referralStatsResult = stats
-        }
-      } catch (e) {
-        console.warn("Error loading referral stats:", e)
-      }
-
-      // Update all user data at once
+      // Set fallback data
       setUserData({
-        checkinCount: count,
-        leaderboardRank: rank,
-        leaderboardPoints: points,
-        hasUsername: hasUsernameResult,
-        username: usernameResult,
-        hasReferrer: !!hasReferrerResult,
-        highestTier: highestTierResult,
-        userBadges: userBadgesResult,
-        activeBenefits: benefitsResult,
-        referralStats: referralStatsResult,
-        isLoadingUserData: false,
-        dataLoaded: true
-      })
-
-      addNotification("Profile data updated successfully", "success")
-    } catch (error) {
-      console.error("Error loading user data:", error)
-      addNotification("Error loading profile data", "error")
-      setUserData(prev => ({ ...prev, isLoadingUserData: false }))
+        address: walletAddress || '',
+        username: null,
+        highestBadgeTier: -1,
+        checkinCount: 0,
+        points: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
     }
-  }, [addNotification])
-
+  }, [userError, walletAddress]);
+  
+  const { 
+    data: badgesResponseRaw, 
+    isLoading: badgesLoading, 
+    refetch: refetchBadges 
+  } = useUserBadges(walletAddress);
+  
+  const { 
+    data: checkinsResponseRaw, 
+    isLoading: checkinsLoading, 
+    refetch: refetchCheckins 
+  } = useUserCheckins(walletAddress);
+  
+  const { 
+    data: referralsResponseRaw, 
+    isLoading: referralsLoading, 
+    refetch: refetchReferrals 
+  } = useUserReferrals(walletAddress);
+  
+  // Type-safe wrappers for response data
+  const userResponse = userResponseRaw as UserResponse || {};
+  const badgesResponse = badgesResponseRaw as BadgesResponse || {};
+  const checkinsResponse = checkinsResponseRaw as CheckinsResponse || {};
+  const referralsResponse = referralsResponseRaw as ReferralsResponse || {};
+  
+  // Process data when it changes
+  useEffect(() => {
+    if (!userLoading && userResponse) {
+      setUserData(userResponse.user || null);
+    }
+  }, [userResponse, userLoading]);
+  
+  // Process badges
+  useEffect(() => {
+    if (!badgesLoading && badgesResponse) {
+      setBadges(badgesResponse.badges || []);
+    }
+  }, [badgesResponse, badgesLoading]);
+  
+  // Process checkins
+  useEffect(() => {
+    if (!checkinsLoading && checkinsResponse) {
+      setCheckins(checkinsResponse.checkins || []);
+    }
+  }, [checkinsResponse, checkinsLoading]);
+  
+  // Process referrals
+  useEffect(() => {
+    if (!referralsLoading && referralsResponse) {
+      setReferrals(referralsResponse.referrals || []);
+    }
+  }, [referralsResponse, referralsLoading]);
+  
+  // Combine activities
+  useEffect(() => {
+    // Skip if still loading
+    if (userLoading || badgesLoading || checkinsLoading || referralsLoading) {
+      return;
+    }
+    
+    const combinedActivities: Activity[] = [];
+    
+    // Add checkins to activities
+    (checkinsResponse.checkins || []).forEach((checkin: CheckinData) => {
+      combinedActivities.push({
+        type: 'checkin',
+        timestamp: checkin.timestamp,
+        details: checkin
+      });
+    });
+    
+    // Add badges to activities
+    (badgesResponse.badges || []).forEach((badge: BadgeData) => {
+      combinedActivities.push({
+        type: 'badge',
+        timestamp: badge.mintedAt,
+        details: badge
+      });
+    });
+    
+    // Add username changes if available
+    (userResponse.usernameHistory || []).forEach((history: UsernameHistory) => {
+      combinedActivities.push({
+        type: 'username',
+        timestamp: history.timestamp,
+        details: history
+      });
+    });
+    
+    // Add referrals to activities
+    (referralsResponse.referrals || []).forEach((referral: ReferralData) => {
+      combinedActivities.push({
+        type: 'referral',
+        timestamp: referral.timestamp,
+        details: referral
+      });
+    });
+    
+    // Sort activities by timestamp (newest first)
+    const sortedActivities = combinedActivities.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    
+    setActivities(sortedActivities);
+    
+    // All data loaded
+    setLoading(false);
+  }, [
+    userResponse, badgesResponse, checkinsResponse, referralsResponse, 
+    userLoading, badgesLoading, checkinsLoading, referralsLoading
+  ]);
+  
+  // Refresh all data
+  const refreshAll = () => {
+    refetchUser();
+    refetchBadges();
+    refetchCheckins();
+    refetchReferrals();
+  };
+  
   return {
     userData,
-    loadUserData
-  }
+    badges,
+    checkins,
+    referrals,
+    activities,
+    isLoading: loading || userLoading || badgesLoading || checkinsLoading || referralsLoading,
+    error: userError,
+    refetch: refreshAll
+  };
 }
+
+/**
+ * Hook for getting tier-based benefits and requirements
+ * @param tier Badge tier to get benefits for
+ * @returns Information about tier benefits
+ */
+export function useTierBenefits(tier: number = -1) {
+  // Define tier information
+  const tiers = [
+    {
+      name: "Common",
+      color: "text-gray-300",
+      bgColor: "bg-gray-700",
+      price: 1,
+      benefits: [
+        "Access to community chat",
+        "Daily GM tokens (10% boost)"
+      ],
+      requirements: "None"
+    },
+    {
+      name: "Uncommon", 
+      color: "text-green-400",
+      bgColor: "bg-green-900",
+      price: 5,
+      benefits: [
+        "All Common benefits",
+        "Daily GM tokens (25% boost)",
+        "Profile customization",
+        "Early access to events"
+      ],
+      requirements: "Must own Common badge"
+    },
+    {
+      name: "Rare",
+      color: "text-blue-400",
+      bgColor: "bg-blue-900",
+      price: 12,
+      benefits: [
+        "All Uncommon benefits",
+        "Daily GM tokens (50% boost)",
+        "Special profile frame",
+        "Vote on community proposals"
+      ],
+      requirements: "Must own Uncommon badge"
+    },
+    {
+      name: "Epic",
+      color: "text-purple-400",
+      bgColor: "bg-purple-900",
+      price: 18,
+      benefits: [
+        "All Rare benefits",
+        "Daily GM tokens (100% boost)",
+        "Premium profile effects",
+        "Private channel access",
+        "Higher referral rewards"
+      ],
+      requirements: "Must own Rare badge"
+    },
+    {
+      name: "Legendary",
+      color: "text-yellow-400",
+      bgColor: "bg-yellow-900",
+      price: 24,
+      benefits: [
+        "All Epic benefits",
+        "Daily GM tokens (150% boost)",
+        "Exclusive profile animations",
+        "Community moderator status",
+        "Maximum referral rewards",
+        "Exclusive events access"
+      ],
+      requirements: "Must own Epic badge"
+    }
+  ];
+  
+  // Get information for requested tier
+  const tierInfo = tier >= 0 && tier < tiers.length ? tiers[tier] : null;
+  
+  // Get next tier information
+  const nextTier = tier >= 0 && tier < tiers.length - 1 ? tiers[tier + 1] : null;
+  
+  return {
+    currentTier: tierInfo,
+    nextTier,
+    allTiers: tiers
+  };
+}
+
+export default useUserDataCombined;

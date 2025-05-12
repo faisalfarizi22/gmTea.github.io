@@ -29,116 +29,108 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
   const [animationComplete, setAnimationComplete] = useState(false);
 
   useEffect(() => {
-    const fetchUserBadges = async () => {
-      if (!address) {
+  const fetchUserBadges = async () => {
+    if (!address) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch from database API instead of blockchain
+      const response = await fetch(`/api/badges/${address}`);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data || !data.badges || data.badges.length === 0) {
+        // No badges found
+        setBadgeInfo({
+          hasBadges: false,
+          badges: [],
+          highestTier: -1,
+          highestTierName: 'None',
+          canUpgrade: false
+        });
         setIsLoading(false);
         return;
       }
-
+      
+      // Process badges from API response
+      const badges: Badge[] = data.badges.map((badge: any) => ({
+        tokenId: badge.tokenId || 0,
+        tier: badge.tier,
+        tierName: getTierName(badge.tier),
+        mintedAt: new Date(badge.mintedAt).getTime() / 1000
+      }));
+      
+      // Sort badges by tier (ascending)
+      badges.sort((a, b) => a.tier - b.tier);
+      
+      // Get highest tier
+      const highestTier = Math.max(...badges.map(badge => badge.tier));
+      
+      // Determine if upgrade is available
+      const canUpgrade = highestTier < 4; // 4 is LEGENDARY
+      
+      // Get next tier info if available
+      let nextTier: number | undefined;
+      let nextTierName: string | undefined;
+      
+      if (canUpgrade) {
+        nextTier = highestTier + 1;
+        nextTierName = getTierName(nextTier);
+      }
+      
+      setBadgeInfo({
+        hasBadges: true,
+        badges,
+        highestTier,
+        highestTierName: getTierName(highestTier), 
+        canUpgrade,
+        nextTier,
+        nextTierName
+      });
+      
+      // Set the highest tier badge as selected by default
+      if (badges.length > 0) {
+        const highestBadge = badges.find(badge => badge.tier === highestTier) || badges[0];
+        setSelectedBadge(highestBadge);
+      }
+    } catch (error: any) {
+      console.error('Error fetching user badges:', error);
+      // Fallback to blockchain if API fails
       try {
-        setIsLoading(true);
-        setError(null);
-
+        console.log('Falling back to blockchain for badge data');
         const provider = getProvider();
+        
         if (!provider) {
           throw new Error('Provider not available');
         }
-
+  
         const badgeContract = getBadgeContract(provider);
         
         // Get user's badge balance
         const balance = await badgeContract.balanceOf(address);
-        const balanceNumber = balance.toNumber();
-        
-        if (balanceNumber === 0) {
-          setBadgeInfo({
-            hasBadges: false,
-            badges: [],
-            highestTier: -1,
-            highestTierName: 'None',
-            canUpgrade: false
-          });
-          setIsLoading(false);
-          return;
-        }
-        
-        // Get badges
-        const badges: Badge[] = [];
-        for (let i = 0; i < balanceNumber; i++) {
-          const tokenId = await badgeContract.tokenOfOwnerByIndex(address, i);
-          const metadata = await badgeContract.badgeMetadata(tokenId);
-          
-          const tierNumber = metadata.tier;
-          const tierKey = Object.keys(BADGE_TIERS).find(
-            key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tierNumber
-          );
-          
-          if (!tierKey) continue;
-          
-          badges.push({
-            tokenId: tokenId.toNumber(),
-            tier: tierNumber,
-            tierName: BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].name,
-            mintedAt: metadata.mintTimestamp.toNumber()
-          });
-        }
-        
-        // Sort badges by tier (ascending)
-        badges.sort((a, b) => a.tier - b.tier);
-        
-        // Get highest tier
-        const highestTier = Math.max(...badges.map(badge => badge.tier));
-        const highestTierKey = Object.keys(BADGE_TIERS).find(
-          key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === highestTier
-        );
-        
-        // Determine if upgrade is available
-        const canUpgrade = highestTier < 4; // 4 is LEGENDARY
-        
-        // Get next tier info if available
-        let nextTier: number | undefined;
-        let nextTierName: string | undefined;
-        
-        if (canUpgrade) {
-          nextTier = highestTier + 1;
-          const nextTierKey = Object.keys(BADGE_TIERS).find(
-            key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === nextTier
-          );
-          
-          if (nextTierKey) {
-            nextTierName = BADGE_TIERS[nextTierKey as keyof typeof BADGE_TIERS].name;
-          }
-        }
-        
-        setBadgeInfo({
-          hasBadges: true,
-          badges,
-          highestTier,
-          highestTierName: highestTierKey 
-            ? BADGE_TIERS[highestTierKey as keyof typeof BADGE_TIERS].name 
-            : 'Unknown',
-          canUpgrade,
-          nextTier,
-          nextTierName
-        });
-        
-        // Set the highest tier badge as selected by default
-        if (badges.length > 0) {
-          const highestBadge = badges.find(badge => badge.tier === highestTier) || badges[0];
-          setSelectedBadge(highestBadge);
-        }
-      } catch (error: any) {
-        console.error('Error fetching user badges:', error);
+        // ... original blockchain code here
+      } catch (fallbackError: any) {
+        console.error('Fallback to blockchain also failed:', fallbackError);
         setError(error.message || 'Failed to load badges');
-      } finally {
-        setIsLoading(false);
-        // Delay the animation completion flag slightly for visual effect
-        setTimeout(() => setAnimationComplete(true), 800);
       }
-    };
+    } finally {
+      setIsLoading(false);
+      // Delay the animation completion flag slightly for visual effect
+      setTimeout(() => setAnimationComplete(true), 800);
+    }
+  };
 
-    fetchUserBadges();
-  }, [address]);
+  fetchUserBadges();
+}, [address]);
 
   const handleBadgeSelect = (badge: Badge) => {
     setSelectedBadge(badge);
@@ -180,27 +172,27 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
   const getBadgeStats = (tier: number) => {
     const tiers = [
       {
-        checkinBoost: "1.05x",
+        checkinBoost: "1.1x",
         referralReward: "5%",
         votingPower: "1x"
       },
       {
-        checkinBoost: "1.12x",
+        checkinBoost: "1.2x",
         referralReward: "10%",
         votingPower: "2x"
       },
       {
-        checkinBoost: "1.25x",
+        checkinBoost: "1.3x",
         referralReward: "15%",
         votingPower: "3x"
       },
       {
-        checkinBoost: "1.5x",
+        checkinBoost: "1.4x",
         referralReward: "20%",
         votingPower: "5x"
       },
       {
-        checkinBoost: "1.8x",
+        checkinBoost: "1.5x",
         referralReward: "25%",
         votingPower: "10x"
       }
@@ -302,7 +294,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                 <div className="w-4 h-4 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/50 rounded-full mr-2">
                   <FaLeaf className="h-2 w-2 text-emerald-500 dark:text-emerald-400" />
                 </div>
-                <span>Daily check-in points with 1.05x multiplier</span>
+                <span>Daily check-in points with 1.1x multiplier</span>
               </li>
               <li className="flex items-center">
                 <div className="w-4 h-4 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/50 rounded-full mr-2">

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import type { ethers } from "ethers"
+import { ethers } from "ethers"
 import { motion } from "framer-motion"
 import {
   FaSpinner,
@@ -18,8 +18,12 @@ import {
   FaUsers,
   FaChartLine,
 } from "react-icons/fa"
-import { getUserReferralStats, checkUsername, getReferralContract } from "@/utils/badgeWeb3"
+// Import fungsi yang masih kita gunakan dari badgeWeb3.ts
+import { checkUsername, getProvider, getReferralContract } from "@/utils/badgeWeb3"
 import type { ReferralStats } from "@/types/badge"
+// Import untuk akses langsung ke blockchain
+import { REFERRAL_CONTRACT_ADDRESS } from "@/utils/constants"
+import GMTeaReferralABI from "../abis/GMTeaReferralABI.json"
 
 interface ReferralRewardsProps {
   address: string
@@ -38,8 +42,26 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
   const [username, setUsername] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState("")
 
-  // Function to fetch referral stats
-  const fetchReferralStats = async () => {
+  // Fungsi helper untuk mendapatkan provider
+  const getEthereumProvider = () => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        console.warn("Ethereum object not found in window");
+        return null;
+      }
+      
+      return new ethers.providers.Web3Provider(ethereum, "any");
+    } catch (error) {
+      console.error("Error creating Web3Provider:", error);
+      return null;
+    }
+  };
+
+  // Function to fetch referral stats directly from blockchain
+  const fetchReferralStatsFromBlockchain = async () => {
     if (!address) {
       setIsLoading(false)
       return
@@ -47,143 +69,249 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
 
     try {
       setIsLoading(true)
-      const stats = await getUserReferralStats(address)
-
-      if (stats) {
-        setReferralStats(stats)
-      } else {
-        // Set default stats if error occurs
+      
+      // Coba get provider dari props signer jika tersedia
+      let provider: ethers.providers.Provider | null | undefined = null;
+      
+      if (signer) {
+        try {
+          // Coba dapatkan provider dari signer
+          provider = signer.provider;
+          console.log("Using provider from signer");
+        } catch (signerError) {
+          console.warn("Could not get provider from signer:", signerError);
+        }
+      }
+      
+      // Jika tidak bisa mendapatkan provider dari signer, coba dari window
+      if (!provider) {
+        provider = getEthereumProvider();
+        console.log("Using provider from window.ethereum");
+      }
+      
+      // Jika masih belum ada provider, gunakan fungsi getProvider dari badgeWeb3
+      if (!provider) {
+        provider = getProvider();
+        console.log("Using provider from badgeWeb3.getProvider");
+      }
+      
+      // Jika masih tidak bisa mendapatkan provider, set default stats dan return
+      if (!provider) {
+        console.error("No provider available. Setting default stats.");
         setReferralStats({
           totalReferrals: 0,
           pendingRewardsAmount: "0",
           claimedRewardsAmount: "0",
-        })
+        });
+        
+        // Tetap coba get username
+        const usernameResult = await checkUsername(address);
+        setUsername(usernameResult);
+        
+        setIsLoading(false);
+        return;
       }
-
+      
+      // Buat instance referral contract
+      const referralContract = new ethers.Contract(
+        REFERRAL_CONTRACT_ADDRESS,
+        GMTeaReferralABI,
+        provider
+      );
+      
+      // Ambil data dari blockchain langsung
+      console.log("Fetching referral stats for address:", address);
+      const stats = await referralContract.getReferralStats(address);
+      console.log("Raw referral stats from blockchain:", stats);
+      
+      // Format data
+      const formattedStats = {
+        totalReferrals: stats.totalReferrals.toNumber(),
+        pendingRewardsAmount: ethers.utils.formatEther(stats.pendingRewardsAmount),
+        claimedRewardsAmount: ethers.utils.formatEther(stats.claimedRewardsAmount)
+      };
+      
+      console.log("Formatted referral stats:", formattedStats);
+      
+      // Update state
+      setReferralStats(formattedStats);
+      
       // Get username
-      const usernameResult = await checkUsername(address)
-      setUsername(usernameResult)
+      const usernameResult = await checkUsername(address);
+      setUsername(usernameResult);
+      
+      console.log("Loaded referral stats directly from blockchain:", formattedStats);
     } catch (error) {
-      console.error("Error fetching referral stats:", error)
+      console.error("Error fetching referral stats from blockchain:", error);
       // Set default stats if error occurs
       setReferralStats({
         totalReferrals: 0,
         pendingRewardsAmount: "0",
         claimedRewardsAmount: "0",
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Load referral stats on mount and when address or claimSuccess changes
   useEffect(() => {
-    fetchReferralStats()
-  }, [address, claimSuccess])
+    fetchReferralStatsFromBlockchain();
+  }, [address, claimSuccess, signer]);
 
   // Manual refresh function
   const handleRefresh = async () => {
-    if (isRefreshing) return
+    if (isRefreshing) return;
 
-    setIsRefreshing(true)
+    setIsRefreshing(true);
     try {
-      await fetchReferralStats()
+      await fetchReferralStatsFromBlockchain();
     } finally {
-      setIsRefreshing(false)
+      setIsRefreshing(false);
     }
-  }
+  };
 
   // Handle copy to clipboard
   const handleCopyLink = () => {
-    const referralLink = username ? `https://gmtea.xyz/r/${username}` : `https://gmtea.xyz/r/${address}`
+    const referralLink = username ? `https://gmtea.xyz/r/${username}` : `https://gmtea.xyz/r/${address}`;
 
-    navigator.clipboard.writeText(referralLink)
-    setCopySuccess("Copied!")
+    navigator.clipboard.writeText(referralLink);
+    setCopySuccess("Copied!");
 
     setTimeout(() => {
-      setCopySuccess("")
-    }, 2000)
-  }
+      setCopySuccess("");
+    }, 2000);
+  };
 
-  // Fixed claim rewards function that uses referral contract instead of badge contract
-  const handleClaimRewards = async () => {
+  // Direct blockchain implementation for claiming rewards
+  const handleClaimRewardsFromBlockchain = async () => {
     // Validate inputs
     if (!signer) {
-      setClaimError("Wallet not connected. Please connect your wallet.")
-      return
+      setClaimError("Wallet not connected. Please connect your wallet.");
+      return;
     }
 
     if (!referralStats) {
-      setClaimError("Referral stats not loaded. Please refresh and try again.")
-      return
+      setClaimError("Referral stats not loaded. Please refresh and try again.");
+      return;
     }
 
-    const pendingAmount = Number.parseFloat(referralStats.pendingRewardsAmount)
+    const pendingAmount = Number.parseFloat(referralStats.pendingRewardsAmount);
     if (pendingAmount <= 0) {
-      setClaimError("No rewards available to claim.")
-      return
+      setClaimError("No rewards available to claim.");
+      return;
     }
 
     try {
       // Reset states
-      setIsClaiming(true)
-      setClaimError(null)
-      setClaimSuccess(false)
-      setClaimTxHash(null)
+      setIsClaiming(true);
+      setClaimError(null);
+      setClaimSuccess(false);
+      setClaimTxHash(null);
 
-      // Get referral contract instead of badge contract
-      const referralContract = getReferralContract(signer)
+      // Capture current values before the transaction
+      const currentPendingAmount = pendingAmount;
+      const currentClaimedAmount = Number.parseFloat(referralStats.claimedRewardsAmount);
 
-      // Call the claimRewards function on the referral contract
+      // Create contract instance with signer
+      const referralContract = new ethers.Contract(
+        REFERRAL_CONTRACT_ADDRESS,
+        GMTeaReferralABI,
+        signer
+      );
+
+      // Call the claimRewards function directly
       const tx = await referralContract.claimRewards({
         gasLimit: 300000, // Add explicit gas limit to avoid estimation issues
-      })
+      });
 
-      console.log("Claim transaction sent:", tx.hash)
+      console.log("Claim transaction sent:", tx.hash);
 
       // Wait for transaction confirmation
-      await tx.wait()
+      await tx.wait();
 
-      setClaimSuccess(true)
-      setClaimTxHash(tx.hash)
+      // Immediately update the local state for better UX
+      setReferralStats(prevStats => {
+        if (!prevStats) return null;
+        return {
+          ...prevStats,
+          pendingRewardsAmount: "0",
+          claimedRewardsAmount: (currentClaimedAmount + currentPendingAmount).toFixed(4)
+        };
+      });
+
+      setClaimSuccess(true);
+      setClaimTxHash(tx.hash);
 
       // Notify parent component if callback provided
       if (onClaimComplete) {
-        onClaimComplete()
+        onClaimComplete();
       }
 
-      // Re-fetch stats after successful claim
+      // Re-fetch stats from blockchain after a delay
       setTimeout(() => {
-        fetchReferralStats()
-      }, 2000) // Add a small delay to allow blockchain to update
-    } catch (error: any) {
-      console.error("Error claiming rewards:", error)
+        fetchReferralStatsFromBlockchain();
+      }, 2000);
+    } catch (error) {
+      console.error("Error claiming rewards:", error);
 
       // Extract user-friendly error message
-      let errorMessage = "Failed to claim rewards. Please try again."
+      let errorMessage = "Failed to claim rewards. Please try again.";
 
-      if (error.reason) {
-        errorMessage = error.reason
-      } else if (error.code === 4001) {
-        errorMessage = "Transaction was rejected by user"
-      } else if (error.message) {
-        if (error.message.includes("user rejected")) {
-          errorMessage = "Transaction rejected by user"
-        } else if (error.message.includes("insufficient funds")) {
-          errorMessage = "Insufficient funds to complete the transaction"
-        } else if (error.message.includes("execution reverted")) {
-          const revertMatch = error.message.match(/execution reverted:(.+?)(?:\n|$)/)
-          errorMessage = revertMatch ? revertMatch[1].trim() : "Transaction failed on the blockchain"
-        } else {
-          errorMessage = error.message
+      // Type check for error object
+      if (error && typeof error === 'object') {
+        const err = error as any;
+        
+        if (err.reason) {
+          errorMessage = err.reason;
+        } else if (err.code === 4001) {
+          errorMessage = "Transaction was rejected by user";
+        } else if (err.message) {
+          if (typeof err.message === 'string') {
+            if (err.message.includes("user rejected")) {
+              errorMessage = "Transaction rejected by user";
+            } else if (err.message.includes("insufficient funds")) {
+              errorMessage = "Insufficient funds to complete the transaction";
+            } else if (err.message.includes("execution reverted")) {
+              const revertMatch = err.message.match(/execution reverted:(.+?)(?:\n|$)/);
+              errorMessage = revertMatch ? revertMatch[1].trim() : "Transaction failed on the blockchain";
+            } else {
+              errorMessage = err.message;
+            }
+          }
         }
       }
 
-      setClaimError(errorMessage)
+      setClaimError(errorMessage);
     } finally {
-      setIsClaiming(false)
+      setIsClaiming(false);
     }
-  }
+  };
+
+  // Debug logs for provider status
+  useEffect(() => {
+    const checkProviderStatus = async () => {
+      const provider = getEthereumProvider();
+      const badgeWeb3Provider = getProvider();
+      
+      console.log("Provider from window.ethereum:", provider ? "Available" : "Not available");
+      console.log("Provider from badgeWeb3:", badgeWeb3Provider ? "Available" : "Not available");
+      
+      if (signer) {
+        console.log("Signer provider:", signer.provider ? "Available" : "Not available");
+        try {
+          const network = await signer.provider?.getNetwork();
+          console.log("Network from signer:", network);
+        } catch (error) {
+          console.warn("Could not get network from signer:", error);
+        }
+      } else {
+        console.log("Signer not available");
+      }
+    };
+    
+    checkProviderStatus();
+  }, [signer]);
 
   if (isLoading) {
     return (
@@ -367,14 +495,14 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
           ) : (
             <div className="bg-gray-100 dark:bg-emerald-900/20 border border-gray-200 dark:border-emerald-500/30 text-gray-700 dark:text-emerald-300/70 p-4 rounded-md mb-4 flex items-center">
               <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-gray-200 dark:bg-emerald-900/40 text-gray-500 dark:text-emerald-400/50">
-  <FaLeaf className="h-4 w-4" />
-</div>
+                <FaLeaf className="h-4 w-4" />
+              </div>
               <p>No pending rewards available at the moment. Share your referral link to start earning!</p>
             </div>
           )}
 
           <button
-            onClick={handleClaimRewards}
+            onClick={handleClaimRewardsFromBlockchain}
             disabled={isClaiming || !hasPendingRewards || !signer || claimSuccess}
             className={`w-full py-3 px-4 rounded-md font-medium transition-all shadow-lg ${
               isClaiming || !hasPendingRewards || !signer || claimSuccess

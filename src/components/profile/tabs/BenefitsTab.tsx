@@ -14,7 +14,7 @@ import { getUsernameColor } from "@/utils/socialBenefitsUtils"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
 import { getTierColor } from "../utils/profileUtils"
 import ColoredUsername from "@/components/user/ColoredUsername"
-import TierBenefits from "@/components/TierBenefits" // Import the TierBenefits component
+import TierBenefits from "@/components/TierBenefits"
 
 interface BenefitsTabProps {
   highestTier: number
@@ -29,6 +29,7 @@ export default function BenefitsTab({
   username,
   socialBenefits
 }: BenefitsTabProps) {
+  // No need to fetch data - we're now receiving everything via props
   return (
     <motion.div
       key="benefits"
@@ -167,7 +168,7 @@ export default function BenefitsTab({
           </div>
         </div>
         
-        {/* Use the imported TierBenefits component */}
+        {/* Use the TierBenefits component */}
         <TierBenefits selectedTier={highestTier} />
       </div>
     </motion.div>

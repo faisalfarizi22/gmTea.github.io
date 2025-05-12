@@ -15,6 +15,9 @@ export default function AchievementsTab({
   username,
   highestTier
 }: AchievementsTabProps) {
+  // We're now receiving data directly via props from the parent component
+  // No need to fetch from blockchain
+  
   return (
     <motion.div
       key="achievements"

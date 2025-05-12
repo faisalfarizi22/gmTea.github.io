@@ -6,7 +6,8 @@
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true,
+    "noEmit": false, 
+    "outDir": "./dist", 
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "node",
@@ -24,6 +25,14 @@
       "@/abis/*": ["./abis/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "next.config.js", "src/scripts/testMint.js"],
+  "ts-node": { 
+    "compilerOptions": {
+      "module": "commonjs", 
+      "target": "es2017"  
+    },
+    "transpileOnly": true, 
+    "files": true          
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "next.config.js", "src/scripts/testMint.js", "src/scripts/setupDatabase.js", "src/scripts/runIndexer.js"],
   "exclude": ["node_modules"]
 }

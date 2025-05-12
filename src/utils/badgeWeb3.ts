@@ -11,6 +11,10 @@ import {
 import GMTeaBadgeABI from "../abis/GMTeaBadgeABI.json";
 import GMTeaReferralABI from "../abis/GMTeaReferralABI.json";
 import GMTeaUsernameABI from "../abis/GMTeaUsernameABI.json";
+import { isUsingDBMode } from "../hooks/useDBMode";
+
+// Flag untuk mengetahui apakah blockchain sedang memiliki masalah
+let isBlockchainError = false;
 
 declare global {
   interface Window {
@@ -76,53 +80,100 @@ const isBrowser = typeof window !== "undefined";
 
 /**
  * Get Ethereum provider from window object
- * FIXED: Added try-catch to prevent errors from breaking the app
+ * MODIFIED: Added database fallback mode and error tracking
  */
 export const getProvider = () => {
+  // Jika kita menggunakan mode database, return null
+  if (isUsingDBMode()) {
+    console.log("Using database mode, skipping blockchain provider");
+    return null;
+  }
+  
   if (!isBrowser) return null;
   
   try {
     const ethereum = (window as any).ethereum;
-    if (!ethereum) return null;
+    if (!ethereum) {
+      console.warn("No Ethereum provider found, falling back to database mode");
+      isBlockchainError = true;
+      return null;
+    }
     
+    // Reset error flag jika provider bisa diambil
+    isBlockchainError = false;
     return new ethers.providers.Web3Provider(ethereum, "any");
   } catch (error) {
     console.error("Error getting provider:", error);
+    isBlockchainError = true;
     return null;
   }
 };
 
 /**
+ * Check if blockchain is in error state
+ */
+export const hasBlockchainError = (): boolean => {
+  return isBlockchainError;
+}
+
+/**
+ * Reset blockchain error state (used after reconnect attempts)
+ */
+export const resetBlockchainErrorState = () => {
+  isBlockchainError = false;
+}
+
+/**
  * Switch to Tea Sepolia network
- * FIXED: Added better error handling
+ * MODIFIED: Added database fallback handling
  */
 export const switchToTeaSepolia = async () => {
+  // Jika menggunakan mode database, return success
+  if (isUsingDBMode()) {
+    return true;
+  }
+  
   try {
     if (!isBrowser) return false;
     
     const ethereum = (window as any).ethereum;
-    if (!ethereum) throw new Error("No Ethereum provider found");
+    if (!ethereum) {
+      console.warn("No Ethereum provider found, using database instead");
+      isBlockchainError = true;
+      return false;
+    }
     
     try {
       await ethereum.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: TEA_SEPOLIA_CHAIN.chainId }],
       });
+      isBlockchainError = false;
+      return true;
     } catch (switchError: any) {
       if (switchError.code === 4902) {
-        await ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [TEA_SEPOLIA_CHAIN],
-        });
+        try {
+          await ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [TEA_SEPOLIA_CHAIN],
+          });
+          isBlockchainError = false;
+          return true;
+        } catch (addError) {
+          console.error("Error adding network:", addError);
+          isBlockchainError = true;
+          return false;
+        }
       } else {
-        throw switchError;
+        console.error("Switch network error:", switchError);
+        isBlockchainError = true;
+        return false;
       }
     }
-    
-    return true;
   } catch (error) {
     console.error("Error switching network:", error);
-    return false; // Return false instead of throwing to prevent app crashes
+    isBlockchainError = true;
+    return false;
   }
 };
 
@@ -148,15 +199,29 @@ export const getUsernameContract = (signerOrProvider: ethers.Signer | ethers.pro
 };
 
 /**
- * Check if user has a username
- * Enhanced with better error handling and cache
- */
-/**
  * Check if user has a username - dengan non-blocking approach
+ * MODIFIED: Added database mode support
  */
 export const checkUsername = async (address: string): Promise<string | null> => {
   try {
     if (!address) return null;
+    
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/users/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        
+        const data = await response.json();
+        return data.user?.username || null;
+      } catch (apiError) {
+        console.error("API error in checkUsername:", apiError);
+        return null;
+      }
+    }
     
     // Check cache first
     const cacheKey = getCacheKey('username', address);
@@ -174,7 +239,7 @@ export const checkUsername = async (address: string): Promise<string | null> => 
       return window.__usernameCache[address];
     }
     
-   const defaultUsername = null;
+    const defaultUsername = null;
     window.__usernameCache[address] = defaultUsername;
     
     try {
@@ -213,6 +278,7 @@ export const checkUsername = async (address: string): Promise<string | null> => 
           }
         } catch (error) {
           console.warn(`Background username fetch failed for ${address}:`, error);
+          isBlockchainError = true;
           
           try {
             const fallbackProvider = typeof getFallbackProvider === 'function' 
@@ -242,6 +308,7 @@ export const checkUsername = async (address: string): Promise<string | null> => 
             }
           } catch (fallbackError) {
             console.error("Fallback provider also failed:", fallbackError);
+            isBlockchainError = true;
           }
         }
       })();
@@ -249,10 +316,12 @@ export const checkUsername = async (address: string): Promise<string | null> => 
       return defaultUsername;
     } catch (error) {
       console.error("Error checking username:", error);
+      isBlockchainError = true;
       return defaultUsername;
     }
   } catch (error) {
     console.error("Unexpected error in checkUsername:", error);
+    isBlockchainError = true;
     return null;
   }
 };
@@ -269,15 +338,31 @@ export const registerUsernameUpdateCallback = (callback: (address: string, usern
   };
 };
 
-
 /**
  * Check if user has a referrer - using a different approach
- * This checks if the user has any username, which implies they have a referrer
- * because username registration requires a referrer in the current system
+ * MODIFIED: Added database mode support
  */
 export const checkReferrer = async (address: string): Promise<boolean> => {
   try {
     if (!address) return false;
+    
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/users/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return false;
+        }
+        
+        const data = await response.json();
+        // Jika user ada referrer di database
+        return !!data.user?.referrer;
+      } catch (apiError) {
+        console.error("API error in checkReferrer:", apiError);
+        return false;
+      }
+    }
     
     // If the user has a username, they must have been referred by someone
     const username = await checkUsername(address);
@@ -285,23 +370,45 @@ export const checkReferrer = async (address: string): Promise<boolean> => {
     
   } catch (error) {
     console.error("Error checking referrer:", error);
+    isBlockchainError = true;
     return false;
   }
 };
 
 /**
  * Get address by username
- * FIXED: Normalize username to lowercase to match smart contract behavior
+ * MODIFIED: Added database mode support
  */
 export const getAddressByUsername = async (username: string): Promise<string | null> => {
   try {
     if (!username) return null;
     
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const normalizedUsername = normalizeUsername(username);
+        const response = await fetch(`/api/username/${normalizedUsername}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        
+        const data = await response.json();
+        return data.address || null;
+      } catch (apiError) {
+        console.error("API error in getAddressByUsername:", apiError);
+        return null;
+      }
+    }
+    
     // Normalize username to lowercase
     const normalizedUsername = normalizeUsername(username);
     
     const provider = getProvider();
-    if (!provider) return null;
+    if (!provider) {
+      isBlockchainError = true;
+      return null;
+    }
     
     const usernameContract = getUsernameContract(provider);
     const address = await usernameContract.getAddressByUsername(normalizedUsername);
@@ -309,13 +416,13 @@ export const getAddressByUsername = async (username: string): Promise<string | n
     return address && address !== ethers.constants.AddressZero ? address : null;
   } catch (error) {
     console.error("Error getting address by username:", error);
+    isBlockchainError = true;
     return null;
   }
 };
 
 /**
- * Register with referral
- * FIXED: Normalize usernames to lowercase to match smart contract behavior
+ * Register with referral - updated to sync with database
  */
 export const registerWithReferral = async (
   signer: ethers.Signer,
@@ -333,10 +440,12 @@ export const registerWithReferral = async (
     const existingUsername = await usernameContract.getUsernameByAddress(userAddress);
     
     // Step 2: If no username, register in UsernameRegistry first
+    let usernameTxHash = '';
     if (!existingUsername || existingUsername === "") {
       // Check if username is available
       const isAvailable = await usernameContract.isUsernameAvailable(normalizedUsername);
       if (!isAvailable) {
+        isBlockchainError = false; // This is a valid response from the contract
         return { success: false, error: "Username is already taken or not available" };
       }
       
@@ -344,7 +453,8 @@ export const registerWithReferral = async (
       const regTx = await usernameContract.registerUsername(normalizedUsername, {
         gasLimit: 200000 // Add explicit gas limit
       });
-      await regTx.wait();
+      const receipt = await regTx.wait();
+      usernameTxHash = regTx.hash;
       console.log("Username registered in UsernameRegistry:", regTx.hash);
       
       // Update cache
@@ -354,6 +464,7 @@ export const registerWithReferral = async (
     // Step 3: Check if referrer exists in UsernameRegistry
     const referrerAddress = await usernameContract.getAddressByUsername(normalizedReferrerUsername);
     if (!referrerAddress || referrerAddress === ethers.constants.AddressZero) {
+      isBlockchainError = false; // This is a valid response from the contract
       return { success: false, error: "Referrer username not found. Please enter a valid referrer username." };
     }
     
@@ -362,11 +473,42 @@ export const registerWithReferral = async (
     const tx = await referralContract.registerWithReferral(normalizedReferrerUsername, {
       gasLimit: 200000 // Add explicit gas limit
     });
-    await tx.wait();
     
-    return { success: true, txHash: tx.hash };
+    const receipt = await tx.wait();
+    const txHash = tx.hash;
+    
+    // Step 5: Sync with database - send the transaction data to our API
+    try {
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          address: userAddress,
+          username: normalizedUsername,
+          referrerUsername: normalizedReferrerUsername,
+          txHash: txHash // Make sure txHash is included
+        }),
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to sync registration with database, but blockchain transaction succeeded');
+        const errorData = await response.json();
+        console.error('API error details:', errorData);
+      } else {
+        console.log('Registration synced with database successfully');
+      }
+    } catch (apiError) {
+      console.error("API error when syncing registration:", apiError);
+      // We don't fail here since the blockchain transaction already succeeded
+    }
+    
+    isBlockchainError = false; // Success, reset error flag
+    return { success: true, txHash };
   } catch (error: any) {
     console.error("Error registering with referral:", error);
+    isBlockchainError = true;
     return { 
       success: false, 
       error: error.reason || error.message || "Error registering with referral" 
@@ -376,7 +518,7 @@ export const registerWithReferral = async (
 
 /**
  * Check if user has minted a badge of the specified tier
- * FIXED: Added better error handling
+ * MODIFIED: Added database mode support
  */
 export const hasUserMintedTier = async (
   address: string,
@@ -384,6 +526,24 @@ export const hasUserMintedTier = async (
 ): Promise<boolean> => {
   try {
     if (!address) return false;
+    
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/badges/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return false;
+        }
+        
+        const data = await response.json();
+        // Periksa jika user memiliki badge dengan tier tertentu
+        return data.badges?.some((badge: any) => badge.tier === tier) || false;
+      } catch (apiError) {
+        console.error("API error in hasUserMintedTier:", apiError);
+        return false;
+      }
+    }
     
     // Check cache first
     const cacheKey = getCacheKey(`hasMintedTier_${tier}`, address);
@@ -394,7 +554,10 @@ export const hasUserMintedTier = async (
     }
     
     const provider = getProvider();
-    if (!provider) return false;
+    if (!provider) {
+      isBlockchainError = true;
+      return false;
+    }
     
     const badgeContract = getBadgeContract(provider);
     const result = await badgeContract.hasMintedTier(address, tier);
@@ -405,18 +568,36 @@ export const hasUserMintedTier = async (
     return result;
   } catch (error) {
     console.error(`Error checking if user has minted tier ${tier}:`, error);
+    isBlockchainError = true;
     return false; // Return false instead of letting the error propagate
   }
 };
 
 /**
  * Get the highest tier a user has minted
- * Returns -1 if user has not minted any badges
- * FIXED: Added better error handling
+ * MODIFIED: Added database mode support
  */
 export const getUserHighestTier = async (address: string): Promise<number> => {
   try {
     if (!address) return -1;
+    
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/users/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return -1;
+        }
+        
+        const data = await response.json();
+        // Return highest badge tier dari database
+        return data.user?.highestBadgeTier ?? -1;
+      } catch (apiError) {
+        console.error("API error in getUserHighestTier:", apiError);
+        return -1;
+      }
+    }
     
     const cacheKey = getCacheKey('highestTier', address);
     const cachedTier = getCachedData<number>(cacheKey);
@@ -433,33 +614,34 @@ export const getUserHighestTier = async (address: string): Promise<number> => {
       return window.__tierCache[address];
     }
     
-   const defaultTier = -1;
+    const defaultTier = -1;
     window.__tierCache[address] = defaultTier;
     
-   try {
+    try {
       const provider = getProvider();
       if (!provider) {
         console.warn("No provider available");
+        isBlockchainError = true;
         return defaultTier;
       }
       
       const badgeContract = getBadgeContract(provider);
       
-     (async () => {
+      (async () => {
         try {
-         const result = await Promise.race([
+          const result = await Promise.race([
             badgeContract.getHighestTier(address),
             new Promise<number>((_, reject) => 
               setTimeout(() => reject(new Error('Contract call timeout')), 10000)
             )
           ]) as number;
           
-        setCachedData(cacheKey, result);
+          setCachedData(cacheKey, result);
           if (window.__tierCache) {
             window.__tierCache[address] = result;
           }
           
-         if (window.__updateTierCallbacks) {
+          if (window.__updateTierCallbacks) {
             window.__updateTierCallbacks.forEach(callback => {
               if (typeof callback === 'function') {
                 callback(address, result);
@@ -468,8 +650,9 @@ export const getUserHighestTier = async (address: string): Promise<number> => {
           }
         } catch (error) {
           console.warn(`Background tier fetch failed for ${address}:`, error);
+          isBlockchainError = true;
           
-         let highestFound = -1;
+          let highestFound = -1;
           
           for (let i = 0; i <= 4; i++) {
             try {
@@ -487,6 +670,7 @@ export const getUserHighestTier = async (address: string): Promise<number> => {
               }
             } catch (tierError) {
               console.warn(`Error checking tier ${i}:`, tierError);
+              isBlockchainError = true;
               break; 
             }
           }
@@ -509,10 +693,12 @@ export const getUserHighestTier = async (address: string): Promise<number> => {
       return defaultTier;
     } catch (error) {
       console.error("Error getting user's highest tier:", error);
+      isBlockchainError = true;
       return defaultTier;
     }
   } catch (error) {
     console.error("Unexpected error in getUserHighestTier:", error);
+    isBlockchainError = true;
     return -1;
   }
 };
@@ -533,13 +719,14 @@ export const getFallbackProvider = (): any => {
     return null; 
   } catch (error) {
     console.error("Error getting fallback provider:", error);
+    isBlockchainError = true;
     return null;
   }
 };
 
 /**
  * Mint a badge with improved error handling and debugging
- * FIXED: Simplified to avoid network switching issues
+ * MODIFIED: Added database mode support
  */
 export const mintBadge = async (
   signer: ethers.Signer, 
@@ -552,6 +739,47 @@ export const mintBadge = async (
 }> => {
   try {
     console.log(`Starting mintBadge process for tier ${tier}`);
+    
+    // If using database mode, use API to mint badge
+    if (isUsingDBMode()) {
+      try {
+        const userAddress = await signer.getAddress();
+        
+        const response = await fetch('/api/mint-badge', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address: userAddress,
+            tier: tier
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          return { 
+            hash: null, 
+            success: false, 
+            error: errorData.message || 'Failed to mint badge in database' 
+          };
+        }
+        
+        const data = await response.json();
+        return { 
+          hash: data.txHash || 'db-minted', 
+          success: true, 
+          txHash: data.txHash || 'db-minted'
+        };
+      } catch (apiError: any) {
+        console.error("API error in mintBadge:", apiError);
+        return { 
+          hash: null, 
+          success: false, 
+          error: apiError?.message || 'Failed to mint badge with API' 
+        };
+      }
+    }
     
     // Get user's address
     const address = await signer.getAddress();
@@ -569,10 +797,12 @@ export const mintBadge = async (
       try {
         const hasPreviousTier = await badgeContract.hasMintedTier(address, tier - 1);
         if (!hasPreviousTier) {
+          isBlockchainError = false; // Valid response
           return { hash: null, success: false, error: "You must mint previous tier first" };
         }
       } catch (error) {
         console.error("Error checking previous tier:", error);
+        isBlockchainError = true;
         // Continue anyway, let the contract handle the validation
       }
     }
@@ -592,9 +822,11 @@ export const mintBadge = async (
       localStorage.removeItem(getCacheKey('highestTier', address));
     }
     
+    isBlockchainError = false; // Success
     return { hash: tx.hash, success: true, txHash: tx.hash };
   } catch (error: any) {
     console.error("Error in mintBadge function:", error);
+    isBlockchainError = true;
     
     // Extract user-friendly error message
     let errorMessage = "Error minting badge";
@@ -622,44 +854,175 @@ export const mintBadge = async (
 
 /**
  * Get user's referral stats
+ * MODIFIED: Added database mode support and improved error handling
  */
 export const getUserReferralStats = async (address: string) => {
   try {
     if (!address) return null;
     
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/referrals/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        
+        const data = await response.json();
+        if (data.stats) {
+          return {
+            totalReferrals: data.stats.total || 0,
+            pendingRewardsAmount: data.stats.pendingRewards || "0",
+            claimedRewardsAmount: data.stats.claimedRewards || "0"
+          };
+        }
+        return null;
+      } catch (apiError) {
+        console.error("API error in getUserReferralStats:", apiError);
+        return null;
+      }
+    }
+    
+    // Get cached data if available
+    const cacheKey = getCacheKey('referralStats', address);
+    const cachedStats = getCachedData<{
+      totalReferrals: number;
+      pendingRewardsAmount: string;
+      claimedRewardsAmount: string;
+    }>(cacheKey);
+    
+    if (cachedStats) {
+      return cachedStats;
+    }
+    
     const provider = getProvider();
-    if (!provider) return null;
+    if (!provider) {
+      isBlockchainError = true;
+      return null;
+    }
     
     const referralContract = getReferralContract(provider);
     const stats = await referralContract.getReferralStats(address);
     
-    return {
+    const formattedStats = {
       totalReferrals: stats.totalReferrals.toNumber(),
       pendingRewardsAmount: ethers.utils.formatEther(stats.pendingRewardsAmount),
       claimedRewardsAmount: ethers.utils.formatEther(stats.claimedRewardsAmount)
     };
+    
+    // Cache the formatted stats
+    setCachedData(cacheKey, formattedStats);
+    
+    return formattedStats;
   } catch (error) {
     console.error("Error getting user referral stats:", error);
+    isBlockchainError = true;
     return null;
   }
 };
 
 /**
- * Claim referral rewards
+ * Helper function to update referral stats in cache after a successful claim
+ * This avoids the need to refetch from blockchain or API
+ */
+const updateReferralStatsAfterClaim = async (address: string, pendingAmount?: number) => {
+  try {
+    const cacheKey = getCacheKey('referralStats', address);
+    const existingStats = getCachedData<{
+      totalReferrals: number;
+      pendingRewardsAmount: string;
+      claimedRewardsAmount: string;
+    }>(cacheKey);
+    
+    if (existingStats) {
+      // If we have the pending amount value, use it, otherwise use the cached value
+      const amountToMove = pendingAmount !== undefined ? 
+        pendingAmount : 
+        Number.parseFloat(existingStats.pendingRewardsAmount);
+      
+      // Update the stats with pending moved to claimed
+      const updatedStats = {
+        ...existingStats,
+        pendingRewardsAmount: "0",
+        claimedRewardsAmount: (
+          Number.parseFloat(existingStats.claimedRewardsAmount) + amountToMove
+        ).toFixed(4)
+      };
+      
+      // Update the cache
+      setCachedData(cacheKey, updatedStats);
+      
+      console.log("Updated referral stats in cache after claim:", updatedStats);
+    } else {
+      // If we don't have cached stats, fetch them again
+      await getUserReferralStats(address);
+    }
+  } catch (error) {
+    console.error("Error updating referral stats after claim:", error);
+  }
+};
+
+/**
+ * Claim referral rewards with improved state handling
+ * MODIFIED: Added database mode support and immediate cache update
  */
 export const claimReferralRewards = async (
   signer: ethers.Signer
 ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
   try {
+    const userAddress = await signer.getAddress();
+    
+    // If using database mode, use API to claim rewards
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch('/api/claim-rewards', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            address: userAddress
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          return { 
+            success: false, 
+            error: errorData.message || 'Failed to claim rewards in database' 
+          };
+        }
+        
+        const data = await response.json();
+        
+        // Immediately update the local cache with the claimed rewards
+        updateReferralStatsAfterClaim(userAddress);
+        
+        return { success: true, txHash: data.txHash || 'db-claimed' };
+      } catch (apiError: any) {
+        console.error("API error in claimReferralRewards:", apiError);
+        return { 
+          success: false, 
+          error: apiError?.message || 'Failed to claim rewards with API' 
+        };
+      }
+    }
+    
     const referralContract = getReferralContract(signer);
     
     // Get pending rewards
-    const address = await signer.getAddress();
-    const pendingRewards = await referralContract.pendingRewards(address);
+    const pendingRewards = await referralContract.pendingRewards(userAddress);
     
     if (pendingRewards.eq(0)) {
+      isBlockchainError = false; // Valid response
       return { success: false, error: "No rewards to claim" };
     }
+    
+    // Record the pending amount before claiming
+    const currentStats = await getUserReferralStats(userAddress);
+    const pendingAmount = currentStats ? 
+      Number.parseFloat(currentStats.pendingRewardsAmount) : 0;
     
     // Claim rewards
     const tx = await referralContract.claimRewards({
@@ -667,9 +1030,14 @@ export const claimReferralRewards = async (
     });
     await tx.wait();
     
+    // Immediately update the stats in the cache
+    updateReferralStatsAfterClaim(userAddress, pendingAmount);
+    
+    isBlockchainError = false; // Success
     return { success: true, txHash: tx.hash };
   } catch (error: any) {
     console.error("Error claiming referral rewards:", error);
+    isBlockchainError = true;
     return { 
       success: false, 
       error: error.reason || error.message || "Error claiming referral rewards" 
@@ -679,15 +1047,37 @@ export const claimReferralRewards = async (
 
 /**
  * Get all badges owned by a user
- * @param address - User's address
- * @returns Array of badges owned by the user
- * FIXED: Added better error handling
+ * MODIFIED: Added database mode support
  */
 export const getUserBadges = async (
   address: string
 ): Promise<{ tokenId: number; tier: number; mintedAt: number }[]> => {
   try {
     if (!address) return [];
+    
+    // If using database mode, fetch from API instead
+    if (isUsingDBMode()) {
+      try {
+        const response = await fetch(`/api/badges/${address}`);
+        if (!response.ok) {
+          console.warn(`API error: ${response.status} ${response.statusText}`);
+          return [];
+        }
+        
+        const data = await response.json();
+        if (data.badges) {
+          return data.badges.map((badge: any) => ({
+            tokenId: badge.tokenId || 0,
+            tier: badge.tier || 0,
+            mintedAt: new Date(badge.mintedAt).getTime() / 1000
+          }));
+        }
+        return [];
+      } catch (apiError) {
+        console.error("API error in getUserBadges:", apiError);
+        return [];
+      }
+    }
     
     // Check cache first
     const cacheKey = getCacheKey('userBadges', address);
@@ -698,7 +1088,10 @@ export const getUserBadges = async (
     }
     
     const provider = getProvider();
-    if (!provider) return [];
+    if (!provider) {
+      isBlockchainError = true;
+      return [];
+    }
   
     const badgeContract = getBadgeContract(provider);
     
@@ -724,6 +1117,7 @@ export const getUserBadges = async (
         });
       } catch (error) {
         console.error(`Error fetching badge ${i}:`, error);
+        isBlockchainError = true;
       }
     }
     
@@ -736,6 +1130,7 @@ export const getUserBadges = async (
     return badges;
   } catch (error) {
     console.error('Error getting user badges:', error);
+    isBlockchainError = true;
     return []; // Return empty array instead of letting the error propagate
   }
 };
@@ -758,7 +1153,7 @@ export const publishMintSuccess = (address: string, tier: number, txHash: string
 
 /**
  * Refresh user data after significant changes
- * FIXED: Added better error handling
+ * MODIFIED: Added database mode support
  */
 export const refreshUserData = async (
   address: string,
@@ -797,6 +1192,7 @@ export const refreshUserData = async (
     };
   } catch (error) {
     console.error("Error refreshing user data:", error);
+    isBlockchainError = true;
     // Set default values in case of error to prevent UI from being stuck
     if (callbacks.setUsername) callbacks.setUsername(null);
     if (callbacks.setHighestTier) callbacks.setHighestTier(-1);

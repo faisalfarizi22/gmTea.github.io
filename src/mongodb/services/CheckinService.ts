@@ -4,6 +4,7 @@ import Checkin from '../models/Checkin';
 import User from '../models/User';
 import PointsHistory from '../models/PointsHistory';
 import WebhookService from './WebhookService';
+import { getCheckInBoost } from '../../utils/pointCalculation';
 
 export default class CheckinService {
   /**
@@ -76,7 +77,8 @@ export default class CheckinService {
     transactionHash: string;
     points: number;
     boost: number;
-    message?: string; // Add message field
+    message?: string; 
+    tierAtCheckin?: number;
   }) {
     await dbConnect();
     
@@ -90,19 +92,33 @@ export default class CheckinService {
     if (existing) {
       return existing;
     }
+
+    let tier = checkinData.tierAtCheckin;
+    let boost = checkinData.boost;
+    let points = checkinData.points;
+    
+    if (tier === undefined || boost === undefined || points === undefined) {
+      const user = await User.findOne({ address });
+      tier = user ? user.get('highestBadgeTier') : -1;
+      boost = getCheckInBoost(tier);
+      points = Math.floor(10 * boost); 
+    }
     
     // Create the checkin
     const checkin = await Checkin.create({
       ...checkinData,
       address,
-      message: checkinData.message || '' // Ensure message is included
+      points,
+      boost,
+      tierAtCheckin: tier,
+      message: checkinData.message || ''
     });
     
     // Update user data
     await User.findOneAndUpdate(
       { address },
       { 
-        $inc: { checkinCount: 1, points: checkinData.points },
+        $inc: { checkinCount: 1, points },
         $set: { lastCheckin: checkinData.blockTimestamp }
       },
       { upsert: true }
@@ -111,10 +127,11 @@ export default class CheckinService {
     // Record points history
     await PointsHistory.create({
       address,
-      points: checkinData.points,
+      points,
       reason: `Check-in #${checkinData.checkinNumber}`,
       source: 'checkin',
-      timestamp: checkinData.blockTimestamp
+      timestamp: checkinData.blockTimestamp,
+      tierAtEvent: tier
     });
     
     // Send webhook event
@@ -122,12 +139,51 @@ export default class CheckinService {
       address,
       checkinNumber: checkinData.checkinNumber,
       blockTimestamp: checkinData.blockTimestamp,
-      points: checkinData.points,
+      points,
       transactionHash: checkinData.transactionHash,
-      message: checkinData.message || '' // Include message in webhook
+      message: checkinData.message || '',
+      tierAtCheckin: tier
     });
     
     return checkin;
+  }
+
+  /**
+   * Recalculate total points for a user based on all historical checkins and their tiers at checkin time
+   */
+  static async recalculateUserPoints(address: string): Promise<number> {
+    await dbConnect();
+    
+    const normalizedAddress = address.toLowerCase();
+    
+    // Get all checkins for this user
+    const checkins = await Checkin.find({ address: normalizedAddress });
+    
+    // Get all points history entries
+    const pointsHistory = await PointsHistory.find({ address: normalizedAddress });
+    
+    // Calculate total points from checkins
+    let totalPoints = 0;
+    
+    // Sum up points from checkins based on the tier at checkin time
+    for (const checkin of checkins) {
+      totalPoints += checkin.points;
+    }
+    
+    // Sum up points from other sources (achievements, referrals, etc.)
+    for (const entry of pointsHistory) {
+      if (entry.source !== 'checkin') { // Skip checkin entries as we already counted them
+        totalPoints += entry.points;
+      }
+    }
+    
+    // Update the user's total points
+    await User.findOneAndUpdate(
+      { address: normalizedAddress },
+      { $set: { points: totalPoints } }
+    );
+    
+    return totalPoints;
   }
 
   /**

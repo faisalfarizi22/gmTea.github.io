@@ -1,60 +1,63 @@
-// src/pages/api/checkins/[address].ts
+// pages/api/checkins/[address].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { CheckinService } from '../../../mongodb/services';
-import { validatePagination, isValidAddress, getSafeErrorMessage } from '../../../mongodb/utils/validators';
-import { formatCheckinForResponse } from '../../../mongodb/utils/formatters';
+import dbConnect from '../../../mongodb/connection';
+import Checkin from '../../../mongodb/models/Checkin';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { address } = req.query;
-    
-    // Validate address
-    if (!address || typeof address !== 'string' || !isValidAddress(address)) {
+    if (!address || typeof address !== 'string') {
       return res.status(400).json({ message: 'Invalid address parameter' });
     }
-    
+
+    await dbConnect();
+    const normalizedAddress = address.toLowerCase();
+
     // Parse pagination parameters
-    const { limit, skip } = validatePagination(
-      req.query.page,
-      req.query.limit,
-      20 // Default 20 checkins per page
-    );
-    
-    // Get user's checkins
-    const checkins = await CheckinService.getUserCheckins(address, limit, skip);
-    
-    // Get total count for pagination info
-    const totalCount = await CheckinService.getUserCheckinCount(address);
-    
-    // Format checkins for response
+    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const skip = (page - 1) * limit;
+
+    // Get checkins
+    const checkins = await Checkin.find({ address: normalizedAddress })
+      .sort({ blockTimestamp: -1 }) // Most recent first
+      .skip(skip)
+      .limit(limit);
+
+    // Count total checkins
+    const total = await Checkin.countDocuments({ address: normalizedAddress });
+
+    // Format the response
     const formattedCheckins = checkins.map(checkin => ({
-      ...formatCheckinForResponse(checkin),
-      message: checkin.message || '' // Include the GM message in the response
+      checkinNumber: checkin.checkinNumber,
+      timestamp: checkin.blockTimestamp,
+      points: checkin.points || 10, // Fallback to base points if not set
+      message: checkin.message || '',
+      blockNumber: checkin.blockNumber,
+      boost: checkin.boost || 1.0,
+      tierAtCheckin: checkin.tierAtCheckin || -1,
+      transactionHash: checkin.transactionHash
     }));
-    
-    // Add cache control headers
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
-    
+
+    // Return result
     return res.status(200).json({
       checkins: formattedCheckins,
-      pagination: {
-        total: totalCount,
+      stats: {
+        total,
+        page,
         limit,
-        skip,
-        hasMore: skip + checkins.length < totalCount
+        pages: Math.ceil(total / limit)
       }
     });
-    
   } catch (error) {
-    console.error('Error in checkins API:', error);
-    return res.status(500).json({ message: getSafeErrorMessage(error) });
+    console.error('Error fetching checkins:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }

@@ -1,83 +1,90 @@
-// src/pages/api/points/[address].ts
+// pages/api/points/[address].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { PointsService } from '../../../mongodb/services';
-import { isValidAddress, validatePagination, getSafeErrorMessage } from '../../../mongodb/utils/validators';
-import { formatTimestamp } from '../../../mongodb/utils/formatters';
+import { docVal } from '../../../mongodb/utils/documentHelper';
+import Checkin from '../../../mongodb/models/Checkin';
+import User from '../../../mongodb/models/User';
+import Badge from '../../../mongodb/models/Badge';
+import PointsHistory from '../../../mongodb/models/PointsHistory';
+import { getCheckInBoost } from '../../../utils/pointCalculation';
+import dbConnect from '../../../mongodb/connection';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { address } = req.query;
-    
-    // Validate address
-    if (!address || typeof address !== 'string' || !isValidAddress(address)) {
+    if (!address || typeof address !== 'string') {
       return res.status(400).json({ message: 'Invalid address parameter' });
     }
-    
-    // Parse pagination parameters for history
-    const { limit, skip } = validatePagination(
-      req.query.page,
-      req.query.limit,
-      20 // Default 20 history entries per page
-    );
-    
-    // Get user's total points
-    const totalPoints = await PointsService.getUserTotalPoints(address);
-    
-    // Get user's rank
-    const rank = await PointsService.getUserRank(address);
-    
-    // Get points breakdown by category
-    const breakdown = await PointsService.getUserPointsBreakdown(address);
-    
-    // Get points history if requested
-    let history: { points: number; reason: string; source: "checkin" | "achievement" | "referral" | "other"; timestamp: string; }[] = [];
-    let hasMoreHistory = false;
-    
-    if (req.query.history === 'true') {
-      const pointsHistory = await PointsService.getUserPointsHistory(address, limit, skip);
-      
-      // Format history for response
-      history = pointsHistory.map(entry => ({
-        points: entry.points,
-        reason: entry.reason,
-        source: entry.source,
-        timestamp: formatTimestamp(entry.timestamp)
-      }));
-      
-      // Check if there are more history entries
-      const totalHistory = await PointsService.getUserPointsHistoryCount(address);
-      hasMoreHistory = skip + pointsHistory.length < totalHistory;
+
+    await dbConnect();
+    const normalizedAddress = address.toLowerCase();
+
+    // Get user data
+    const user = await User.findOne({ address: normalizedAddress });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
+
+    // Get checkins to calculate points
+    const checkins = await Checkin.find({ address: normalizedAddress });
     
-    // Add cache control headers
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
-    
-    return res.status(200).json({
-      points: {
-        total: totalPoints,
-        rank,
-        breakdown
-      },
-      history: req.query.history === 'true' ? {
-        entries: history,
-        pagination: {
-          limit,
-          skip,
-          hasMore: hasMoreHistory
+    // Calculate total checkin points by summing points from each checkin
+    const checkinPoints = checkins.reduce((sum, checkin) => {
+      return sum + (checkin.points || 10); // Fallback to 10 if points not set
+    }, 0);
+
+    // Calculate achievement points
+    const checkinCount = user.checkinCount || checkins.length;
+    let achievementPoints = 0;
+    if (checkinCount >= 1) achievementPoints += 50;
+    if (checkinCount >= 7) achievementPoints += 50;
+    if (checkinCount >= 50) achievementPoints += 50;
+    if (checkinCount >= 100) achievementPoints += 200;
+
+    // Get badge tier points
+    const highestBadgeTier = user.highestBadgeTier || -1;
+    const tierPoints = [20, 30, 50, 70, 100];
+    const badgePoints = highestBadgeTier >= 0 && highestBadgeTier < tierPoints.length 
+      ? tierPoints[highestBadgeTier] 
+      : 0;
+
+    // Calculate total points
+    const totalPoints = checkinPoints + achievementPoints + badgePoints;
+
+    // Get breakdown by source from PointsHistory
+    const pointsBySource = await PointsHistory.aggregate([
+      { $match: { address: normalizedAddress } },
+      { $group: { 
+          _id: "$source", 
+          points: { $sum: "$points" } 
         }
-      } : undefined
-    });
-    
+      }
+    ]);
+
+    // Format response
+    const response = {
+      total: totalPoints,
+      breakdown: {
+        checkins: checkinPoints,
+        achievements: achievementPoints,
+        badges: badgePoints
+      },
+      sources: pointsBySource.map(item => ({
+        source: item._id,
+        points: item.points
+      }))
+    };
+
+    // Return the response
+    return res.status(200).json(response);
   } catch (error) {
-    console.error('Error in points API:', error);
-    return res.status(500).json({ message: getSafeErrorMessage(error) });
+    console.error('Error fetching points data:', error);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }

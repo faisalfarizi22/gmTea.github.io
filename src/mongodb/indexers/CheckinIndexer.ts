@@ -8,6 +8,7 @@ import PointsHistory from '../models/PointsHistory';
 import WebhookService from '../services/WebhookService';
 import GMOnchainABI from '../../abis/GMOnchainABI.json';
 import { CONTRACT_ADDRESS, DEPLOY_BLOCK } from '../../utils/constants';
+import { getCheckInBoost } from '../../utils/pointCalculation';
 
 export default class CheckinIndexer {
   private provider: ethers.providers.Provider;
@@ -231,13 +232,8 @@ export default class CheckinIndexer {
       const user = await User.findOne({ address: userAddress });
       const tier = user ? user.get('highestBadgeTier') : -1;
       
-      // Calculate boost based on tier
-      let boost = 1.0;
-      if (tier >= 0) {
-        // This should match your boost calculation in getCheckInBoost function
-        const boosts = [1.1, 1.2, 1.3, 1.4, 1.5]; // Common, Uncommon, Rare, Epic, Legendary
-        boost = boosts[Math.min(tier, boosts.length - 1)];
-      }
+      // Calculate boost based on tier using the utility function
+      const boost = getCheckInBoost(tier);
       
       // Calculate final points with boost
       const basePoints = 10;
@@ -252,7 +248,8 @@ export default class CheckinIndexer {
         transactionHash: log.transactionHash,
         points,
         boost,
-        message // Save the message too
+        message, // Save the message too
+        tierAtCheckin: tier // Save the tier at the time of checkin
       });
       
       console.log(`Created checkin record for ${userAddress}, checkin #${checkinNumber}`);
@@ -273,7 +270,8 @@ export default class CheckinIndexer {
         points,
         reason: `Check-in #${checkinNumber}`,
         source: 'checkin',
-        timestamp: new Date(timestamp * 1000)
+        timestamp: new Date(timestamp * 1000),
+        tierAtEvent: tier // Store the tier at time of event
       });
       
       // Send webhook event
@@ -283,7 +281,8 @@ export default class CheckinIndexer {
         blockTimestamp: new Date(timestamp * 1000),
         points,
         transactionHash: log.transactionHash,
-        message
+        message,
+        tierAtCheckin: tier // Include tier info
       });
       
     } catch (error) {

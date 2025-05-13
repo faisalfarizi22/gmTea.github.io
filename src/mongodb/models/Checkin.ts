@@ -10,7 +10,8 @@ export interface ICheckin extends Document {
   transactionHash: string;
   points: number;
   boost: number;
-  message: string; // Added message field
+  message: string;
+  tierAtCheckin: number;
 }
 
 // Define the schema
@@ -19,7 +20,7 @@ const CheckinSchema = new mongoose.Schema({
     type: String, 
     required: true,
     lowercase: true,
-    index: true // Index by address
+    index: true 
   },
   checkinNumber: {
     type: Number,
@@ -51,6 +52,11 @@ const CheckinSchema = new mongoose.Schema({
   message: {
     type: String,
     default: '' // GM message
+  },
+  tierAtCheckin: {
+    type: Number,
+    default: -1, // -1 means no badge at time of checkin
+    index: true
   }
 }, { timestamps: true });
 

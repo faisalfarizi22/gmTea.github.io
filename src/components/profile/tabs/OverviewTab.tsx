@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { FaCheckCircle, FaTrophy, FaGem, FaMedal, FaLink, FaAward, FaChevronRight } from "react-icons/fa"
-import { calculateTotalPoints } from "../utils/pointCalculation"
+import { getCheckInBoost, calculateAchievementPoints, calculateBadgePoints } from "@/utils/pointCalculation"
+import { useDBData } from '@/hooks/useDBData'
 
 interface OverviewTabProps {
   address: string; 
@@ -27,33 +28,43 @@ export default function OverviewTab({
   activeBenefits
 }: OverviewTabProps) {
   const [totalPoints, setTotalPoints] = useState<number>(0)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+
+  // Fetch points data directly from API
+  const { data: pointsData, isLoading: pointsLoading } = useDBData<{
+    total: number;
+    breakdown: { 
+      checkins: number;
+      achievements: number;
+      badges: number;
+    };
+  }>(`/api/points/${address}`);
   
-  // Calculate points based on user metrics
+  // Use data from API or calculate if not available
   useEffect(() => {
-    // Basic points calculation - will be filled with actual data from API
-    const basePoints = checkinCount * 10;
-    const achievementPoints = calculateAchievementPoints(checkinCount);
-    const leaderboardBonus = (leaderboardRank > 0 && leaderboardRank <= 10) ? 100 : 0;
-    const badgePoints = calculateBadgePoints(highestTier);
-    
-    setTotalPoints(basePoints + achievementPoints + leaderboardBonus + badgePoints);
-  }, [checkinCount, leaderboardRank, highestTier]);
-  
-  // Helper function for achievement points calculation
-  const calculateAchievementPoints = (checkinCount: number): number => {
-    let points = 0;
-    if (checkinCount >= 1) points += 50;
-    if (checkinCount >= 7) points += 50;
-    if (checkinCount >= 50) points += 50;
-    if (checkinCount >= 100) points += 200;
-    return points;
-  };
-  
-  // Helper function for badge points calculation
-  const calculateBadgePoints = (highestTier: number): number => {
-    const tierPoints = [100, 250, 500, 1000, 2000];
-    return highestTier >= 0 && highestTier < tierPoints.length ? tierPoints[highestTier] : 0;
-  };
+    if (pointsData && pointsData.total !== undefined) {
+      // Use total from API if available
+      setTotalPoints(pointsData.total);
+      setIsLoading(false);
+      console.log("Using points from API:", pointsData.total);
+    } else if (!pointsLoading) {
+      // Calculate points if API doesn't provide or is not available
+      const baseCheckinPoints = checkinCount * 10;
+      const achievementPoints = calculateAchievementPoints(checkinCount);
+      const badgePoints = calculateBadgePoints(highestTier);
+      
+      // Calculate total (no leaderboard bonus anymore)
+      const total = baseCheckinPoints + achievementPoints + badgePoints;
+      
+      setTotalPoints(total);
+      setIsLoading(false);
+      console.log("Calculated points locally:", total, {
+        baseCheckinPoints,
+        achievementPoints,
+        badgePoints
+      });
+    }
+  }, [pointsData, pointsLoading, address, checkinCount, highestTier]);
 
   return (
     <motion.div
@@ -111,7 +122,11 @@ export default function OverviewTab({
             <FaGem className="mr-2 h-3 w-3" /> Total Points
           </h3>
           <p className="text-3xl font-bold text-teal-600 dark:text-emerald-300">
-            {totalPoints.toLocaleString()}
+            {isLoading ? (
+              <span className="text-base opacity-60">Loading...</span>
+            ) : (
+              (totalPoints || 0).toLocaleString()
+            )}
           </p>
           <div className="text-xs text-teal-600/70 dark:text-emerald-400/70 mt-1">
             Click for detailed breakdown

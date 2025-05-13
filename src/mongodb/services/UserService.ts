@@ -1,4 +1,4 @@
-// src/mongodb/services/UserService.ts
+// src/mongodb/services/UserService.ts (Updated)
 import dbConnect from '../connection';
 import { docVal } from '../utils/documentHelper';
 import User from '../models/User';
@@ -90,12 +90,12 @@ export default class UserService {
   }
   
   /**
-   * Get top users by points (leaderboard)
+   * Get top users by check-in count (leaderboard)
    */
   static async getLeaderboard(limit: number = 10, skip: number = 0): Promise<IUser[]> {
     await dbConnect();
     return User.find()
-      .sort({ points: -1 })
+      .sort({ checkinCount: -1 })
       .skip(skip)
       .limit(limit);
   }
@@ -156,13 +156,17 @@ export default class UserService {
     hasUsername,
     search,
     limit = 20,
-    skip = 0
+    skip = 0,
+    sortBy = 'points',
+    sortOrder = 'desc'
   }: {
     hasBadge?: boolean;
     hasUsername?: boolean;
     search?: string;
     limit?: number;
     skip?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }): Promise<any[]> {
     await dbConnect();
     
@@ -187,10 +191,24 @@ export default class UserService {
       }
     }
     
+    // Build sort object
+    const sort: any = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
     return User.find(filter)
-      .sort({ points: -1 }) // Sort by points descending
+      .sort(sort)
       .skip(skip)
       .limit(limit);
   }
   
+  /**
+   * Count users with higher check-in count
+   */
+  static async countUsersWithHigherCheckins(checkinCount: number): Promise<number> {
+    await dbConnect();
+    
+    return User.countDocuments({
+      checkinCount: { $gt: checkinCount }
+    });
+  }
 }

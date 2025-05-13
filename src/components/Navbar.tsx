@@ -298,7 +298,7 @@ const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-10 transition-all duration-500 ${
+        className={`fixed top-0 left-0 right-0 z-20 transition-all duration-500 ${
           scrolled ? "bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-md" : "bg-transparent"
         }`}
       >

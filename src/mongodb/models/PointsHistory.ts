@@ -8,6 +8,7 @@ export interface IPointsHistory extends Document {
   reason: string;
   source: 'checkin' | 'achievement' | 'referral' | 'other';
   timestamp: Date;
+  tierAtEvent: number;
 }
 
 // Define the schema
@@ -34,6 +35,11 @@ const PointsHistorySchema = new mongoose.Schema({
   timestamp: {
     type: Date,
     default: Date.now,
+    index: true
+  },
+  tierAtCheckin: {
+    type: Number,
+    default: -1,
     index: true
   }
 }, { timestamps: true });

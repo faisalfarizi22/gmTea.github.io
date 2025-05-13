@@ -3,11 +3,12 @@ import { ethers } from 'ethers';
 import dbConnect from '../connection';
 import SyncStatus from '../models/SyncStatus';
 import Badge from '../models/Badge';
-import BadgeService from '../services/BadgeService';
-import UserService from '../services/UserService';
+import User from '../models/User';
+import PointsHistory from '../models/PointsHistory';
+import CheckinService from '../services/CheckinService';
+import WebhookService from '../services/WebhookService';
 import { BADGE_CONTRACT_ADDRESS, DEPLOY_BLOCK } from '../../utils/constants';
 import GMTeaBadgeABI from '../../abis/GMTeaBadgeABI.json';
-import { User } from '../models';
 
 export default class BadgeIndexer {
   private provider: ethers.providers.Provider;
@@ -171,128 +172,88 @@ export default class BadgeIndexer {
   }
 
   /**
-   * Process a single badge mint log
+   * Process a badge mint event
    */
   private async processBadgeMintLog(log: ethers.providers.Log): Promise<void> {
     try {
-      console.log(`Processing log: ${log.transactionHash} - ${log.logIndex}`);
+      // Parse the log
+      const parsedLog = this.contract.interface.parseLog(log);
       
-      // Try to parse the log
-      let parsedLog;
-      try {
-        parsedLog = this.contract.interface.parseLog(log);
-      } catch (error) {
-        console.error(`Failed to parse log ${log.transactionHash}:`, error);
-        // If parsing fails, try to get the transaction receipt and decode manually
-        const tx = await this.provider.getTransaction(log.transactionHash);
-        if (tx && tx.to && tx.to.toLowerCase() === this.contractAddress.toLowerCase()) {
-          console.log(`Attempting manual decode for tx ${log.transactionHash}`);
-          // Attempt to decode input data
-          try {
-            const decodedData = this.contract.interface.decodeFunctionData('mintBadge', tx.data);
-            console.log(`Decoded mintBadge transaction data:`, decodedData);
-          } catch (e) {
-            console.log(`Failed to decode transaction input: ${e}`);
-          }
-        }
-        return;
-      }
+      // Extract data from the log
+      const to = parsedLog.args.to.toLowerCase();
+      const tokenId = parsedLog.args.tokenId.toNumber();
+      const tier = parsedLog.args.tier; // Tier is provided in the event
       
-      // Verify this is a BadgeMinted event
-      if (parsedLog.name !== 'BadgeMinted') {
-        console.log(`Skipping non-BadgeMinted event: ${parsedLog.name}`);
-        return;
-      }
-      
-      // Debug event data
-      console.log(`Event data:`, parsedLog.args);
-      
-      // Extract data from the log safely
-      const owner = parsedLog.args.to?.toLowerCase() || parsedLog.args[0]?.toLowerCase();
-      let tokenId, tier, referrer;
-      
-      // Handle different argument structures
-      if (parsedLog.args.tokenId !== undefined) {
-        tokenId = typeof parsedLog.args.tokenId.toNumber === 'function' 
-          ? parsedLog.args.tokenId.toNumber() 
-          : Number(parsedLog.args.tokenId);
-      } else if (parsedLog.args[1] !== undefined) {
-        tokenId = typeof parsedLog.args[1].toNumber === 'function'
-          ? parsedLog.args[1].toNumber()
-          : Number(parsedLog.args[1]);
-      }
-      
-      if (parsedLog.args.tier !== undefined) {
-        tier = typeof parsedLog.args.tier.toNumber === 'function'
-          ? parsedLog.args.tier.toNumber()
-          : Number(parsedLog.args.tier);
-      } else if (parsedLog.args[2] !== undefined) {
-        tier = typeof parsedLog.args[2].toNumber === 'function'
-          ? parsedLog.args[2].toNumber()
-          : Number(parsedLog.args[2]);
-      }
-      
-      referrer = (parsedLog.args.referrer || parsedLog.args[3] || ethers.constants.AddressZero);
-      const referrerAddress = referrer !== ethers.constants.AddressZero ? referrer.toLowerCase() : null;
-      
-      console.log(`Parsed event data - Owner: ${owner}, TokenId: ${tokenId}, Tier: ${tier}, Referrer: ${referrerAddress}`);
-      
-      // Validate required data
-      if (!owner || tokenId === undefined || tier === undefined) {
-        console.error('Invalid event data:', parsedLog.args);
-        return;
-      }
-      
-      // Get block timestamp
+      // Get block for timestamp
       const block = await this.provider.getBlock(log.blockNumber);
-      const timestamp = block.timestamp;
+      const blockTimestamp = block.timestamp;
       
-      // Check if this badge already exists in the database
-      const existingBadge = await Badge.findOne({ tokenId: tokenId });
-      
-      if (existingBadge) {
-        console.log(`Badge ${tokenId} already indexed, updating referrer if needed`);
-        
-        // Update referrer if it was null but is now available
-        if (!existingBadge.referrer && referrerAddress) {
-          await Badge.updateOne(
-            { tokenId: tokenId },
-            { $set: { referrer: referrerAddress } }
-          );
-          console.log(`Updated referrer for badge ${tokenId} to ${referrerAddress}`);
-        }
+      // Check if this badge already exists
+      const existing = await Badge.findOne({ tokenId });
+      if (existing) {
         return;
       }
       
-      console.log(`Saving new badge ${tokenId} for owner ${owner}`);
-      
-      // Save the badge mint
-      const savedBadge = await BadgeService.saveBadgeMint({
+      // Create badge record
+      const badge = await Badge.create({
         tokenId,
-        owner,
         tier,
-        mintedAt: new Date(timestamp * 1000),
-        transactionHash: log.transactionHash,
-        referrer: referrerAddress
+        owner: to,
+        mintedAt: new Date(blockTimestamp * 1000),
+        transactionHash: log.transactionHash
       });
       
-      console.log(`Successfully saved badge ${tokenId}:`, savedBadge);
+      console.log(`Created badge record for token #${tokenId}, tier ${tier}`);
       
-      // Update user's highest tier
-      try {
-        const user = await User.findOne({ address: owner });
-        const currentTier = user ? user.highestBadgeTier : -1;
+      // Update user's highest badge tier if needed
+      const user = await User.findOne({ address: to });
+      const currentHighestTier = user ? user.highestBadgeTier : -1;
+      
+      // Only update if the new badge is a higher tier
+      if (tier > currentHighestTier) {
+        await User.findOneAndUpdate(
+          { address: to },
+          { $set: { highestBadgeTier: tier } },
+          { upsert: true }
+        );
         
-        if (tier > currentTier) {
-          await UserService.updateHighestBadgeTier(owner, tier);
-          console.log(`Updated highest tier for ${owner} to ${tier}`);
+        // Add badge points to user
+        const tierPoints = [20, 30, 50, 70, 100]; // Updated badge points values
+        const badgePoints = tier >= 0 && tier < tierPoints.length ? tierPoints[tier] : 0;
+        
+        if (badgePoints > 0) {
+          // Add badge points to user's total
+          await User.findOneAndUpdate(
+            { address: to },
+            { $inc: { points: badgePoints } }
+          );
+          
+          // Record points history
+          await PointsHistory.create({
+            address: to,
+            points: badgePoints,
+            reason: `Badge Tier ${tier} Earned`,
+            source: 'achievement',
+            timestamp: new Date(blockTimestamp * 1000),
+            tierAtEvent: tier
+          });
         }
-      } catch (error) {
-        console.error(`Error updating user tier:`, error);
+        
+        // IMPORTANT: Do NOT recalculate previous checkin points - we only apply the new tier to future checkins
+        console.log(`Updated highest badge tier for ${to} to ${tier}`);
       }
       
+      // Send webhook event
+      await WebhookService.sendBadgeMintEvent(to, {
+        address: to,
+        tokenId,
+        tier,
+        transactionHash: log.transactionHash,
+        mintedAt: new Date(blockTimestamp * 1000)
+      });
+      
     } catch (error) {
-      console.error(`Error processing badge mint log:`, error);
+      console.error(`Error processing badge mint:`, error);
     }
   }
 

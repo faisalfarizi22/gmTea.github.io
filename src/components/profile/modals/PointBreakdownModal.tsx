@@ -24,7 +24,8 @@ interface CheckInHistoryItem {
   points: number;
   message?: string;
   blockNumber?: number;
-  boost?: number | string;
+  boost?: number;
+  tierAtCheckin?: number; // Add the tier at check-in field
 }
 
 export default function PointsBreakdownModal({
@@ -51,22 +52,43 @@ export default function PointsBreakdownModal({
   
   // Process data when fetched
   useEffect(() => {
-    if (!checkinsLoading && !pointsLoading && checkinsData && pointsData) {
-      // Set total points
-      setTotalPoints(pointsData.total);
+    if (!checkinsLoading && !pointsLoading) {
+      console.log("Data from API:", { checkinsData, pointsData });
+      
+      // Set total points from API or calculate if not available
+      if (pointsData && pointsData.total !== undefined) {
+        setTotalPoints(pointsData.total);
+        console.log("Setting total points from API:", pointsData.total);
+      } else {
+        // Calculate total if not provided by API
+        const baseCheckinPoints = checkinCount * 10;
+        const calculatedAchievementPoints = calculateAchievementPoints();
+        const calculatedBadgePoints = highestTier >= 0 ? [20, 30, 50, 70, 100][highestTier] : 0;
+        const calculatedTotal = baseCheckinPoints + calculatedAchievementPoints + calculatedBadgePoints;
+        
+        setTotalPoints(calculatedTotal);
+        console.log("Calculated total points:", calculatedTotal, {
+          baseCheckinPoints,
+          calculatedAchievementPoints,
+          calculatedBadgePoints
+        });
+      }
       
       // Set check-in history
-      if (checkinsData.checkins) {
+      if (checkinsData && checkinsData.checkins) {
         // Sort by check-in number, newest first
         const sortedCheckins = [...checkinsData.checkins]
           .sort((a, b) => b.checkinNumber - a.checkinNumber);
           
         setCheckInHistory(sortedCheckins);
+        console.log("Sorted checkin history:", sortedCheckins);
+      } else {
+        console.log("No checkin data available");
       }
       
       setIsLoading(false);
     }
-  }, [checkinsData, pointsData, checkinsLoading, pointsLoading]);
+  }, [checkinsData, pointsData, checkinsLoading, pointsLoading, checkinCount, highestTier]);
   
   // Helper to format timestamp
   const formatTimestamp = (timestamp: string) => {
@@ -93,9 +115,17 @@ export default function PointsBreakdownModal({
     return points
   }
   
-  // Compute leaderboard points
-  const calculateLeaderboardPoints = (): number => {
-    return (leaderboardRank > 0 && leaderboardRank <= 10) ? 100 : 0
+  // Helper to determine tier from boost if tierAtCheckin not available
+  const getTierFromBoost = (boost: number | undefined): number => {
+    if (!boost || boost <= 1) return -1;
+    
+    if (boost >= 1.5) return 4; // Legendary
+    if (boost >= 1.4) return 3; // Epic
+    if (boost >= 1.3) return 2; // Rare
+    if (boost >= 1.2) return 1; // Uncommon
+    if (boost >= 1.1) return 0; // Common
+    
+    return -1; // No badge
   }
   
   if (isLoading) {
@@ -112,7 +142,9 @@ export default function PointsBreakdownModal({
   }
   
   const achievementPoints = calculateAchievementPoints()
-  const leaderboardPoints = calculateLeaderboardPoints()
+  
+  // Updated to use badge points instead of leaderboard points
+  const badgePoints = highestTier >= 0 ? [20, 30, 50, 70, 100][highestTier] : 0;
   
   // Get check-ins breakdown by badge tier
   const getCheckInBreakdownByTier = () => {
@@ -126,35 +158,18 @@ export default function PointsBreakdownModal({
     
     // Count check-ins and points per tier
     checkInHistory.forEach((checkIn: CheckInHistoryItem) => {
-      // Try to determine tier from boost
-      let tierFromBoost = -1;
-      if (typeof checkIn.boost === 'string') {
-        const boostMatch = checkIn.boost.match(/([0-9.]+)x/);
-        if (boostMatch) {
-          const boostValue = parseFloat(boostMatch[1]);
-          // Map boost to tier
-          if (boostValue >= 1.5) tierFromBoost = 4;
-          else if (boostValue >= 1.4) tierFromBoost = 3;
-          else if (boostValue >= 1.3) tierFromBoost = 2;
-          else if (boostValue >= 1.2) tierFromBoost = 1;
-          else if (boostValue >= 1.1) tierFromBoost = 0;
-        }
-      } else if (typeof checkIn.boost === 'number') {
-        // Map boost to tier
-        if (checkIn.boost >= 1.5) tierFromBoost = 4;
-        else if (checkIn.boost >= 1.4) tierFromBoost = 3;
-        else if (checkIn.boost >= 1.3) tierFromBoost = 2;
-        else if (checkIn.boost >= 1.2) tierFromBoost = 1;
-        else if (checkIn.boost >= 1.1) tierFromBoost = 0;
-      }
+      // Determine the tier at check-in time
+      let tierAtCheckin = checkIn.tierAtCheckin !== undefined 
+        ? checkIn.tierAtCheckin 
+        : getTierFromBoost(checkIn.boost);
       
       // Assign to proper tier bucket
-      if (tierFromBoost < 0) {
+      if (tierAtCheckin < 0) {
         tierCounts['noTier'].count++;
-        tierCounts['noTier'].points += checkIn.points;
+        tierCounts['noTier'].points += (checkIn.points || 0);
       } else {
-        tierCounts[tierFromBoost].count++;
-        tierCounts[tierFromBoost].points += checkIn.points;
+        tierCounts[tierAtCheckin].count++;
+        tierCounts[tierAtCheckin].points += (checkIn.points || 0);
       }
     });
     
@@ -180,10 +195,14 @@ export default function PointsBreakdownModal({
             points
           };
         }
-      });
+      })
+      .sort((a, b) => b.tier - a.tier); // Sort by tier, highest first
   };
   
   const tierBreakdown = getCheckInBreakdownByTier();
+  
+  // Calculate sum of checkin points
+  const checkinPointsTotal = checkInHistory.reduce((sum: number, checkIn: CheckInHistoryItem) => sum + (checkIn.points || 0), 0);
   
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto backdrop-blur-sm">
@@ -228,7 +247,7 @@ export default function PointsBreakdownModal({
                 <div>
                   <p className="text-xs text-emerald-600 dark:text-emerald-300 uppercase tracking-wider font-medium">Total Points</p>
                   <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
-                    {totalPoints.toLocaleString()}
+                    {(totalPoints || 0).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -250,27 +269,10 @@ export default function PointsBreakdownModal({
                 <div className="h-48 overflow-y-auto pr-2 custom-scrollbar space-y-2">
                   {checkInHistory.slice(0, 10).map((checkIn, index) => {
                     const { date } = formatTimestamp(checkIn.timestamp);
-                    // Determine tier from boost
-                    let checkInTier = -1;
-                    if (typeof checkIn.boost === 'string') {
-                      const boostMatch = checkIn.boost.match(/([0-9.]+)x/);
-                      if (boostMatch) {
-                        const boostValue = parseFloat(boostMatch[1]);
-                        // Map boost to tier
-                        if (boostValue >= 1.5) checkInTier = 4;
-                        else if (boostValue >= 1.4) checkInTier = 3;
-                        else if (boostValue >= 1.3) checkInTier = 2;
-                        else if (boostValue >= 1.2) checkInTier = 1;
-                        else if (boostValue >= 1.1) checkInTier = 0;
-                      }
-                    } else if (typeof checkIn.boost === 'number' && checkIn.boost > 1) {
-                      // Map boost to tier
-                      if (checkIn.boost >= 1.5) checkInTier = 4;
-                      else if (checkIn.boost >= 1.4) checkInTier = 3;
-                      else if (checkIn.boost >= 1.3) checkInTier = 2;
-                      else if (checkIn.boost >= 1.2) checkInTier = 1;
-                      else if (checkIn.boost >= 1.1) checkInTier = 0;
-                    }
+                    // Determine tier from tierAtCheckin field or boost
+                    const checkInTier = checkIn.tierAtCheckin !== undefined 
+                      ? checkIn.tierAtCheckin 
+                      : getTierFromBoost(checkIn.boost);
                     
                     return (
                       <motion.div
@@ -290,6 +292,7 @@ export default function PointsBreakdownModal({
                                 <div 
                                   className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-gray-800"
                                   style={{ background: getTierColor(checkInTier) }}
+                                  title={`${TIER_NAMES[checkInTier]} tier active at check-in time`}
                                 ></div>
                               )}
                             </div>
@@ -304,11 +307,11 @@ export default function PointsBreakdownModal({
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-emerald-600 dark:text-emerald-400">
-                              +{checkIn.points}
+                              +{checkIn.points || 0}
                             </p>
                             <p className="text-2xs text-gray-500 dark:text-gray-400">
-                              {checkIn.boost ? (
-                                <span>({checkIn.boost})</span>
+                              {checkIn.boost && checkIn.boost > 1 ? (
+                                <span>({typeof checkIn.boost === 'number' ? checkIn.boost.toFixed(1) : checkIn.boost}x)</span>
                               ) : (
                                 <span>base points</span>
                               )}
@@ -371,7 +374,7 @@ export default function PointsBreakdownModal({
                 </div>
               </motion.div>
               
-              {/* Leaderboard card */}
+              {/* Badge Points Card (replacing Leaderboard card) */}
               <motion.div 
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -380,22 +383,22 @@ export default function PointsBreakdownModal({
               >
                 <div className="flex items-center mb-2">
                   <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                    <FaTrophy className="h-3 w-3" />
+                    <FaMedal className="h-3 w-3" />
                   </div>
-                  <h5 className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-200">Leaderboard</h5>
+                  <h5 className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-200">Badge Bonus</h5>
                 </div>
-                {leaderboardRank > 0 ? (
+                {highestTier >= 0 ? (
                   <>
                     <p className="text-base font-bold text-purple-600 dark:text-purple-400">
-                      #{leaderboardRank}
-                      <span className="text-xs font-normal text-purple-500/70 dark:text-purple-400/70 ml-1">rank</span>
+                      {badgePoints}
+                      <span className="text-xs font-normal text-purple-500/70 dark:text-purple-400/70 ml-1">points</span>
                     </p>
                     <p className="text-2xs text-gray-500 dark:text-gray-400 mt-1">
-                      {leaderboardPoints > 0 ? `+${leaderboardPoints} bonus points` : 'Keep climbing!'}
+                      {TIER_NAMES[highestTier]} tier badge bonus
                     </p>
                   </>
                 ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Not ranked yet</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">No badge bonus yet</p>
                 )}
               </motion.div>
             </div>
@@ -408,7 +411,7 @@ export default function PointsBreakdownModal({
                 transition={{ duration: 0.3, delay: 0.4 }}
                 className="bg-white dark:bg-gray-800/60 rounded-xl p-3 border border-gray-100 dark:border-gray-700/30"
               >
-                <h5 className="text-xs font-medium text-gray-800 dark:text-white mb-2">Tier Breakdown</h5>
+                <h5 className="text-xs font-medium text-gray-800 dark:text-white mb-2">Check-in Tier Breakdown</h5>
                 
                 <div className="space-y-1.5">
                   {/* Display tier breakdown */}
@@ -431,7 +434,7 @@ export default function PointsBreakdownModal({
                           {tierData.count}×
                         </span>
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                          {tierData.points}
+                          {tierData.points || 0}
                         </span>
                       </div>
                     </div>
@@ -451,33 +454,46 @@ export default function PointsBreakdownModal({
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Check-ins:</span>
                     <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                      {checkInHistory.reduce((sum: number, checkIn: CheckInHistoryItem) => sum + checkIn.points, 0)}
+                      {checkinPointsTotal || 0}
                     </span>
                   </div>
                   
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Achievements:</span>
                     <span className="font-medium text-amber-600 dark:text-amber-400">
-                      +{achievementPoints}
+                      {achievementPoints || 0}
                     </span>
                   </div>
                   
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Leaderboard:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Badge Bonus:</span>
                     <span className="font-medium text-purple-600 dark:text-purple-400">
-                      +{leaderboardPoints}
+                      {badgePoints || 0}
                     </span>
                   </div>
                   
                   <div className="pt-1 border-t border-gray-100 dark:border-gray-700 flex justify-between">
                     <span className="font-medium text-gray-800 dark:text-white">Total:</span>
                     <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {totalPoints}
+                      {totalPoints || 0}
                     </span>
                   </div>
                 </div>
               </motion.div>
             </div>
+            
+            {/* Explanation */}
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.6 }}
+              className="mt-3 bg-gray-50 dark:bg-gray-800/30 rounded-xl p-3 border border-gray-100 dark:border-gray-700/30"
+            >
+              <h5 className="text-xs font-medium text-gray-800 dark:text-white mb-1">How Points Work</h5>
+              <p className="text-2xs text-gray-600 dark:text-gray-400">
+                Each check-in earns 10 base points. Your badge tier at the time of check-in gives a boost multiplier. Upgrading your badge only affects future check-ins - past check-ins keep their original points based on your tier at that time.
+              </p>
+            </motion.div>
             
             {/* Close button */}
             <div className="mt-4">

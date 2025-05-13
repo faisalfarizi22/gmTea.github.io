@@ -22,9 +22,18 @@ export default function ProfilePageRoute() {
         <meta name="twitter:title" content="Digital Profile | GM TEA" />
         <meta name="twitter:description" content="View your GM TEA digital profile, badges, and achievements" />
       </Head>
-
+      {/* Contracts section with Coming Soon overlay */}
+      <div className="relative">
+        {/* Coming Soon Overlay for Contracts */}
+        <div className="absolute inset-0 z-10 backdrop-blur-lg bg-emerald-900/40 flex items-center justify-center rounded-lg">
+          <div className="text-center">
+            <h2 className="text-emerald-300 text-xl font-bold tracking-wider">COMING SOON</h2>
+            <p className="text-emerald-200/80 mt-1 text-sm">under development</p>
+          </div>
+        </div>
       {/* ProfilePage component handles all the profile UI and logic */}
       <ProfilePage />
+      </div>
     
     </>
   )

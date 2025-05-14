@@ -22,7 +22,6 @@ import {
   FaGem,
 } from "react-icons/fa"
 
-import BadgeMintSection from "@/components/BadgeMintSection"
 import { useRouter } from "next/router"
 import AudioPlayer from "@/components/AudioPlayer"
 import { motion, AnimatePresence } from "framer-motion"
@@ -724,81 +723,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Badge Mint Section */}
-        {web3State.isConnected && (
-          <div ref={badgeMintSectionRef} className="badge-mint-section" data-section="badge-mint">
-            <div className="pt-4 mt-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center"></h2>
-                <div className="flex-1 mx-4 relative">
-                  <div className="h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-70"></div>
-                  {/* Animated light effect */}
-                  <div
-                    className="absolute top-0 h-px w-20 bg-emerald-300 animate-gradient-x"
-                    style={{
-                      boxShadow: "0 0 8px 1px rgba(16, 185, 129, 0.6)",
-                      background: "linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent)",
-                    }}
-                  ></div>
-                </div>
-              </div>
-
-              <BadgeMintSection
-                address={web3State.address || ""}
-                signer={web3State.signer}
-                badges={userBadges} // Tambahkan prop badges
-                onMintComplete={async () => {
-                  // Refresh data after successful mint
-                  if (web3State.contract) {
-                    // Refresh global count data
-                    loadGlobalCount()
-
-                    // Refresh user data if available
-                    if (web3State.address) {
-                      // Refresh basic user data
-                      loadUserData(web3State.address, web3State.contract)
-
-                      // Specifically refresh badge ownership data
-                      try {
-                        // Refresh highest tier data
-                        const newHighestTier = await getUserHighestTier(web3State.address)
-                        console.log("Updated highest badge tier:", newHighestTier)
-
-                        // Refresh user badges collection
-                        const updatedBadges = await getUserBadges(web3State.address)
-                        console.log("Updated badge collection:", updatedBadges)
-
-                        // Update user badges state
-                        setUserBadges(updatedBadges)
-
-                        // Update any cached badge data
-                        localStorage.removeItem(`gmtea_highestTier_${web3State.address.toLowerCase()}`)
-                        localStorage.removeItem(`gmtea_userBadges_${web3State.address.toLowerCase()}`)
-
-                        // Dispatch a custom event that other components can listen for
-                        const badgeUpdateEvent = new CustomEvent("badgeUpdate", {
-                          detail: {
-                            address: web3State.address,
-                            highestTier: newHighestTier,
-                            badges: updatedBadges,
-                          },
-                        })
-                        window.dispatchEvent(badgeUpdateEvent)
-                      } catch (error) {
-                        console.error("Error refreshing badge data:", error)
-                      }
-                    }
-
-                    // Reload recent messages to show any mint events
-                    loadRecentMessages(web3State.contract)
-
-                    console.log("Dashboard data and badge ownership refreshed after successful mint")
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
+       
 
         {/* Leaderboard */}
         <div

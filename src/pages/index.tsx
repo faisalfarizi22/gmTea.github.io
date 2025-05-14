@@ -26,7 +26,6 @@ import BadgeMintSection from "@/components/BadgeMintSection"
 import { useRouter } from "next/router"
 import AudioPlayer from "@/components/AudioPlayer"
 import { motion, AnimatePresence } from "framer-motion"
-import PointsLeaderboard from "@/components/LeaderboardPoints"
 import useUserDataCombined from "@/hooks/useUserData"
 import { useScrollFunctions } from "@/hooks/useScrollFunctions"
 
@@ -879,7 +878,6 @@ export default function Home() {
                     opacity: { duration: 0.2 },
                   }}
                 >
-                  <PointsLeaderboard currentUserAddress={web3State.address} contract={web3State.contract} />
                 </motion.div>
               )}
             </AnimatePresence>

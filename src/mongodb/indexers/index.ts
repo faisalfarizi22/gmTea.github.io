@@ -6,7 +6,7 @@ import ReferralIndexer from './ReferralIndexer';
 import UsernameIndexer from './UsernameIndexer';
 import RewardIndexer from './RewardIndexer';
 import { TEA_SEPOLIA_RPC_URL } from '../../utils/constants';
-import dbConnect from '../connection';
+import { dbConnect, dbDisconnect } from '../connection'; // Update import untuk memasukkan dbDisconnect
 import User from '../models/User';
 import { docVal } from '../utils/documentHelper';
 
@@ -65,6 +65,24 @@ class IndexerController {
     }
     this.isRunning = false;
     console.log('Indexing stopped');
+  }
+
+  /**
+   * Gracefully shut down the indexer and close database connections
+   */
+  async shutdown(): Promise<void> {
+    console.log('Shutting down indexer controller...');
+    
+    // Stop scheduled indexing
+    this.stopIndexing();
+    
+    try {
+      // Disconnect from MongoDB
+      await dbDisconnect();
+      console.log('Indexer shutdown successfully completed.');
+    } catch (error) {
+      console.error('Error during database disconnection:', error);
+    }
   }
 
   /**

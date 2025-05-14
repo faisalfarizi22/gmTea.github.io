@@ -18,6 +18,7 @@ export interface IUser extends Document {
   lastRewardSync?: Date;
   createdAt: Date;
   updatedAt: Date;
+  rank?: number;
   
   // Helper method for type safety
   get(path: string): any;

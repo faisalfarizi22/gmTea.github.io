@@ -3,11 +3,24 @@ import dbConnect from '../../../mongodb/connection';
 import User from '../../../mongodb/models/User';
 import Checkin from '../../../mongodb/models/Checkin';
 import { validatePagination, getSafeErrorMessage } from '../../../mongodb/utils/validators';
+import mongoose from 'mongoose';
+
+// Define interface for user data with rank
+interface UserWithRank {
+  address: string;
+  username?: string | null;
+  highestBadgeTier: number;
+  checkinCount: number;
+  lastCheckin?: Date;
+  rank: number;
+  [key: string]: any; // Allow other properties
+}
 
 /**
  * API endpoint untuk mendapatkan leaderboard berdasarkan jumlah check-in
  * GET /api/leaderboard/checkins
- * - Mengverifikasi checkinCount dari User dengan jumlah aktual di koleksi Checkin
+ * - Memastikan konsistensi antara rank di "Jump to My Rank" dan tabel
+ * - Menggunakan metode perhitungan rank yang sama di seluruh aplikasi
  */
 export default async function handler(
   req: NextApiRequest,
@@ -21,8 +34,18 @@ export default async function handler(
   try {
     await dbConnect();
     
-    // Get verify parameter (optional)
+    // Get verify and refresh parameters
     const shouldVerify = req.query.verify === 'true';
+    const forceRefresh = req.query.refresh === 'true';
+    
+    // Set appropriate cache headers
+    if (forceRefresh) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    }
     
     // Parse pagination parameters
     const { limit, skip } = validatePagination(
@@ -31,128 +54,108 @@ export default async function handler(
       10 // Default 10 users per page
     );
     
-    // Get users with checkinCount > 0, sorted by checkinCount (descending)
-    const users = await User.find({ checkinCount: { $gt: 0 } })
-      .sort({ checkinCount: -1 })
-      .skip(skip)
-      .limit(limit)
-      .select('address username highestBadgeTier checkinCount lastCheckin');
+    console.log(`Loading checkins leaderboard (page=${req.query.page}, limit=${limit}, skip=${skip}, userAddress=${req.query.userAddress || 'none'}, forceRefresh=${forceRefresh})`);
     
-    // Get total count for pagination info
-    const totalCount = await User.countDocuments({ checkinCount: { $gt: 0 } });
+    // STEP 1: RETRIEVE ALL USERS WITH CHECKINS > 0
+    // This is key for consistent ranking - we get all users first, then sort them properly
+    const rawUsersData = await User.find({ 
+      checkinCount: { $gt: 0 } 
+    })
+    .select('address username highestBadgeTier checkinCount lastCheckin')
+    .sort({ checkinCount: -1 })
+    .lean();
     
-    // Verify checkin counts if requested or if it's the first page
-    // First page always verifies to ensure accuracy of top rankings
-    const shouldVerifyCheckins = shouldVerify || skip === 0;
+    // STEP 2: CONVERT TO UserWithRank TYPE
+    // This fixes TypeScript error by explicitly adding rank property
+    const allUsersWithCheckins: UserWithRank[] = rawUsersData.map(user => ({
+      ...user,
+      username: user.username || null,
+      highestBadgeTier: user.highestBadgeTier || -1,
+      rank: 0 // Will be assigned in next step
+    }));
     
-    // Process and format user data
-    const formattedUsers = await Promise.all(users.map(async (user, index) => {
-      const rank = skip + index + 1; // Calculate rank based on position
-      
-      // Verify actual checkin count if needed
-      let checkinCount = user.checkinCount;
-      
-      if (shouldVerifyCheckins) {
-        // Count actual checkins from Checkin collection
-        const actualCheckinCount = await Checkin.countDocuments({ 
-          address: user.address.toLowerCase() 
+    // STEP 3: VERIFY CHECKIN COUNTS IF NEEDED
+    // For users in the first page or when explicitly requested
+    if (shouldVerify || skip === 0 || forceRefresh) {
+      for (let i = 0; i < Math.min(limit, allUsersWithCheckins.length); i++) {
+        const user = allUsersWithCheckins[i];
+        
+        // Verify count from Checkin collection
+        const actualCount = await Checkin.countDocuments({
+          address: user.address.toLowerCase()
         });
         
-        // Update user if counts don't match
-        if (actualCheckinCount !== user.checkinCount) {
-          console.log(`Fixing discrepancy for ${user.address}: DB count ${user.checkinCount}, Actual count ${actualCheckinCount}`);
+        // If counts don't match, update in the database
+        if (actualCount !== user.checkinCount) {
+          console.log(`Fixing checkin count for ${user.address}: DB=${user.checkinCount}, Actual=${actualCount}`);
           
           await User.updateOne(
-            { _id: user._id },
-            { $set: { checkinCount: actualCheckinCount } }
+            { address: user.address },
+            { $set: { checkinCount: actualCount } }
           );
           
-          // Use verified count
-          checkinCount = actualCheckinCount;
+          // Update in our local array
+          user.checkinCount = actualCount;
         }
       }
       
-      return {
-        address: user.address,
-        username: user.username || null,
-        highestBadgeTier: user.highestBadgeTier || -1,
-        checkinCount: checkinCount,
-        lastCheckin: user.lastCheckin ? user.lastCheckin.toISOString() : null,
-        rank: rank
-      };
-    }));
-    
-    // Re-sort after verification to ensure correct order
-    if (shouldVerifyCheckins) {
-      formattedUsers.sort((a, b) => b.checkinCount - a.checkinCount);
+      // Re-sort after verification
+      allUsersWithCheckins.sort((a, b) => b.checkinCount - a.checkinCount);
     }
     
-    // Calculate user rank if userAddress is provided
+    // STEP 4: ASSIGN CONSISTENT RANKS TO ALL USERS
+    // Assign ranks based on position in the sorted array
+    for (let i = 0; i < allUsersWithCheckins.length; i++) {
+      allUsersWithCheckins[i].rank = i + 1;
+    }
+    
+    // STEP 5: GET CURRENT PAGE OF USERS
+    const paginatedUsers = allUsersWithCheckins.slice(skip, skip + limit);
+    
+    // STEP 6: FIND USER RANK IF REQUESTED
     let userRank = null;
     if (req.query.userAddress) {
       const userAddress = (req.query.userAddress as string).toLowerCase();
       
-      // Try to find user's rank in current results first
-      const userIndex = formattedUsers.findIndex(
+      // Find user's entry in the FULL list
+      const userEntry = allUsersWithCheckins.find(
         user => user.address.toLowerCase() === userAddress
       );
       
-      if (userIndex !== -1) {
-        userRank = skip + userIndex + 1;
-      } else {
-        // If not in current results, find user's rank by running aggregate
-        const userRankData = await User.aggregate([
-          { $match: { checkinCount: { $gt: 0 } } },
-          { $sort: { checkinCount: -1 } },
-          { 
-            $group: { 
-              _id: null,
-              users: { 
-                $push: { 
-                  address: "$address", 
-                  checkinCount: "$checkinCount" 
-                } 
-              }
-            }
-          },
-          { 
-            $project: { 
-              userRank: { 
-                $add: [
-                  { 
-                    $indexOfArray: [
-                      "$users.address", 
-                      userAddress
-                    ] 
-                  }, 
-                  1
-                ] 
-              } 
-            } 
-          }
-        ]);
-        
-        if (userRankData.length > 0 && userRankData[0].userRank > 0) {
-          userRank = userRankData[0].userRank;
-        }
+      if (userEntry) {
+        // Set the rank directly from our calculated ranks
+        userRank = userEntry.rank;
+        console.log(`Found user ${userAddress} at rank ${userRank}`);
       }
     }
     
-    // Add cache control headers
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    // Total count for pagination
+    const totalCount = allUsersWithCheckins.length;
     
-    // Return formatted response
+    // Format the response data with consistent ranks
+    const formattedUsers = paginatedUsers.map(user => ({
+      address: user.address,
+      username: user.username || null,
+      highestBadgeTier: user.highestBadgeTier || -1,
+      checkinCount: user.checkinCount,
+      lastCheckin: user.lastCheckin ? user.lastCheckin.toISOString() : null,
+      rank: user.rank // Use the rank we calculated
+    }));
+    
+    // Return response
     return res.status(200).json({
       users: formattedUsers,
       pagination: {
         total: totalCount,
         limit,
         skip,
-        hasMore: skip + users.length < totalCount
+        hasMore: skip + formattedUsers.length < totalCount,
+        page: Math.floor(skip / limit) + 1,
+        totalPages: Math.ceil(totalCount / limit)
       },
-      userRank: userRank
+      userRank, // The user's rank in the complete list
+      timestamp: new Date().toISOString()
     });
-    
   } catch (error) {
     console.error('Error in leaderboard API:', error);
     return res.status(500).json({ message: getSafeErrorMessage(error) });

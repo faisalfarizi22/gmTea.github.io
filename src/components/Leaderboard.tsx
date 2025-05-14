@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -20,7 +18,7 @@ import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
 import { useUserDataCombined } from '@/hooks/useUserData';
 
-// Definisikan interface untuk entri leaderboard
+// Define interface for leaderboard entry
 interface LeaderboardEntry {
   address: string;
   username: string | null;
@@ -39,8 +37,8 @@ interface LeaderboardProps {
 
 /**
  * Leaderboard Component
- * Menampilkan leaderboard pengguna dengan check-in terbanyak
- * Menggunakan endpoint API khusus leaderboard
+ * Displays a leaderboard of users with the most check-ins
+ * Uses a dedicated leaderboard API endpoint
  */
 const Leaderboard: React.FC<LeaderboardProps> = ({ 
   currentUserAddress,
@@ -59,8 +57,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
   const [activeWallets, setActiveWallets] = useState<number>(0);
   const [todayCheckins, setTodayCheckins] = useState<number>(0);
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
+  const [forceRefresh, setForceRefresh] = useState<boolean>(false);
   
-  // Menggunakan useUserDataCombined untuk mendapatkan data pengguna saat ini
+  // Use useUserDataCombined to get current user data
   const { 
     userData, 
     isLoading: isLoadingUserData 
@@ -71,19 +70,19 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
   // Calculate total pages based on total entries and entries per page
   const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE);
 
-  // Mendapatkan URL avatar
+  // Get avatar URL
   const getAvatarUrl = (address: string): string => 
     `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
 
   /**
-   * Mengambil data statistik wallet dari endpoint API
-   * - Menghitung today's check-ins berdasarkan check-in sejak jam 7 pagi hari ini
+   * Load wallet statistics from API endpoint
+   * - Calculate today's check-ins based on check-ins since 7am today
    */
   const loadWalletStats = async () => {
     try {
       setIsLoadingStats(true);
 
-      // Mengambil statistik dari endpoint API /api/checkins/latest
+      // Get statistics from /api/checkins/latest endpoint
       const response = await fetch(`/api/checkins/latest?limit=1`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -95,35 +94,35 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       const totalCheckins = data.stats?.totalCheckins || 0;
       setActiveWallets(data.stats?.activeWallets || totalEntries);
       
-      // Hitung today's check-ins berdasarkan check-in sejak jam 7 pagi hari ini
-      // Dapatkan tanggal dan jam saat ini
+      // Calculate today's check-ins based on check-ins since 7am today
+      // Get current date and time
       const now = new Date();
       
-      // Dapatkan tanggal dengan jam 7 pagi hari ini
+      // Get today at 7am
       const todaySevenAM = new Date(now);
       todaySevenAM.setHours(7, 0, 0, 0);
       
-      // Jika sekarang sebelum jam 7 pagi, gunakan jam 7 pagi kemarin
+      // If now is before 7am, use 7am yesterday
       if (now < todaySevenAM) {
         todaySevenAM.setDate(todaySevenAM.getDate() - 1);
       }
       
-      // Format tanggal untuk query API
+      // Format date for API query
       const todaySevenAMISO = todaySevenAM.toISOString();
       
-      // Buat request untuk mendapatkan check-in hari ini
+      // Make request to get today's check-ins
       try {
         const todayResponse = await fetch(`/api/checkins/today?since=${encodeURIComponent(todaySevenAMISO)}`);
         if (todayResponse.ok) {
           const todayData = await todayResponse.json();
           setTodayCheckins(todayData.count || 0);
         } else {
-          // Fallback jika endpoint tidak tersedia
-          setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Estimasi sekitar 12% dari total
+          // Fallback if endpoint not available
+          setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Estimate about 12% of total
         }
       } catch (error) {
         console.error("Error loading today's check-ins:", error);
-        setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Fallback ke estimasi
+        setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Fallback to estimate
       }
 
       console.log(`Loaded stats: total checkins = ${totalCheckins}, today = ${todayCheckins} (since ${todaySevenAM.toLocaleString()})`);
@@ -138,6 +137,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
   /**
    * Load leaderboard data from the dedicated leaderboard API endpoint
+   * @param page Page number to load
+   * @param jumpToUser Whether to jump to user's rank
    */
   const loadLeaderboard = async (page = 1, jumpToUser = false) => {
     try {
@@ -153,10 +154,10 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
       setError(null);
 
-      // Menggunakan endpoint API khusus leaderboard
+      // Use dedicated leaderboard API endpoint with refresh parameter if needed
       const endpoint = currentUserAddress
-        ? `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}&userAddress=${currentUserAddress}`
-        : `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}`;
+        ? `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}&userAddress=${currentUserAddress}${forceRefresh ? '&refresh=true' : ''}`
+        : `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}${forceRefresh ? '&refresh=true' : ''}`;
       
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -165,11 +166,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       
       const data = await response.json();
       
-      // Set user rank if provided by API
+      // Set user rank from API response
       if (data.userRank) {
         setUserRank(data.userRank);
         
-        // If we're jumping to user's rank, calculate the correct page
+        // If jumping to user's rank, calculate the correct page
         if (jumpToUser) {
           const userPage = Math.ceil(data.userRank / ENTRIES_PER_PAGE);
           
@@ -184,12 +185,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
         }
       }
       
-      // Format data for component - mark current user
+      // Format data for component - mark current user and use the rank directly from API
       const formattedLeaderboard: LeaderboardEntry[] = data.users.map((user: any) => ({
         ...user,
         isCurrentUser: currentUserAddress ? user.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
-        // Convert lastCheckin string to unix timestamp for formatTimestamp
-        lastCheckin: user.lastCheckin ? user.lastCheckin : null
+        // Use rank directly from API without recalculating
+        rank: user.rank
       }));
       
       setLeaderboard(formattedLeaderboard);
@@ -229,6 +230,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       setIsLoading(false);
       setIsLoadingMore(false);
       setIsJumpingToUser(false);
+      
+      // Reset force refresh flag after loading
+      if (forceRefresh) {
+        setForceRefresh(false);
+      }
     }
   };
 
@@ -269,6 +275,12 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     }
   };
 
+  // Handle refresh with verification
+  const handleRefresh = () => {
+    setForceRefresh(true);
+    loadLeaderboard(currentPage);
+  };
+
   // Format timestamp for display
   const formatCheckinTime = (timestamp: string | null) => {
     if (!timestamp) return "N/A";
@@ -303,7 +315,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             </div>
           </div>
 
-          {/* Jump to my rank button */}
+          {/* Jump to my rank button - ONLY SHOWS WHEN userRank IS SET BY API */}
           {currentUserAddress && userRank && !isLoading && (
             <button
               onClick={jumpToUserRank}
@@ -518,7 +530,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                       />
                                     </div>
                                     
-                                    {/* Username dengan Color atau Address */}
+                                    {/* Username with Color or Address */}
                                     {entry.username ? (
                                       <div className={entry.isCurrentUser ? "font-bold" : ""}>
                                         <ColoredUsername 
@@ -698,7 +710,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
               {/* Refresh button */}
               <div className="mt-6 text-center">
                 <button
-                  onClick={() => loadLeaderboard(currentPage)}
+                  onClick={handleRefresh}
                   disabled={isLoadingMore}
                   className="inline-flex items-center px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-300 rounded-lg transition-colors text-sm shadow-sm border border-emerald-200 dark:border-emerald-700/30"
                 >

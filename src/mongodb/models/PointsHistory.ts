@@ -8,7 +8,7 @@ export interface IPointsHistory extends Document {
   reason: string;
   source: 'checkin' | 'achievement' | 'referral' | 'other';
   timestamp: Date;
-  tierAtEvent: number;
+  tierAtEvent: number; // Nama field yang benar sesuai dengan fixPointsCalculation.ts
 }
 
 // Define the schema
@@ -37,7 +37,7 @@ const PointsHistorySchema = new mongoose.Schema({
     default: Date.now,
     index: true
   },
-  tierAtCheckin: {
+  tierAtEvent: { // Diubah dari tierAtCheckin menjadi tierAtEvent untuk konsistensi dengan fixPointsCalculation.ts
     type: Number,
     default: -1,
     index: true

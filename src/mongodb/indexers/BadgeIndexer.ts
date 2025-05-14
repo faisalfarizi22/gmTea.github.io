@@ -9,6 +9,7 @@ import CheckinService from '../services/CheckinService';
 import WebhookService from '../services/WebhookService';
 import { BADGE_CONTRACT_ADDRESS, DEPLOY_BLOCK } from '../../utils/constants';
 import GMTeaBadgeABI from '../../abis/GMTeaBadgeABI.json';
+import PointsService from '../services/PointsService';
 
 export default class BadgeIndexer {
   private provider: ethers.providers.Provider;
@@ -217,29 +218,23 @@ export default class BadgeIndexer {
           { upsert: true }
         );
         
-        // Add badge points to user
+        // Add record to PointsHistory but don't increment points directly
         const tierPoints = [20, 30, 50, 70, 100]; // Updated badge points values
         const badgePoints = tier >= 0 && tier < tierPoints.length ? tierPoints[tier] : 0;
         
-        if (badgePoints > 0) {
-          // Add badge points to user's total
-          await User.findOneAndUpdate(
-            { address: to },
-            { $inc: { points: badgePoints } }
-          );
-          
-          // Record points history
-          await PointsHistory.create({
-            address: to,
-            points: badgePoints,
-            reason: `Badge Tier ${tier} Earned`,
-            source: 'achievement',
-            timestamp: new Date(blockTimestamp * 1000),
-            tierAtEvent: tier
-          });
-        }
+        // Record event in PointsHistory
+        await PointsHistory.create({
+          address: to,
+          points: badgePoints,
+          reason: `Badge Tier ${tier} Earned`,
+          source: 'achievement',
+          timestamp: new Date(blockTimestamp * 1000),
+          tierAtEvent: tier
+        });
         
-        // IMPORTANT: Do NOT recalculate previous checkin points - we only apply the new tier to future checkins
+        // Recalculate user's total points to ensure consistency
+        await PointsService.recalculateSingleUserPoints(to);
+        
         console.log(`Updated highest badge tier for ${to} to ${tier}`);
       }
       
@@ -255,7 +250,7 @@ export default class BadgeIndexer {
     } catch (error) {
       console.error(`Error processing badge mint:`, error);
     }
-  }
+}
 
   /**
    * Force reindex all events (for debugging/reset)

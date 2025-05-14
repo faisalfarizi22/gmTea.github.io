@@ -4,7 +4,9 @@ import Badge from '../models/Badge';
 import User from '../models/User';
 import PointsHistory from '../models/PointsHistory';
 import WebhookService from './WebhookService';
+import PointsService from './PointsService';
 import { docVal } from '../utils/documentHelper';
+import { calculateBadgePoints } from '../../utils/pointCalculation';
 
 export default class BadgeService {
   /**
@@ -153,7 +155,8 @@ export default class BadgeService {
   }
   
   /**
-   * Update user's highest tier and award points if needed
+   * Update user's highest tier and recalculate points
+   * UPDATED: No longer adds points directly, uses PointsService instead
    */
   private static async updateUserHighestTier(address: string, newTier: number) {
     const normalizedAddress = address.toLowerCase();
@@ -177,29 +180,23 @@ export default class BadgeService {
         { upsert: true, new: true }
       );
       
-      // Add points for badge upgrade
-      const badgePoints = this.getBadgePoints(newTier);
+      // Create a PointsHistory entry for the badge milestone (for record keeping)
+      const badgePoints = calculateBadgePoints(newTier); // Use consistent calculation from utils
       
-      if (badgePoints > 0) {
-        console.log(`Awarding ${badgePoints} points to ${normalizedAddress} for tier ${newTier} badge`);
-        
-        // Update user's total points
-        await User.findOneAndUpdate(
-          { address: normalizedAddress },
-          { $inc: { points: badgePoints } }
-        );
-        
-        // Record points history
-        await PointsHistory.create({
-          address: normalizedAddress,
-          points: badgePoints,
-          reason: `Minted ${this.getTierName(newTier)} Badge`,
-          source: 'achievement',
-          timestamp: new Date()
-        });
-        
-        console.log(`Points awarded and recorded in history for ${normalizedAddress}`);
-      }
+      // Only create a history entry, don't add points directly
+      await PointsHistory.create({
+        address: normalizedAddress,
+        points: badgePoints,
+        reason: `Badge Tier ${newTier} Earned`,
+        source: 'achievement', // This is fine, but won't be counted twice now
+        timestamp: new Date(),
+        tierAtEvent: newTier
+      });
+      
+      // Use PointsService to recalculate all points correctly
+      await PointsService.recalculateSingleUserPoints(normalizedAddress);
+      
+      console.log(`Points recalculated for ${normalizedAddress} after tier update`);
     }
   }
 
@@ -234,15 +231,6 @@ export default class BadgeService {
       case 4: return "Legendary";
       default: return `Tier ${tier}`;
     }
-  }
-  
-  /**
-   * Get points awarded for minting a badge tier
-   */
-  static getBadgePoints(tier: number): number {
-    // Points awarded for minting badges (can be customized)
-    const tierPoints = [50, 100, 200, 500, 1000];
-    return tier >= 0 && tier < tierPoints.length ? tierPoints[tier] : 0;
   }
   
   /**

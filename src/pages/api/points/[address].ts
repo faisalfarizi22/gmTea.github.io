@@ -1,12 +1,13 @@
-// pages/api/points/[address].ts
+// src/pages/api/points/[address].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { docVal } from '../../../mongodb/utils/documentHelper';
 import Checkin from '../../../mongodb/models/Checkin';
 import User from '../../../mongodb/models/User';
 import Badge from '../../../mongodb/models/Badge';
 import PointsHistory from '../../../mongodb/models/PointsHistory';
-import { getCheckInBoost } from '../../../utils/pointCalculation';
+import { getCheckInBoost, calculateAchievementPoints, calculateBadgePoints } from '../../../utils/pointCalculation';
 import dbConnect from '../../../mongodb/connection';
+import PointsService from '../../../mongodb/services/PointsService';
 
 export default async function handler(
   req: NextApiRequest,
@@ -31,53 +32,46 @@ export default async function handler(
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Get checkins to calculate points
-    const checkins = await Checkin.find({ address: normalizedAddress });
+    // Opsi 1: Hitung ulang poin real-time untuk memastikan data terbaru
+    // Ini mungkin membutuhkan waktu proses lebih lama tapi menghindari ketidakkonsistenan
+    await PointsService.recalculateSingleUserPoints(normalizedAddress);
     
-    // Calculate total checkin points by summing points from each checkin
-    const checkinPoints = checkins.reduce((sum, checkin) => {
-      return sum + (checkin.points || 10); // Fallback to 10 if points not set
-    }, 0);
+    // Dapatkan breakdown poin yang sudah diperbarui
+    const pointsBreakdown = await PointsService.getUserPointsBreakdown(normalizedAddress);
 
-    // Calculate achievement points
-    const checkinCount = user.checkinCount || checkins.length;
-    let achievementPoints = 0;
-    if (checkinCount >= 1) achievementPoints += 50;
-    if (checkinCount >= 7) achievementPoints += 50;
-    if (checkinCount >= 50) achievementPoints += 50;
-    if (checkinCount >= 100) achievementPoints += 200;
+    // Opsi 2: Jika Anda tidak ingin menghitung ulang setiap kali API dipanggil,
+    // ambil data langsung dari database dengan getUserPointsBreakdown()
+    // const pointsBreakdown = await PointsService.getUserPointsBreakdown(normalizedAddress);
 
-    // Get badge tier points
-    const highestBadgeTier = user.highestBadgeTier || -1;
-    const tierPoints = [20, 30, 50, 70, 100];
-    const badgePoints = highestBadgeTier >= 0 && highestBadgeTier < tierPoints.length 
-      ? tierPoints[highestBadgeTier] 
-      : 0;
+    // Get history data for debugging and reference
+    const history = await PointsHistory.find({ address: normalizedAddress })
+      .sort({ timestamp: -1 })
+      .limit(20);
 
-    // Calculate total points
-    const totalPoints = checkinPoints + achievementPoints + badgePoints;
-
-    // Get breakdown by source from PointsHistory
-    const pointsBySource = await PointsHistory.aggregate([
-      { $match: { address: normalizedAddress } },
-      { $group: { 
-          _id: "$source", 
-          points: { $sum: "$points" } 
-        }
-      }
-    ]);
-
-    // Format response
+    // Format response with rich information
     const response = {
-      total: totalPoints,
-      breakdown: {
-        checkins: checkinPoints,
-        achievements: achievementPoints,
-        badges: badgePoints
+      // Points from calculation
+      ...pointsBreakdown,
+      
+      // User info
+      userInfo: {
+        address: user.address,
+        username: user.username,
+        highestBadgeTier: user.highestBadgeTier,
+        checkinCount: user.checkinCount,
+        lastCheckin: user.lastCheckin ? user.lastCheckin.toISOString() : null,
+        createdAt: user.createdAt.toISOString(),
+        rank: docVal(user, 'rank', null)
       },
-      sources: pointsBySource.map(item => ({
-        source: item._id,
-        points: item.points
+      
+      // Add history (optional)
+      recentHistory: history.map(entry => ({
+        source: entry.source,
+        reason: entry.reason,
+        points: entry.points,
+        timestamp: entry.timestamp.toISOString(),
+        tierAtEvent: entry.tierAtEvent,
+        countedInTotal: entry.source !== 'referral'
       }))
     };
 

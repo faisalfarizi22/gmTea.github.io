@@ -130,3 +130,25 @@ export default {
   calculateTotalPoints,
   getTierColor
 };
+
+/**
+ * Calculate total points from raw checkin count and badge tier
+ * @param checkinCount Number of check-ins
+ * @param highestTier Highest badge tier
+ * @returns Total points
+ */
+export const calculateTotalPointsFromRaw = (
+  checkinCount: number,
+  highestTier: number
+): number => {
+  const baseCheckinPoints = checkinCount * 10;
+  // Apply boost based on tier if available
+  const checkinPoints = checkinCount > 0 
+    ? Array(checkinCount).fill(0).reduce((sum) => sum + calculateSingleCheckinPoints(-1), 0)
+    : 0;
+  
+  const achievementPoints = calculateAchievementPoints(checkinCount);
+  const badgePoints = calculateBadgePoints(highestTier);
+  
+  return checkinPoints + achievementPoints + badgePoints;
+};

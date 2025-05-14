@@ -1,13 +1,28 @@
-import React from 'react';
-import { AppProps } from 'next/app';
-import Head from 'next/head';
-import '@/styles/globals.css';
-import { ThirdwebProvider } from "thirdweb/react";
-import { useRouter } from 'next/router';
-import { ConnectionStatusProvider } from '@/components/ConnectionStatusProvider';
+"use client"
+import type { AppProps } from "next/app"
+import Head from "next/head"
+import "@/styles/globals.css"
+import { ThirdwebProvider } from "thirdweb/react"
+import { useRouter } from "next/router"
+import Navbar from "@/components/Navbar"
+import Footer from "@/components/Footer"
+import WalletRequired from "@/components/WalletRequired"
+import { useWalletState } from "@/hooks/useWalletState"
+import { useScrollFunctions } from "@/hooks/useScrollFunctions"
 
 function GMApp({ Component, pageProps }: AppProps) {
-  const router = useRouter();
+  const router = useRouter()
+  const { web3State, connectWallet, disconnectWallet, switchNetwork } = useWalletState()
+  const { scrollToLeaderboard, scrollToMintSection } = useScrollFunctions()
+
+  const { address, isConnected, isLoading: isWalletConnecting } = web3State
+
+  const adaptedConnectWallet = async (): Promise<void> => {
+    await connectWallet()
+  }
+
+  // Determine if the current route should be wrapped with WalletRequired
+  const shouldRequireWallet = !router.pathname.includes("/auth") && !router.pathname.includes("/landing")
 
   return (
     <>
@@ -18,15 +33,40 @@ function GMApp({ Component, pageProps }: AppProps) {
         <link rel="icon" href="/favicon.ico" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
       </Head>
-      
-        <ThirdwebProvider >
-          <Component {...pageProps} />
-        </ThirdwebProvider>
-      
+
+      <ThirdwebProvider>
+        <Navbar
+          address={address}
+          connectWallet={adaptedConnectWallet}
+          disconnectWallet={disconnectWallet}
+          isConnecting={isWalletConnecting}
+          scrollToLeaderboard={scrollToLeaderboard}
+          scrollToMintSection={scrollToMintSection}
+        />
+
+        <main>
+          {shouldRequireWallet ? (
+            <WalletRequired
+              isConnected={isConnected}
+              connectWallet={adaptedConnectWallet}
+              isConnecting={isWalletConnecting}
+            >
+              <Component {...pageProps} />
+            </WalletRequired>
+          ) : (
+            <Component {...pageProps} />
+          )}
+        </main>
+
+        <Footer scrollToLeaderboard={scrollToLeaderboard} scrollToMintSection={scrollToMintSection} />
+      </ThirdwebProvider>
     </>
-  );
+  )
 }
 
-export default GMApp;
+export default GMApp

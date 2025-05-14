@@ -10,19 +10,20 @@ interface MongooseCache {
 // Deklarasi untuk memperluas tipe global
 declare global {
   // eslint-disable-next-line no-var
-  var mongoose: MongooseCache | undefined;
+  var mongooseCache: MongooseCache | undefined; // Ganti nama untuk menghindari kebingungan
 }
 
 // Inisialisasi cache
-const cached: MongooseCache = global.mongoose || { conn: null, promise: null };
+const cached: MongooseCache = global.mongooseCache || { conn: null, promise: null };
 
 // Tetapkan ke global jika belum diset
-if (!global.mongoose) {
-  global.mongoose = cached;
+if (!global.mongooseCache) {
+  global.mongooseCache = cached;
 }
 
-async function dbConnect() {
+export async function dbConnect() {
   if (cached.conn) {
+    console.log('Using cached MongoDB connection.');
     return cached.conn;
   }
 
@@ -40,7 +41,9 @@ async function dbConnect() {
       );
     }
 
+    console.log('Attempting to connect to MongoDB...');
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      console.log('MongoDB connected successfully.');
       return mongoose;
     });
   }
@@ -49,10 +52,25 @@ async function dbConnect() {
     cached.conn = await cached.promise;
   } catch (e) {
     cached.promise = null;
+    console.error('MongoDB connection error:', e);
     throw e;
   }
 
   return cached.conn;
 }
 
+// FUNGSI BARU UNTUK DISCONNECT
+export async function dbDisconnect() {
+  if (cached.conn) {
+    console.log('Disconnecting from MongoDB...');
+    await mongoose.disconnect();
+    cached.conn = null;
+    cached.promise = null;
+    console.log('MongoDB disconnected and cache cleared.');
+  } else {
+    console.log('No active MongoDB connection to disconnect.');
+  }
+}
+
+// Export default untuk kompatibilitas dengan kode yang sudah ada
 export default dbConnect;

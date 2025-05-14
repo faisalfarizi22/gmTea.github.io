@@ -6,7 +6,7 @@ import ReferralIndexer from './ReferralIndexer';
 import UsernameIndexer from './UsernameIndexer';
 import RewardIndexer from './RewardIndexer';
 import { TEA_SEPOLIA_RPC_URL } from '../../utils/constants';
-import  dbConnect, { dbDisconnect } from '../connection';
+import { dbConnect, dbDisconnect } from '../connection';
 import User from '../models/User';
 import { docVal } from '../utils/documentHelper';
 

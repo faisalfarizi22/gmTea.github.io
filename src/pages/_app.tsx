@@ -9,6 +9,7 @@ import Footer from "@/components/Footer"
 import WalletRequired from "@/components/WalletRequired"
 import { useWalletState } from "@/hooks/useWalletState"
 import { useScrollFunctions } from "@/hooks/useScrollFunctions"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 function GMApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -40,6 +41,7 @@ function GMApp({ Component, pageProps }: AppProps) {
       </Head>
 
       <ThirdwebProvider>
+        <SpeedInsights/>
         <Navbar
           address={address}
           connectWallet={adaptedConnectWallet}

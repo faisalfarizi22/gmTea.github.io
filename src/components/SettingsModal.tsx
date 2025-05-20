@@ -202,7 +202,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             isDarkMode ? 'text-emerald-500/50' : 'text-emerald-600/50'
           }`}>
             <FaLeaf className="h-3 w-3 mr-1" />
-            <span>GM TEA v0.2.0 • Testnet</span>
+            <span>GM TEA v0.2.2 • Testnet</span>
           </div>
         </div>
       </motion.div>

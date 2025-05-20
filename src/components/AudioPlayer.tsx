@@ -4,8 +4,8 @@ import { FaVolumeUp, FaVolumeMute, FaMusic } from 'react-icons/fa';
 
 // Music file paths - in a real app, you would store these files in the public folder
 // and reference them with the correct paths
-const DASHBOARD_MUSIC = '/music/dashboard-ambient.mp3';
-const PROFILE_MUSIC = '/music/profile-ambient.mp3';
+const DEFAULT_MUSIC = '/music/dashboard-ambient.mp3';   // Default music for dashboard, mint, and leaderboard
+const PROFILE_MUSIC = '/music/profile-ambient.mp3';     // Specific music only for profile tab
 
 interface AudioPlayerProps {
   initialVolume?: number;
@@ -27,6 +27,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [fadeTimeout, setFadeTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isProfileTab, setIsProfileTab] = useState(false); // Track if we're on profile tab
 
   // Initialize audio element
   useEffect(() => {
@@ -79,17 +80,30 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
     };
   }, []);
 
-  // Handle route changes to play appropriate music
+  // Listen for tab changes
+  useEffect(() => {
+    const handleTabChange = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        // Only check if it's the profile tab or not
+        setIsProfileTab(event.detail.tab === 'profile');
+      }
+    };
+
+    // Add event listener for tab changes
+    window.addEventListener('tabChanged', handleTabChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('tabChanged', handleTabChange as EventListener);
+    };
+  }, []);
+
+  // Handle music changes based on profile tab status
   useEffect(() => {
     if (!audioRef.current) return;
 
-    // Determine which music to play based on current route
-    let musicPath = DASHBOARD_MUSIC;
+    // Determine which music to play
+    const musicPath = isProfileTab ? PROFILE_MUSIC : DEFAULT_MUSIC;
     
-    if (router.pathname.includes('/profile')) {
-      musicPath = PROFILE_MUSIC;
-    }
-
     // Only change the music if it's different from current or not playing but should be
     if (currentMusic !== musicPath || (isPlaying && audioRef.current.paused)) {
       setCurrentMusic(musicPath);
@@ -127,7 +141,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
         }
       });
     }
-  }, [router.pathname, isPlaying, currentMusic]);
+  }, [isPlaying, currentMusic, isProfileTab]);
 
   // Listen for music toggle events
   useEffect(() => {
@@ -139,7 +153,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
       
       if (newPlayingState) {
         if (audioRef.current) {
-          const musicPath = router.pathname.includes('/profile') ? PROFILE_MUSIC : DASHBOARD_MUSIC;
+          // Determine which music to play based on current tab
+          const musicPath = isProfileTab ? PROFILE_MUSIC : DEFAULT_MUSIC;
           
           if (currentMusic !== musicPath) {
             setCurrentMusic(musicPath);
@@ -166,7 +181,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
     return () => {
       window.removeEventListener('toggle-music', handleMusicToggle as EventListener);
     };
-  }, [router.pathname, currentMusic]);
+  }, [currentMusic, isProfileTab]);
 
   // Fade out current music
   const fadeOutCurrentMusic = async (): Promise<void> => {
@@ -261,7 +276,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
     
     if (newPlayingState) {
       // Starting playback
-      const musicPath = router.pathname.includes('/profile') ? PROFILE_MUSIC : DASHBOARD_MUSIC;
+      const musicPath = isProfileTab ? PROFILE_MUSIC : DEFAULT_MUSIC;
       
       if (currentMusic !== musicPath) {
         setCurrentMusic(musicPath);
@@ -400,38 +415,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ initialVolume = 0.3 }) => {
           </div>
         )}
       </div>
-      
-      {/* Styles for music visualizer animation */}
-      <style jsx global>{`
-        @keyframes music-bar1 {
-          0%, 100% { height: 4px; }
-          50% { height: 12px; }
-        }
-        
-        @keyframes music-bar2 {
-          0%, 100% { height: 8px; }
-          40% { height: 10px; }
-          80% { height: 14px; }
-        }
-        
-        @keyframes music-bar3 {
-          0%, 100% { height: 6px; }
-          25% { height: 12px; }
-          75% { height: 8px; }
-        }
-        
-        .animate-music-bar1 {
-          animation: music-bar1 0.8s ease-in-out infinite;
-        }
-        
-        .animate-music-bar2 {
-          animation: music-bar2 1.2s ease-in-out infinite;
-        }
-        
-        .animate-music-bar3 {
-          animation: music-bar3 0.9s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 };

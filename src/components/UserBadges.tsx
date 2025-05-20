@@ -310,18 +310,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
               </li>
             </ul>
           </motion.div>
-          
-          <motion.a
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6, duration: 0.4 }}
-            href="/mint"
-            className="w-full py-3 px-6 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl transition-all shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center font-medium"
-          >
-            <FaLeaf className="mr-2" />
-            Mint Your First Badge 
-            <FaAngleRight className="ml-2" />
-          </motion.a>
         </div>
       </motion.div>
     );
@@ -573,210 +561,210 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                   ></div>
                   
                   <div className="absolute inset-[15%] rounded-full flex items-center justify-center" style={{ 
-  background: `linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%)`,
-  border: `2px solid ${getBadgeColor(selectedBadge.tier, true)}40`,
-  boxShadow: `0 4px 12px rgba(0,0,0,0.1)`
-}}>
-  <div 
-    className="w-16 h-16 text-center"
-    style={{ color: getBadgeColor(selectedBadge.tier) }}
-  >
-    {getTierIcon(selectedBadge.tier)}
-  </div>
-</div>
+                    background: `linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.3) 100%)`,
+                    border: `2px solid ${getBadgeColor(selectedBadge.tier, true)}40`,
+                    boxShadow: `0 4px 12px rgba(0,0,0,0.1)`
+                  }}>
+                    <div 
+                      className="w-16 h-16 text-center"
+                      style={{ color: getBadgeColor(selectedBadge.tier) }}
+                    >
+                      {getTierIcon(selectedBadge.tier)}
+                    </div>
+                  </div>
 
-<div 
-  className="absolute inset-0 rounded-full"
-  style={{ 
-    border: `1px solid ${getBadgeColor(selectedBadge.tier, true)}30`,
-    background: `linear-gradient(45deg, transparent, ${getBadgeColor(selectedBadge.tier, true)}10 50%, transparent)`,
-  }}
-></div>
+                  <div 
+                    className="absolute inset-0 rounded-full"
+                    style={{ 
+                      border: `1px solid ${getBadgeColor(selectedBadge.tier, true)}30`,
+                      background: `linear-gradient(45deg, transparent, ${getBadgeColor(selectedBadge.tier, true)}10 50%, transparent)`,
+                    }}
+                  ></div>
 
-<div className="absolute inset-0 rounded-full animate-spin-slow"
-  style={{ 
-    borderTop: `1px dotted ${getBadgeColor(selectedBadge.tier, true)}30`,
-    borderBottom: `1px dotted ${getBadgeColor(selectedBadge.tier, true)}20`,
-  }}
-></div>
-</div>
+                  <div className="absolute inset-0 rounded-full animate-spin-slow"
+                    style={{ 
+                      borderTop: `1px dotted ${getBadgeColor(selectedBadge.tier, true)}30`,
+                      borderBottom: `1px dotted ${getBadgeColor(selectedBadge.tier, true)}20`,
+                    }}
+                  ></div>
+                  </div>
 
-{/* Badge details */}
-<div className="space-y-4">
-  <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
-    <div className="grid grid-cols-2 gap-3">
-      <div>
-        <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Badge ID</p>
-        <p className="font-medium text-gray-800 dark:text-emerald-300">#{selectedBadge.tokenId}</p>
-      </div>
-      
-      <div>
-        <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Minted On</p>
-        <p className="font-medium text-gray-800 dark:text-emerald-300">
-          {new Date(selectedBadge.mintedAt * 1000).toLocaleDateString()}
-        </p>
-      </div>
-      
-      <div>
-        <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Status</p>
-        <p className="font-medium text-gray-800 dark:text-emerald-300">Soulbound</p>
-      </div>
-      
-      <div>
-        <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Tier</p>
-        <p className="font-medium" style={{ color: getBadgeColor(selectedBadge.tier) }}>
-          {selectedBadge.tierName}
-        </p>
-      </div>
-    </div>
-  </div>
-  
-  {/* Badge stats */}
-  <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
-    <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Badge Stats</h4>
-    
-    <div className="grid grid-cols-3 gap-3">
-      <div>
-        <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Check-in Boost</p>
-        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-          {getBadgeStats(selectedBadge.tier).checkinBoost}
-        </p>
-      </div>
-      
-      <div>
-        <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Referral %</p>
-        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-          {getBadgeStats(selectedBadge.tier).referralReward}
-        </p>
-      </div>
-      
-      <div>
-        <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Voting Power</p>
-        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-          {getBadgeStats(selectedBadge.tier).votingPower}
-        </p>
-      </div>
-    </div>
-  </div>
-  
-  {/* Badge benefits */}
-  <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
-    <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Benefits</h4>
-    
-    <div className="space-y-2">
-      {getBadgeBenefits(selectedBadge.tier).map((benefit, index) => (
-        <div key={index} className="flex items-center">
-          <div 
-            className="w-4 h-4 flex items-center justify-center rounded-full mr-2"
-            style={{ backgroundColor: `${getBadgeColor(selectedBadge.tier, true)}30` }}
-          >
-            <FaCheck className="h-2 w-2" style={{ color: getBadgeColor(selectedBadge.tier) }} />
+                  {/* Badge details */}
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Badge ID</p>
+                          <p className="font-medium text-gray-800 dark:text-emerald-300">#{selectedBadge.tokenId}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Minted On</p>
+                          <p className="font-medium text-gray-800 dark:text-emerald-300">
+                            {new Date(selectedBadge.mintedAt * 1000).toLocaleDateString()}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Status</p>
+                          <p className="font-medium text-gray-800 dark:text-emerald-300">Soulbound</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-emerald-500/70 mb-1">Tier</p>
+                          <p className="font-medium" style={{ color: getBadgeColor(selectedBadge.tier) }}>
+                            {selectedBadge.tierName}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Badge stats */}
+                    <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Badge Stats</h4>
+                      
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Check-in Boost</p>
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                            {getBadgeStats(selectedBadge.tier).checkinBoost}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Referral %</p>
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                            {getBadgeStats(selectedBadge.tier).referralReward}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-[10px] text-gray-500 dark:text-emerald-500/70 mb-1">Voting Power</p>
+                          <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                            {getBadgeStats(selectedBadge.tier).votingPower}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Badge benefits */}
+                    <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Benefits</h4>
+                      
+                      <div className="space-y-2">
+                        {getBadgeBenefits(selectedBadge.tier).map((benefit, index) => (
+                          <div key={index} className="flex items-center">
+                            <div 
+                              className="w-4 h-4 flex items-center justify-center rounded-full mr-2"
+                              style={{ backgroundColor: `${getBadgeColor(selectedBadge.tier, true)}30` }}
+                            >
+                              <FaCheck className="h-2 w-2" style={{ color: getBadgeColor(selectedBadge.tier) }} />
+                            </div>
+                            <p className="text-sm text-gray-700 dark:text-emerald-300/80">{benefit}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Blockchain verification */}
+                    <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300">Blockchain Verification</h4>
+                        <p className="text-xs px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Verified</p>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 dark:text-emerald-300/50 mt-2">
+                        This badge is stored on the blockchain and can't be transferred or altered. It represents your authentic contribution to the community.
+                      </p>
+                      
+                      <div className="mt-3 flex justify-end">
+                        <a 
+                          href={`https://sepolia.tea.xyz/token/${selectedBadge.tokenId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs flex items-center text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
+                        >
+                          <FaExpand className="mr-1 h-3 w-3" /> View on Explorer
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  </motion.div>
+                  ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-6 md:p-8 h-full flex flex-col items-center justify-center"
+                  >
+                    <div className="w-16 h-16 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/20 rounded-full mb-4">
+                      <FaLeaf className="h-6 w-6 text-emerald-500 dark:text-emerald-400/60" />
+                    </div>
+                    <p className="text-center text-gray-500 dark:text-emerald-300/70">
+                      Select a badge to view its details
+                    </p>
+                </motion.div>
+                )}
+            </AnimatePresence>
           </div>
-          <p className="text-sm text-gray-700 dark:text-emerald-300/80">{benefit}</p>
         </div>
-      ))}
-    </div>
-  </div>
-  
-  {/* Blockchain verification */}
-  <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
-    <div className="flex justify-between items-center">
-      <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300">Blockchain Verification</h4>
-      <p className="text-xs px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Verified</p>
-    </div>
-    
-    <p className="text-xs text-gray-500 dark:text-emerald-300/50 mt-2">
-      This badge is stored on the blockchain and can't be transferred or altered. It represents your authentic contribution to the community.
-    </p>
-    
-    <div className="mt-3 flex justify-end">
-      <a 
-        href={`https://sepolia.tea.xyz/token/${selectedBadge.tokenId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs flex items-center text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
-      >
-        <FaExpand className="mr-1 h-3 w-3" /> View on Explorer
-      </a>
-    </div>
-  </div>
-</div>
-</motion.div>
-) : (
-<motion.div
-  initial={{ opacity: 0 }}
-  animate={{ opacity: 1 }}
-  className="p-6 md:p-8 h-full flex flex-col items-center justify-center"
->
-  <div className="w-16 h-16 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/20 rounded-full mb-4">
-    <FaLeaf className="h-6 w-6 text-emerald-500 dark:text-emerald-400/60" />
-  </div>
-  <p className="text-center text-gray-500 dark:text-emerald-300/70">
-    Select a badge to view its details
-  </p>
-</motion.div>
-)}
-</AnimatePresence>
-</div>
-</div>
 
-{/* Custom animation style */}
-<style jsx global>{`
-  @keyframes gradient-shift {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-  
-  @keyframes spin-slow {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  
-  .animate-spin-slow {
-    animation: spin-slow 20s linear infinite;
-  }
-  
-  .hover\\:scale-102:hover {
-    transform: scale(1.02);
-  }
-`}</style>
-</motion.div>
-);
-};
+        {/* Custom animation style */}
+        <style jsx global>{`
+          @keyframes gradient-shift {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          
+          @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          
+          .animate-spin-slow {
+            animation: spin-slow 20s linear infinite;
+          }
+          
+          .hover\\:scale-102:hover {
+            transform: scale(1.02);
+          }
+        `}</style>
+        </motion.div>
+        );
+        };
 
-// Helper function to get badge color based on tier (with light mode support)
-const getBadgeColor = (tier: number, isLightMode: boolean = false) => {
-  const tierKey = Object.keys(BADGE_TIERS).find(
-    key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier
-  );
-  
-  if (!tierKey) return BADGE_TIERS.COMMON.color;
-  
-  const color = BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].color;
-  
-  // For light mode, we want the colors to be more vibrant/darker
-  if (isLightMode) {
-    switch(tier) {
-      case 0: return "#10b981"; // emerald-500 instead of 400
-      case 1: return "#0891b2"; // cyan-600 instead of 500
-      case 2: return "#8b5cf6"; // violet-500 instead of 400
-      case 3: return "#f59e0b"; // amber-500 instead of 400
-      case 4: return "#ef4444"; // red-500 instead of 400
-      default: return color;
-    }
-  }
-  
-  return color;
-};
+        // Helper function to get badge color based on tier (with light mode support)
+        const getBadgeColor = (tier: number, isLightMode: boolean = false) => {
+          const tierKey = Object.keys(BADGE_TIERS).find(
+            key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier
+          );
+          
+          if (!tierKey) return BADGE_TIERS.COMMON.color;
+          
+          const color = BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].color;
+          
+          // For light mode, we want the colors to be more vibrant/darker
+          if (isLightMode) {
+            switch(tier) {
+              case 0: return "#10b981"; // emerald-500 instead of 400
+              case 1: return "#0891b2"; // cyan-600 instead of 500
+              case 2: return "#8b5cf6"; // violet-500 instead of 400
+              case 3: return "#f59e0b"; // amber-500 instead of 400
+              case 4: return "#ef4444"; // red-500 instead of 400
+              default: return color;
+            }
+          }
+          
+          return color;
+        };
 
-// Helper function to get tier name based on tier
-const getTierName = (tier: number) => {
-  const tierKey = Object.keys(BADGE_TIERS).find(
-    key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier
-  );
-  
-  if (!tierKey) return "Unknown";
-  return BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].name;
-};
+        // Helper function to get tier name based on tier
+        const getTierName = (tier: number) => {
+          const tierKey = Object.keys(BADGE_TIERS).find(
+            key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier
+          );
+          
+          if (!tierKey) return "Unknown";
+          return BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].name;
+        };
 
 export default UserBadges;

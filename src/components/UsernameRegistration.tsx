@@ -87,6 +87,8 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
   const [referrerAtCapacity, setReferrerAtCapacity] = useState<boolean>(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
 
+
+  
   // Check and update DB mode status
   useEffect(() => {
     setUsingDBMode(isUsingDBMode());
@@ -467,14 +469,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
             <FaInfoCircle className="mr-1 text-xs" />
             Username cannot be changed after registration
           </div>
-          
-          {/* Database mode indicator */}
-          {usingDBMode && (
-            <div className="mt-2 text-xs font-medium text-emerald-500 flex items-center">
-              <FaInfoCircle className="mr-1 text-xs" />
-              Using database mode
-            </div>
-          )}
         </motion.div>
         
         {/* If user already has a referrer, show a notice */}

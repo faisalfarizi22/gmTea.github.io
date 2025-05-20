@@ -2,6 +2,8 @@
 const dotenv = require('dotenv');
 const path = require('path');
 const indexerController = require('../mongodb/indexers').default;
+// Import fungsi dbConnect dari connection
+const { dbConnect } = require('../mongodb/connection');
 
 // Load environment variables
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -56,6 +58,8 @@ async function run() {
       // If fix-only flag is provided, exit after fix
       if (args.includes('--fix-only')) {
         console.log('Fix completed. Exiting...');
+        // Clean shutdown before exit
+        await indexerController.shutdown();
         process.exit(0);
       }
     }
@@ -72,6 +76,8 @@ async function run() {
         indexerController.startIndexing();
       } else {
         console.log('Sync completed. Exiting...');
+        // Clean shutdown before exit
+        await indexerController.shutdown();
         process.exit(0);
       }
     }
@@ -79,20 +85,11 @@ async function run() {
     else if (syncRewards) {
       console.log('Syncing all user rewards...');
       
-      // Connect to MongoDB
-      const mongoose = require('mongoose');
-      const uri = process.env.MONGODB_URI;
-      
-      if (!uri) {
-        throw new Error('MONGODB_URI environment variable not set');
-      }
-      
-      await mongoose.connect(uri, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      });
+      // Gunakan dbConnect standar bukannya koneksi mongoose langsung
+      await dbConnect();
       
       // Get Badge model to find badges with referrers
+      const mongoose = require('mongoose');
       const Badge = mongoose.model('Badge');
       const referrers = await Badge.distinct('referrer', { referrer: { $ne: null } });
       
@@ -106,10 +103,10 @@ async function run() {
       
       console.log('All rewards synced successfully');
       
-      // Disconnect from MongoDB if sync-only
+      // Jika sync-only, lakukan shutdown yang bersih bukannya disconnect langsung
       if (args.includes('--sync-only')) {
-        await mongoose.disconnect();
         console.log('Sync completed. Exiting...');
+        await indexerController.shutdown();
         process.exit(0);
       }
     }
@@ -127,6 +124,12 @@ async function run() {
     }
   } catch (error) {
     console.error('Error during indexer operations:', error);
+    // Pastikan kita melakukan shutdown yang bersih sebelum error exit
+    try {
+      await indexerController.shutdown();
+    } catch (shutdownError) {
+      console.error('Error during shutdown after operation error:', shutdownError);
+    }
     process.exit(1);
   }
 }
@@ -136,16 +139,17 @@ run();
 
 console.log('Indexer process running. Press Ctrl+C to stop.');
 
-// Handle graceful shutdown
+// Handle graceful shutdown - dimodifikasi untuk menggunakan shutdown
 process.on('SIGINT', async () => {
-  console.log('Shutting down indexer...');
+  console.log('SIGINT received. Shutting down indexer...');
   
-  // Stop the indexer controller
-  indexerController.stopIndexing();
-  
-  // Allow some time for cleanup
-  setTimeout(() => {
-    console.log('Indexer shutdown complete.');
+  try {
+    // Gunakan metode shutdown yang baru untuk menutup koneksi database
+    await indexerController.shutdown();
+    console.log('Indexer shutdown process complete.');
     process.exit(0);
-  }, 1000);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 });

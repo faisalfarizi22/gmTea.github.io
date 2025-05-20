@@ -1,12 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Head from "next/head"
 import { motion } from "framer-motion"
 import { FaNetworkWired, FaLeaf } from "react-icons/fa"
-import Navbar from "@/components/Navbar"
-import WalletRequired from "@/components/WalletRequired"
-import AudioPlayer from "@/components/AudioPlayer"
 import ProfileHeader from "@/components/profile/ProfileHeader"
 import ProfileTabs from "@/components/profile/ProfileTabs"
 import ProfileNotifications from "@/components/profile/ProfileNotifications"
@@ -18,40 +14,28 @@ import AchievementsTab from "@/components/profile/tabs/AchievementsTab"
 import ReferralsTab from "@/components/profile/tabs/ReferralsTab"
 import BenefitsTab from "@/components/profile/tabs/BenefitsTab"
 import { useEthereumEvents } from "@/hooks/useEthereumEvents"
-import { useUserDataCombined, useTierBenefits } from "@/hooks/useUserData" 
+import { useUserDataCombined } from "@/hooks/useUserData"
 import { useNotifications } from "@/hooks/useNotifications"
 import { getAvatarUrl } from "../profile/utils/profileUtils"
 import { TEA_SEPOLIA_CHAIN_ID } from "@/utils/constants"
-import { connectWallet, switchToTeaSepolia, getContract } from "@/utils/web3"
+import { switchToTeaSepolia } from "@/utils/web3"
 import { getUserSocialBenefits } from "@/utils/socialBenefitsUtils"
-import { UserSocialBenefits } from "@/types/user"
-import Footer from "../Footer"
-import { useWalletState } from "@/hooks/useWalletState";
+import type { UserSocialBenefits } from "@/types/user"
+import { useWalletState } from "@/hooks/useWalletState"
 
 // Type for the active tab
 type ActiveTab = "overview" | "badges" | "achievements" | "referrals" | "benefits"
 
 export default function ProfilePage() {
   // Get current account using ThirdWeb
-  const { 
-  web3State, 
-  connectWallet, 
-  disconnectWallet, 
-  switchNetwork 
-} = useWalletState();
+  const { web3State, connectWallet, disconnectWallet, switchNetwork } = useWalletState()
 
-const { 
-  address, 
-  signer, 
-  provider, 
-  isConnected,
-  isLoading: isWalletConnecting,
-  chainId: walletChainId 
-} = web3State;
-  
-const adaptedConnectWallet = async (): Promise<void> => {
-  await connectWallet();
-};
+  const { address, signer, provider, isConnected, isLoading: isWalletConnecting, chainId: walletChainId } = web3State
+
+  const adaptedConnectWallet = async (): Promise<void> => {
+    await connectWallet()
+  }
+
   // UI state
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false)
   const [showUsernameModal, setShowUsernameModal] = useState<boolean>(false)
@@ -65,15 +49,11 @@ const adaptedConnectWallet = async (): Promise<void> => {
     chatEmotes: false,
     coloredText: false,
     messageEffects: false,
-    profileBackground: null
+    profileBackground: null,
   })
 
   // Get notifications hook
-  const { 
-    notifications, 
-    addNotification, 
-    removeNotification 
-  } = useNotifications()
+  const { notifications, addNotification, removeNotification } = useNotifications()
 
   // Use userData from database
   const {
@@ -83,18 +63,18 @@ const adaptedConnectWallet = async (): Promise<void> => {
     referrals,
     activities,
     isLoading: isLoadingUserData,
-    refetch: refreshUserData
+    refetch: refreshUserData,
   } = useUserDataCombined(address)
-  
+
   // Connect wallet function
   const handleConnectWallet = useCallback(async () => {
     try {
-      await connectWallet();
+      await connectWallet()
     } catch (error) {
-      console.error("Error connecting wallet:", error);
-      addNotification("Failed to connect wallet", "error");
+      console.error("Error connecting wallet:", error)
+      addNotification("Failed to connect wallet", "error")
     }
-  }, [connectWallet, addNotification]);
+  }, [connectWallet, addNotification])
 
   // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
@@ -126,6 +106,25 @@ const adaptedConnectWallet = async (): Promise<void> => {
       setIsConnecting(false)
     }
   }, [handleConnectWallet])
+
+  useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        // If navigating to the profile page
+        if (event.detail.tab === "profile") {
+          // If a specific subtab is specified
+          if (event.detail.subtab) {
+            setActiveTab(event.detail.subtab as ActiveTab);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("navigate", handleNavigate as EventListener);
+    return () => {
+      window.removeEventListener("navigate", handleNavigate as EventListener);
+    };
+  }, []);
 
   // Attempt to reconnect wallet on page load
   useEffect(() => {
@@ -179,16 +178,19 @@ const adaptedConnectWallet = async (): Promise<void> => {
 
   // Debug log for signer in ProfilePage
   useEffect(() => {
-    console.log("ProfilePage - signer status:", !!signer);
-    
+    console.log("ProfilePage - signer status:", !!signer)
+
     if (signer) {
-      signer.getAddress().then(signerAddress => {
-        console.log("ProfilePage - verified signer address:", signerAddress);
-      }).catch(err => {
-        console.error("Error getting signer address:", err);
-      });
+      signer
+        .getAddress()
+        .then((signerAddress) => {
+          console.log("ProfilePage - verified signer address:", signerAddress)
+        })
+        .catch((err) => {
+          console.error("Error getting signer address:", err)
+        })
     }
-  }, [signer]);
+  }, [signer])
 
   // Set up refresh interval for user data
   useEffect(() => {
@@ -215,7 +217,7 @@ const adaptedConnectWallet = async (): Promise<void> => {
   const handleRegistrationComplete = async () => {
     // Refresh user data to update username status
     refreshUserData()
-    
+
     // Hide username modal
     setShowUsernameModal(false)
   }
@@ -240,19 +242,7 @@ const adaptedConnectWallet = async (): Promise<void> => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black/90 tea-leaf-pattern text-gray-800 dark:text-emerald-50">
-      <Head>
-        <title>Digital Profile | GM TEA</title>
-        <meta name="description" content="View your GM TEA profile and digital credentials" />
-      </Head>
-
-      <Navbar
-          address={address}
-          connectWallet={adaptedConnectWallet}
-          disconnectWallet={disconnectWallet}
-          isConnecting={isWalletConnecting}
-        />
-
-      <main className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <main className=" pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Network alert */}
         {walletChainId && walletChainId !== TEA_SEPOLIA_CHAIN_ID && (
           <motion.div
@@ -283,146 +273,125 @@ const adaptedConnectWallet = async (): Promise<void> => {
           </motion.div>
         )}
 
-        <WalletRequired
-            isConnected={isConnected}
-            connectWallet={adaptedConnectWallet}
-            isConnecting={isWalletConnecting}
-          >
-
-          {/* Main Profile Content */}
-          {!address || isLoadingUserData ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="relative w-20 h-20">
-                <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
-                <div className="absolute inset-2 rounded-full border-2 border-dashed border-emerald-400 animate-spin"></div>
-                <div className="absolute inset-4 rounded-full border-2 border-emerald-300/60 animate-ping"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <FaLeaf className="text-emerald-400 text-2xl animate-pulse" />
-                </div>
+        {/* Main Profile Content */}
+        {!address || isLoadingUserData ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative w-20 h-20">
+              <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
+              <div className="absolute inset-2 rounded-full border-2 border-dashed border-emerald-400 animate-spin"></div>
+              <div className="absolute inset-4 rounded-full border-2 border-emerald-300/60 animate-ping"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FaLeaf className="text-emerald-400 text-2xl animate-pulse" />
               </div>
-              <p className="text-emerald-500 dark:text-emerald-300 mt-6 font-medium tracking-wide">
-                {address
-                  ? "Loading digital credentials..."
-                  : "Connect wallet to access your digital profile"}
-              </p>
-              <p className="text-emerald-600/60 dark:text-emerald-500/60 text-sm mt-2">
-                {address ? "Retrieving your on-chain data" : "Authentication required"}
-              </p>
             </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-8"
-            >
-              {/* Profile Header */}
-              <ProfileHeader 
-                address={address}
-                username={userData?.username || null}
-                highestTier={userData?.highestBadgeTier || -1}
-                avatarUrl={address ? getAvatarUrl(address) : null}
-                hasUsername={!!userData?.username}
-                showUsernameModal={() => setShowUsernameModal(true)}
-                copyAddressToClipboard={copyAddressToClipboard}
+            <p className="text-emerald-500 dark:text-emerald-300 mt-6 font-medium tracking-wide">
+              {address ? "Loading digital credentials..." : "Connect wallet to access your digital profile"}
+            </p>
+            <p className="text-emerald-600/60 dark:text-emerald-500/60 text-sm mt-2">
+              {address ? "Retrieving your on-chain data" : "Authentication required"}
+            </p>
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="space-y-8"
+          >
+            {/* Profile Header */}
+            <ProfileHeader
+              address={address}
+              username={userData?.username || null}
+              highestTier={userData?.highestBadgeTier || -1}
+              avatarUrl={address ? getAvatarUrl(address) : null}
+              hasUsername={!!userData?.username}
+              showUsernameModal={() => setShowUsernameModal(true)}
+              copyAddressToClipboard={copyAddressToClipboard}
+            />
+
+            {/* Tab navigation */}
+            <div className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl overflow-hidden border border-gray-200 dark:border-emerald-500/20 shadow-lg">
+              <ProfileTabs
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                badgeCount={badges.length}
+                checkinCount={userData?.checkinCount || 0}
+                referralCount={referrals.length}
               />
-              
-              {/* Tab navigation */}
-              <div className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl overflow-hidden border border-gray-200 dark:border-emerald-500/20 shadow-lg">
-                <ProfileTabs
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  badgeCount={badges.length}
-                  checkinCount={userData?.checkinCount || 0}
-                  referralCount={referrals.length}
-                />
-                
-                <div className="p-6">
-                  {/* Tab content */}
-                  {activeTab === "overview" && address && (
-                    <OverviewTab
-                      address={address}
-                      checkinCount={userData?.checkinCount || 0}
-                      leaderboardRank={userData?.rank || 0}
-                      highestTier={userData?.highestBadgeTier || -1}
-                      userBadges={badges}
-                      setShowPointsBreakdown={setShowPointsBreakdown}
-                      setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
-                      activeBenefits={[]} // Can be computed based on tier
-                    />
-                  )}
-                  
-                  {activeTab === "badges" && (
-                    <BadgesTab 
-                      address={address} 
-                      badges={badges}
-                    />
-                  )}
-                  
-                  {activeTab === "achievements" && (
-                    <AchievementsTab
-                      checkinCount={userData?.checkinCount || 0}
-                      username={userData?.username || null}
-                      highestTier={userData?.highestBadgeTier || -1}
-                    />
-                  )}
-                  
-                  {activeTab === "referrals" && (
-                    <ReferralsTab
-                      address={web3State.address}
-                      signer={web3State.signer}
-                      username={userData?.username || null}
-                      showUsernameModal={() => setShowUsernameModal(true)}
-                      onRewardsClaimComplete={handleRewardsClaimComplete}
-                    />
-                  )}
-                  
-                  {activeTab === "benefits" && (
-                    <BenefitsTab
-                      highestTier={userData?.highestBadgeTier || -1}
-                      address={address}
-                      username={userData?.username || null}
-                      socialBenefits={socialBenefits}
-                    />
-                  )}
-                </div>
+
+              <div className="p-6">
+                {/* Tab content */}
+                {activeTab === "overview" && address && (
+                  <OverviewTab
+                    address={address}
+                    checkinCount={userData?.checkinCount || 0}
+                    leaderboardRank={userData?.rank || 0}
+                    highestTier={userData?.highestBadgeTier || -1}
+                    userBadges={badges}
+                    setShowPointsBreakdown={setShowPointsBreakdown}
+                    setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
+                    activeBenefits={[]} // Can be computed based on tier
+                  />
+                )}
+
+                {activeTab === "badges" && <BadgesTab address={address} badges={badges} />}
+
+                {activeTab === "achievements" && (
+                  <AchievementsTab
+                    checkinCount={userData?.checkinCount || 0}
+                    username={userData?.username || null}
+                    highestTier={userData?.highestBadgeTier || -1}
+                  />
+                )}
+
+                {activeTab === "referrals" && (
+                  <ReferralsTab
+                    address={web3State.address}
+                    signer={web3State.signer}
+                    username={userData?.username || null}
+                    showUsernameModal={() => setShowUsernameModal(true)}
+                    onRewardsClaimComplete={handleRewardsClaimComplete}
+                  />
+                )}
+
+                {activeTab === "benefits" && (
+                  <BenefitsTab
+                    highestTier={userData?.highestBadgeTier || -1}
+                    address={address}
+                    username={userData?.username || null}
+                    socialBenefits={socialBenefits}
+                  />
+                )}
               </div>
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
+        )}
 
-          {/* Username Registration Modal */}
-          {showUsernameModal && address && (
-            <UsernameModal
-              address={address}
-              signer={signer}
-              hasReferrer={hasReferrer}
-              onClose={() => setShowUsernameModal(false)}
-              onRegistrationComplete={handleRegistrationComplete}
-            />
-          )}
-          {/* Points Breakdown Modal */}
-          {showPointsBreakdown && address && userData && (
-            <PointsBreakdownModal
-              onClose={() => setShowPointsBreakdown(false)}
-              address={address}
-              checkinCount={userData.checkinCount}
-              leaderboardRank={userData.rank || 0}
-              highestTier={userData.highestBadgeTier}
-            />
-          )}
+        {/* Username Registration Modal */}
+        {showUsernameModal && address && (
+          <UsernameModal
+            address={address}
+            signer={signer}
+            hasReferrer={hasReferrer}
+            onClose={() => setShowUsernameModal(false)}
+            onRegistrationComplete={handleRegistrationComplete}
+          />
+        )}
+        {/* Points Breakdown Modal */}
+        {showPointsBreakdown && address && userData && (
+          <PointsBreakdownModal
+            onClose={() => setShowPointsBreakdown(false)}
+            address={address}
+            checkinCount={userData.checkinCount}
+            leaderboardRank={userData.rank || 0}
+            highestTier={userData.highestBadgeTier}
+          />
+        )}
 
-          {/* Audio Player - Fixed position */}
-          <AudioPlayer initialVolume={0.3} />
-        </WalletRequired>
       </main>
 
-      
-
       {/* Notifications */}
-      <ProfileNotifications 
-        notifications={notifications} 
-        removeNotification={removeNotification} 
-      />
+      <ProfileNotifications notifications={notifications} removeNotification={removeNotification} />
 
       {/* Custom animation styles */}
       <style jsx global>{`

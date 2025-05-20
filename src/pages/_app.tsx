@@ -10,6 +10,7 @@ import WalletRequired from "@/components/WalletRequired"
 import { useWalletState } from "@/hooks/useWalletState"
 import { useScrollFunctions } from "@/hooks/useScrollFunctions"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import ConnectionStatusProvider from "@/components/ConnectionStatusProvider"
 
 function GMApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -28,7 +29,7 @@ function GMApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <Head>
-        <title>GMTEA - Daily Web3 Check-ins</title>
+        <title>GMTEA - Blockchain Interactions</title>
         <meta name="description" content="Daily GM check-ins on the Tea Sepolia Testnet" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -40,33 +41,27 @@ function GMApp({ Component, pageProps }: AppProps) {
         />
       </Head>
 
-      <ThirdwebProvider>
-        <SpeedInsights/>
-        <Navbar
-          address={address}
-          connectWallet={adaptedConnectWallet}
-          disconnectWallet={disconnectWallet}
-          isConnecting={isWalletConnecting}
-          scrollToLeaderboard={scrollToLeaderboard}
-          scrollToMintSection={scrollToMintSection}
-        />
-
-        <main>
-          {shouldRequireWallet ? (
-            <WalletRequired
-              isConnected={isConnected}
-              connectWallet={adaptedConnectWallet}
-              isConnecting={isWalletConnecting}
-            >
+      <ConnectionStatusProvider>
+        <ThirdwebProvider>
+          
+          <SpeedInsights/>
+          <main>
+            {shouldRequireWallet ? (
+              <WalletRequired
+                isConnected={isConnected}
+                connectWallet={adaptedConnectWallet}
+                isConnecting={isWalletConnecting}
+              >
+                <Component {...pageProps} />
+              </WalletRequired>
+            ) : (
               <Component {...pageProps} />
-            </WalletRequired>
-          ) : (
-            <Component {...pageProps} />
-          )}
-        </main>
+            )}
+          </main>
 
-        <Footer scrollToLeaderboard={scrollToLeaderboard} scrollToMintSection={scrollToMintSection} />
-      </ThirdwebProvider>
+          <Footer scrollToLeaderboard={scrollToLeaderboard} scrollToMintSection={scrollToMintSection} />
+        </ThirdwebProvider>
+      </ConnectionStatusProvider>
     </>
   )
 }

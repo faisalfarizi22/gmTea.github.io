@@ -2,22 +2,12 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ethers } from "ethers"
 import {
-  FaLeaf,
-  FaWallet,
-  FaSpinner,
-  FaCheck,
-  FaTimes,
-  FaInfoCircle,
-  FaCopy,
-  FaChevronRight,
-  FaGem,
-  FaMedal,
-  FaLock,
-  FaRegLightbulb,
+  FaLeaf, FaWallet, FaSpinner, FaCheck, FaTimes, FaInfoCircle, FaCopy,
+  FaChevronRight, FaGem, FaMedal, FaLock, FaRegLightbulb,
 } from "react-icons/fa"
 import { BADGE_TIERS, BADGE_CONTRACT_ADDRESS } from "@/utils/constants"
 import { getUserHighestTier, hasUserMintedTier, getBadgeContract, getProvider, checkUsername } from "@/utils/badgeWeb3"
@@ -50,6 +40,23 @@ interface BadgeSupply {
   currentSupply: number
 }
 
+interface Notification {
+  id: number;
+  message: string;
+  type: "success" | "error" | "info";
+}
+
+interface NotificationProps {
+  message: string;
+  type: "success" | "error" | "info";
+  onClose: () => void;
+}
+
+interface NotificationContainerProps {
+  notifications: Notification[];
+  removeNotification: (id: number) => void;
+}
+
 const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, onMintComplete, badges = [] }) => {
   const [highestTier, setHighestTier] = useState<number>(-1)
   const [selectedTier, setSelectedTier] = useState<number>(-1)
@@ -66,7 +73,9 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
     confirmations: 0,
   })
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [activeTab, setActiveTab] = useState("overview") // 'overview', 'benefits', 'collection'
+  const [activeTab, setActiveTab] = useState("overview")
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const notificationIdRef = useRef<number>(0);
 
   // Badge tier information with benefits
   const badgeTiers = [
@@ -158,88 +167,88 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
   }, [badges]);
 
   // Perbaikan pada fungsi loadContractData
-const loadContractData = async () => {
-  try {
-    setLoadingPrices(true);
-    setLoadingSupplies(true);
+  const loadContractData = async () => {
+    try {
+      setLoadingPrices(true);
+      setLoadingSupplies(true);
 
-    // Dapatkan provider dari signer yang diberikan jika tersedia
-    let provider = null;
-    if (signer) {
-      provider = signer.provider;
-    }
-
-    // Fallback ke getProvider() jika signer tidak ada
-    if (!provider) {
-      provider = getProvider();
-    }
-
-    if (!provider) {
-      console.error("Provider not available");
-      return;
-    }
-
-    // Gunakan contract instance langsung dengan address dan ABI
-    const badgeContract = new ethers.Contract(
-      BADGE_CONTRACT_ADDRESS,
-      GMTeaBadgeABI,
-      provider
-    );
-
-    console.log("Loading contract data using contract at:", BADGE_CONTRACT_ADDRESS);
-
-    // Load prices for all tiers
-    const prices = [];
-    const supplies = [];
-
-    for (let i = 0; i < 5; i++) {
-      try {
-        // Get price
-        const price = await badgeContract.tierPrices(i);
-        console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
-        prices.push(ethers.utils.formatEther(price));
-
-        // Get supplies
-        const maxSupply = await badgeContract.tierMaxSupplies(i);
-        const currentSupply = await badgeContract.tierCurrentSupplies(i);
-
-        console.log(`Tier ${i} supply:`, {
-          max: maxSupply.toNumber(),
-          current: currentSupply.toNumber()
-        });
-
-        supplies.push({
-          maxSupply: maxSupply.toNumber(),
-          currentSupply: currentSupply.toNumber(),
-        });
-      } catch (tierError) {
-        console.error(`Error fetching data for tier ${i}:`, tierError);
-        prices.push("0");
-        supplies.push({
-          maxSupply: 1000,
-          currentSupply: 0
-        });
+      // Dapatkan provider dari signer yang diberikan jika tersedia
+      let provider = null;
+      if (signer) {
+        provider = signer.provider;
       }
-    }
 
-    setContractPrices(prices);
-    setBadgeSupplies(supplies);
-  } catch (error) {
-    console.error("Error in loadContractData:", error);
-    // Set default values if error occurs
-    setContractPrices(["0", "0", "0", "0", "0"]);
-    setBadgeSupplies([
-      { maxSupply: 1000, currentSupply: 0 },
-      { maxSupply: 1000, currentSupply: 0 },
-      { maxSupply: 1000, currentSupply: 0 },
-      { maxSupply: 1000, currentSupply: 0 },
-      { maxSupply: 1000, currentSupply: 0 }
-    ]);
-  } finally {
-    setLoadingPrices(false);
-    setLoadingSupplies(false);
-  }
-};
+      // Fallback ke getProvider() jika signer tidak ada
+      if (!provider) {
+        provider = getProvider();
+      }
+
+      if (!provider) {
+        console.error("Provider not available");
+        return;
+      }
+
+      // Gunakan contract instance langsung dengan address dan ABI
+      const badgeContract = new ethers.Contract(
+        BADGE_CONTRACT_ADDRESS,
+        GMTeaBadgeABI,
+        provider
+      );
+
+      console.log("Loading contract data using contract at:", BADGE_CONTRACT_ADDRESS);
+
+      // Load prices for all tiers
+      const prices = [];
+      const supplies = [];
+
+      for (let i = 0; i < 5; i++) {
+        try {
+          // Get price
+          const price = await badgeContract.tierPrices(i);
+          console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
+          prices.push(ethers.utils.formatEther(price));
+
+          // Get supplies
+          const maxSupply = await badgeContract.tierMaxSupplies(i);
+          const currentSupply = await badgeContract.tierCurrentSupplies(i);
+
+          console.log(`Tier ${i} supply:`, {
+            max: maxSupply.toNumber(),
+            current: currentSupply.toNumber()
+          });
+
+          supplies.push({
+            maxSupply: maxSupply.toNumber(),
+            currentSupply: currentSupply.toNumber(),
+          });
+        } catch (tierError) {
+          console.error(`Error fetching data for tier ${i}:`, tierError);
+          prices.push("0");
+          supplies.push({
+            maxSupply: 1000,
+            currentSupply: 0
+          });
+        }
+      }
+
+      setContractPrices(prices);
+      setBadgeSupplies(supplies);
+    } catch (error) {
+      console.error("Error in loadContractData:", error);
+      // Set default values if error occurs
+      setContractPrices(["0", "0", "0", "0", "0"]);
+      setBadgeSupplies([
+        { maxSupply: 1000, currentSupply: 0 },
+        { maxSupply: 1000, currentSupply: 0 },
+        { maxSupply: 1000, currentSupply: 0 },
+        { maxSupply: 1000, currentSupply: 0 },
+        { maxSupply: 1000, currentSupply: 0 }
+      ]);
+    } finally {
+      setLoadingPrices(false);
+      setLoadingSupplies(false);
+    }
+  };
 
 useEffect(() => {
   const loadData = async () => {
@@ -570,13 +579,17 @@ const getTierStatus = (tier: number): string => {
           onMintComplete();
         }
       } catch (txError: any) {
-        console.error("Transaction failed:", txError)
+        console.error("Transaction failed:", txError);
+        const { message, type } = parseTransactionError(txError);
+        
         setTxState({
           status: "error",
-          error: txError.message || "Transaction failed",
+          error: message,
           txHash: null,
           confirmations: 0,
-        })
+        });
+        
+        addNotification(message, type);
       }
     } catch (error: any) {
       console.error("Unexpected error in handleMint:", error)
@@ -588,6 +601,65 @@ const getTierStatus = (tier: number): string => {
       })
     }
   }
+
+  // Function to parse transaction errors for better messages
+  const parseTransactionError = (error: any): { message: string; type: "error" | "info" } => {
+    if (!error) return { message: "Unknown error occurred", type: "error" };
+    
+    // Convert error to string for easier checking
+    const errorString = error.toString().toLowerCase();
+    
+    // User rejected/denied transaction
+    if (
+      errorString.includes("user rejected") || 
+      errorString.includes("user denied") || 
+      errorString.includes("rejected by user") ||
+      errorString.includes("transaction was rejected")
+    ) {
+      return {
+        message: "Transaction was canceled in your wallet",
+        type: "info"
+      };
+    }
+    
+    // Gas related errors
+    if (errorString.includes("gas") && errorString.includes("limit")) {
+      return {
+        message: "Transaction failed: Gas limit estimation error",
+        type: "error"
+      };
+    }
+    
+    // Network errors
+    if (errorString.includes("network") || errorString.includes("connection")) {
+      return {
+        message: "Network connection issue. Please check your internet and try again.",
+        type: "error"
+      };
+    }
+    
+    // Extract message from JSON error object if present
+    if (errorString.includes("{") && errorString.includes("}")) {
+      try {
+        // Try to find the actual error message without the technical details
+        const basicMessage = error.message?.split("(")[0]?.trim() || "Transaction failed";
+        return {
+          message: basicMessage,
+          type: "error"
+        };
+      } catch (e) {
+        // Fall back to default message
+      }
+    }
+    
+    // Default: use the error message or a generic one
+    return {
+      message: error.message || "Transaction failed",
+      type: "error"
+    };
+  };
+
+  
 
   // Copy transaction hash to clipboard
   const copyTxHashToClipboard = () => {
@@ -603,12 +675,24 @@ const getTierStatus = (tier: number): string => {
       })
   }
 
-  // Add notification (simplified version)
-  const addNotification = (message: string, type: "success" | "error" | "info") => {
-    // For simplicity, we're just using an alert
-    // In a real app, you'd use a proper notification system
-    alert(`${type.toUpperCase()}: ${message}`)
-  }
+  const addNotification = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = ++notificationIdRef.current;
+    
+    // Add notification to state
+    setNotifications(prev => [...prev, { id, message, type }]);
+    
+    // Auto-remove notification after 5 seconds
+    setTimeout(() => {
+      removeNotification(id);
+    }, 5000);
+    
+    return id;
+  };
+
+  // Remove notification function
+  const removeNotification = (id: number) => {
+    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  };
 
   // Reset transaction state
   const resetTxState = () => {
@@ -709,7 +793,7 @@ const getTierStatus = (tier: number): string => {
           </div>
           <h2 className="text-3xl font-bold text-center mb-3 text-emerald-600 dark:text-emerald-400">Badge Minted!</h2>
           <p className="text-gray-600 dark:text-emerald-300/70 text-center mb-4">
-            You have successfully minted the {mintedTier?.name} badge.
+            Successfully minted
           </p>
 
           {txState.txHash && (
@@ -794,10 +878,15 @@ const getTierStatus = (tier: number): string => {
                   setIsLoading(false)
                 }
               }}
-              className="w-full py-3 px-6 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-lg transition-all shadow-lg hover:shadow-emerald-500/20 text-sm font-medium flex items-center justify-center"
+              disabled={isLoading}
+              className={`w-full py-3 px-6 rounded-lg transition-all text-sm font-medium flex items-center justify-center ${
+                isLoading 
+                  ? "bg-gray-400 cursor-not-allowed text-gray-200" 
+                  : "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg hover:shadow-emerald-500/20"
+              }`}
             >
               <FaSpinner className={`mr-2 ${isLoading ? "animate-spin" : "hidden"}`} />
-              Continue
+              {isLoading ? "Loading..." : "Continue"}
             </button>
           </div>
         </motion.div>
@@ -927,8 +1016,8 @@ const getTierStatus = (tier: number): string => {
                     </h3>
 
                     {isOwned ? (
-                      <div className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs text-white border border-white/20">
-                        Activated
+                      <div className="">
+                        
                       </div>
                     ) : (
                       <div className="px-3 py-1 rounded-full bg-black/30 backdrop-blur-sm text-xs text-white/70 border border-white/10">
@@ -1511,56 +1600,73 @@ const getTierStatus = (tier: number): string => {
                                 </AnimatePresence>
 
                                 {/* Mint button */}
-                                <button
-                                  onClick={handleMint}
-                                  disabled={
-                                    (txState.status !== "idle" && txState.status !== "error") ||
-                                    !signer ||
-                                    !canMintBadge(selectedTier) ||
-                                    loadingPrices ||
-                                    !username
-                                  }
-                                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center ${
-                                    (txState.status !== "idle" && txState.status !== "error") ||
-                                    !signer ||
-                                    !canMintBadge(selectedTier) ||
-                                    loadingPrices ||
-                                    !username
-                                      ? "bg-gray-100 dark:bg-emerald-900/20 text-gray-400 dark:text-emerald-200/30 cursor-not-allowed"
-                                      : getMintButtonStyle(selectedTier)
-                                  }`}
-                                >
-                                  {txState.status === "idle" || txState.status === "error" ? (
+                                <div className="flex space-x-3 items-center">
+                                  {/* Mint button - using flex-1 instead of w-full to take available space */}
+                                  <button
+                                    onClick={handleMint}
+                                    disabled={
+                                      (txState.status !== "idle" && txState.status !== "error") ||
+                                      !signer ||
+                                      !canMintBadge(selectedTier) ||
+                                      loadingPrices ||
+                                      !username
+                                    }
+                                    className={`
+                                      flex-1 py-3 px-4 rounded-lg font-medium relative overflow-hidden group
+                                      ${
+                                        (txState.status !== "idle" && txState.status !== "error") ||
+                                        !signer ||
+                                        !canMintBadge(selectedTier) ||
+                                        loadingPrices ||
+                                        !username
+                                          ? "bg-gray-100 dark:bg-emerald-900/20 text-gray-400 dark:text-emerald-200/30 cursor-not-allowed"
+                                          : "bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white transition-all shadow-lg"
+                                      }
+                                    `}
+                                  >
+                                  {/* Background animation elements (only show when enabled) */}
+                                  {canMintBadge(selectedTier) && signer && username && (txState.status === "idle" || txState.status === "error") && (
                                     <>
-                                      {getTierStatus(selectedTier) === "available" && <FaWallet className="mr-2" />}
-                                      {getMintButtonText(selectedTier)}
-                                      {getTierStatus(selectedTier) === "available" && (
-                                        <FaChevronRight className="ml-2" />
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <FaSpinner className="animate-spin mr-2" />
-                                      Processing...
+                                      {/* Animated particles */}
+                                      <div className="absolute inset-0 w-full h-full">
+                                        <div className="absolute -inset-[100%] bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 animate-shimmer"></div>
+                                      </div>
+                                      {/* Geometric pattern */}
+                                      <div className="absolute inset-0 opacity-20">
+                                        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                                          <defs>
+                                            <pattern id="grid-pattern" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+                                              <path d="M 0,10 L 20,10 M 10,0 L 10,20" stroke="white" strokeWidth="0.5" fill="none" />
+                                            </pattern>
+                                          </defs>
+                                          <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+                                        </svg>
+                                      </div>
+                                      {/* Subtle glow on hover */}
+                                      <div className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-500 bg-emerald-400 blur-xl"></div>
                                     </>
                                   )}
+
+                                  {/* Button content */}
+                                  <span className="relative flex items-center justify-center">
+                                    {txState.status === "idle" || txState.status === "error" ? (
+                                      <>
+                                        {getTierStatus(selectedTier) === "available" && <FaWallet className="mr-2" />}
+                                        {getMintButtonText(selectedTier)}
+                                        {getTierStatus(selectedTier) === "available" && (
+                                          <FaChevronRight className="ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FaSpinner className="animate-spin mr-2" />
+                                        Processing
+                                      </>
+                                    )}
+                                  </span>
                                 </button>
 
-                                {/* Username warning */}
-                                {!username && getTierStatus(selectedTier) === "available" && (
-                                  <div className="mt-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-lg border border-red-200 dark:border-red-500/20 text-sm text-red-500 dark:text-red-400">
-                                    <FaInfoCircle className="inline mr-1" />
-                                    You need to set a username first before minting badges.
-                                    <a
-                                      href="/profile"
-                                      className="ml-2 underline hover:text-red-600 dark:hover:text-red-300"
-                                    >
-                                      Go to Profile Page
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* Reset button when wallet popup might be stuck */}
+                                {/* Reset button conditionally rendered in the flex container */}
                                 {txState.status === "awaiting_wallet" && (
                                   <button
                                     onClick={() => {
@@ -1569,13 +1675,47 @@ const getTierStatus = (tier: number): string => {
                                         error: null,
                                         txHash: null,
                                         confirmations: 0,
-                                      })
+                                      });
                                     }}
-                                    className="w-full mt-3 py-2 border border-red-300 dark:border-red-500/30 text-red-500 dark:text-red-400 rounded-lg flex justify-center items-center font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                    className="w-28 py-2.5 relative overflow-hidden group rounded-lg flex justify-center items-center font-medium transition-all border border-red-300/50 dark:border-red-500/30 text-red-500 dark:text-red-400 hover:text-white"
                                   >
-                                    Cancel and reset
+                                    {/* Background effects */}
+                                    <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-red-500 to-rose-500"></div>
+                                    
+                                    {/* Geometric pattern */}
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300">
+                                      <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                                        <defs>
+                                          <pattern id="cancel-pattern" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+                                            <path d="M 0,10 L 20,10 M 10,0 L 10,20" stroke="white" strokeWidth="0.5" fill="none" />
+                                          </pattern>
+                                        </defs>
+                                        <rect width="100%" height="100%" fill="url(#cancel-pattern)" />
+                                      </svg>
+                                    </div>
+                                    
+                                    {/* Button content - simplified for side-by-side layout */}
+                                    <span className="relative flex items-center">
+                                      <FaTimes className="mr-1.5 h-3.5 w-3.5" />
+                                      Cancel
+                                    </span>
                                   </button>
                                 )}
+                              </div>
+
+                              {/* Username warning */}
+                              {!username && getTierStatus(selectedTier) === "available" && (
+                                <div className="mt-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-lg border border-red-200 dark:border-red-500/20 text-sm text-red-500 dark:text-red-400">
+                                  <FaInfoCircle className="inline mr-1" />
+                                  You need to set a username first before minting badges.
+                                  <a
+                                    href="/profile"
+                                    className="ml-2 underline hover:text-red-600 dark:hover:text-red-300"
+                                  >
+                                    Go to Profile Page
+                                  </a>
+                                </div>
+                              )}
                               </div>
                             </div>
                           </div>
@@ -1790,6 +1930,12 @@ const getTierStatus = (tier: number): string => {
       {/* Success modal */}
       {renderSuccessModal()}
 
+      {/* Notification Container */}
+      <NotificationContainer 
+        notifications={notifications} 
+        removeNotification={removeNotification} 
+      />
+
       {/* Custom animation styles */}
       <style jsx global>{`
         @keyframes gradient-shift {
@@ -1837,9 +1983,124 @@ const getTierStatus = (tier: number): string => {
         .animate-light-vertical {
           animation: light-vertical 3s infinite linear;
         }
+
+        @keyframes notification-progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+
+        .animate-notification-progress {
+          animation: notification-progress 5s linear forwards;
+        }
+        
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+        
+        .animate-shimmer {
+          animation: shimmer 2.5s infinite;
+        }
       `}</style>
     </motion.div>
   )
 }
+
+// Notification component
+const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) => {
+  // Color schemes based on notification type
+  const colorSchemes = {
+    success: {
+      bg: "bg-gradient-to-r from-emerald-500/90 to-teal-600/90",
+      border: "border-emerald-400",
+      icon: <FaCheck className="h-5 w-5 text-white" />,
+      ringColor: "emerald-400"
+    },
+    error: {
+      bg: "bg-gradient-to-r from-rose-500/90 to-red-600/90",
+      border: "border-rose-400",
+      icon: <FaTimes className="h-5 w-5 text-white" />,
+      ringColor: "rose-400"
+    },
+    info: {
+      bg: "bg-gradient-to-r from-blue-500/90 to-indigo-600/90",
+      border: "border-blue-400",
+      icon: <FaInfoCircle className="h-5 w-5 text-white" />,
+      ringColor: "blue-400"
+    }
+  };
+  
+  const scheme = colorSchemes[type] || colorSchemes.info;
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      transition={{ duration: 0.3 }}
+      className={`${scheme.bg} backdrop-blur-md border ${scheme.border}/30 rounded-xl shadow-2xl p-4 max-w-sm w-full flex items-center relative overflow-hidden`}
+    >
+      {/* Animated background pattern */}
+      <div className="absolute inset-0 opacity-10">
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id={`grid-${type}`} width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+              <path d="M 0,10 L 20,10 M 10,0 L 10,20" stroke="white" strokeWidth="0.5" strokeOpacity="0.3" fill="none" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#grid-${type})`} />
+        </svg>
+      </div>
+      
+      {/* Animated progress bar */}
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+        <div className="h-full bg-white/40 animate-notification-progress"></div>
+      </div>
+      
+      {/* Icon container with ring animation */}
+      <div className="relative mr-3 flex-shrink-0">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm`}>
+          {scheme.icon}
+        </div>
+        {/* Animated ring */}
+        <div className={`absolute inset-0 rounded-full border-2 border-white/30 animate-ping opacity-50`}></div>
+      </div>
+      
+      {/* Message */}
+      <div className="flex-1 text-white text-sm font-medium pr-8">{message}</div>
+      
+      {/* Close button */}
+      <button 
+        onClick={onClose} 
+        className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
+      >
+        <FaTimes className="h-3 w-3" />
+      </button>
+    </motion.div>
+  );
+};
+
+// Notification Container component
+const NotificationContainer: React.FC<NotificationContainerProps> = ({ notifications, removeNotification }) => {
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none">
+      <AnimatePresence>
+        {notifications.map((notification) => (
+          <div key={notification.id} className="pointer-events-auto">
+            <Notification
+              message={notification.message}
+              type={notification.type}
+              onClose={() => removeNotification(notification.id)}
+            />
+          </div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default BadgeMintSection

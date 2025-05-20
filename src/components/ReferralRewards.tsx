@@ -173,7 +173,7 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
 
   // Handle copy to clipboard
   const handleCopyLink = () => {
-    const referralLink = username ? `https://gmtea.xyz/r/${username}` : `https://gmtea.xyz/r/${address}`;
+    const referralLink = username ? `${username}` : `${address}`;
 
     navigator.clipboard.writeText(referralLink);
     setCopySuccess("Copied!");
@@ -351,7 +351,7 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
   }
 
   const hasPendingRewards = Number.parseFloat(referralStats.pendingRewardsAmount) > 0
-  const referralLink = username ? `https://gmtea.xyz/r/${username}` : `https://gmtea.xyz/r/${address}`
+  const referralLink = username ? `${username}` : `${address}`
 
   return (
     <motion.div
@@ -578,9 +578,9 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
               <FaLink className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-emerald-300">Your Referral Link</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-emerald-300">Your Referral Code</h3>
               <p className="text-gray-600 dark:text-emerald-300/70 text-sm mt-1">
-                Share this link with friends to earn rewards when they mint badges
+                Share your referral code with friends to earn rewards when they mint badges
               </p>
             </div>
           </div>

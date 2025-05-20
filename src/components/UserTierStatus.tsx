@@ -51,7 +51,7 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
     pendingRewards: '0',
     highestTier: 0
   });
-  const [activeTab, setActiveTab] = useState('benefits'); // 'benefits' or 'referrals'
+  const [activeTab, setActiveTab] = useState('benefits'); 
 
   useEffect(() => {
     const loadData = async () => {

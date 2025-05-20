@@ -4,7 +4,6 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { formatAddress } from "@/utils/web3"
 import ThemeToggle from "./ThemeToggle"
-import { useRouter } from "next/router"
 import {
   FaLeaf,
   FaSignOutAlt,
@@ -18,15 +17,16 @@ import {
   FaGift,
   FaIdCard,
   FaCopy,
+  FaTrophy,
+  FaHome,
 } from "react-icons/fa"
 import ConnectWalletButton from "./ConnectWalletButton"
 import { getUserReferralStats, checkUsername } from "@/utils/badgeWeb3"
-import ActivitySidebar from "./ActivitySidebar"
 import SettingsModal from "./SettingsModal"
-import ColoredUsername from "@/components/user/ColoredUsername";
-import AvatarWithFrame from "@/components/user/AvatarWithFrame";
-import { getUserHighestTier } from "@/utils/badgeWeb3";
-import { getTierName, getUsernameColor } from "@/utils/socialBenefitsUtils";
+import ColoredUsername from "@/components/user/ColoredUsername"
+import AvatarWithFrame from "@/components/user/AvatarWithFrame"
+import { getUserHighestTier } from "@/utils/badgeWeb3"
+import { getTierName, getUsernameColor } from "@/utils/socialBenefitsUtils"
 
 interface NavbarProps {
   address: string | null
@@ -48,7 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({
   scrollToLeaderboard,
   scrollToMintSection,
 }) => {
-  const router = useRouter()
+  const [showCopyToast, setShowCopyToast] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [showActivitySidebar, setShowActivitySidebar] = useState(false)
@@ -64,48 +64,39 @@ const Navbar: React.FC<NavbarProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
-  const [activeMenu, setActiveMenu] = useState("dashboard")
+  const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [isLoadingUserData, setIsLoadingUserData] = useState(false)
-  const [highestTier, setHighestTier] = useState<number>(-1);
+  const [highestTier, setHighestTier] = useState<number>(-1)
 
   // Load user data when address is available
   useEffect(() => {
     const loadUserData = async () => {
-      if (!address) return;
+      if (!address) return
 
-      setIsLoadingUserData(true);
+      setIsLoadingUserData(true)
       try {
         // Get username
-        const usernameResult = await checkUsername(address);
-        setUsername(usernameResult);
+        const usernameResult = await checkUsername(address)
+        setUsername(usernameResult)
 
         // Get highest tier badge
-        const highestTierResult = await getUserHighestTier(address);
-        setHighestTier(highestTierResult);
+        const highestTierResult = await getUserHighestTier(address)
+        setHighestTier(highestTierResult)
 
         // Get referral stats
-        const stats = await getUserReferralStats(address);
+        const stats = await getUserReferralStats(address)
         if (stats) {
-          setReferralStats(stats);
+          setReferralStats(stats)
         }
       } catch (error) {
-        console.error("Error loading user data:", error);
+        console.error("Error loading user data:", error)
       } finally {
-        setIsLoadingUserData(false);
+        setIsLoadingUserData(false)
       }
-    };
-
-    loadUserData();
-  }, [address]);
-
-  // Set active menu based on current route
-  useEffect(() => {
-    if (router.pathname === "/") {
-      setActiveMenu("dashboard")
-    } else if (router.pathname === "/profile") {
-      setActiveMenu("profile")
     }
-  }, [router.pathname])
+
+    loadUserData()
+  }, [address])
 
   // Handle scroll effect
   useEffect(() => {
@@ -165,103 +156,44 @@ const Navbar: React.FC<NavbarProps> = ({
   }
 
   // Calculate total reward amount
-  const totalRewardAmount =
-    Number.parseFloat(referralStats.claimedRewardsAmount) + Number.parseFloat(referralStats.pendingRewardsAmount)
-
+  const pendingRewardAmount = Number.parseFloat(referralStats.pendingRewardsAmount)
   // Handle navigation
   const handleNav = (menu: string) => {
-    setActiveMenu(menu);
-    setMobileMenuOpen(false);
-  
+    setActiveMenu(menu)
+    setMobileMenuOpen(false)
+
     if (menu === "dashboard") {
-      // If already on home page, scroll to top smoothly
-      if (router.pathname === "/") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        // Navigate to home page and then scroll to top
-        router.push("/").then(() => {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        });
-      }
+      // Dispatch custom event for tab navigation
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "dashboard" } }))
     } else if (menu === "leaderboard") {
-      // Navigate to home if not there, then scroll to leaderboard
-      if (router.pathname !== "/") {
-        router.push("/").then(() => {
-          if (scrollToLeaderboard) {
-            setTimeout(() => {
-              scrollToLeaderboard();
-            }, 500); // Increased timeout for better reliability
-          }
-        });
-      } else if (scrollToLeaderboard) {
-        // If already on home page, scroll directly to leaderboard
-        scrollToLeaderboard();
+      // Dispatch custom event for tab navigation
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "leaderboard" } }))
+      if (scrollToLeaderboard) {
+        scrollToLeaderboard()
       }
     } else if (menu === "profile") {
-      // Navigate to profile page
-      router.push("/profile");
+      // Dispatch custom event for tab navigation
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "profile" } }))
     } else if (menu === "mint") {
-      // If on home page, scroll to mint section with smooth behavior
-      if (router.pathname === "/") {
-        // Use the scrollToMintSection function as the primary method
-        if (scrollToMintSection) {
-          scrollToMintSection();
-        } else {
-          // Fallback to direct element selection if function not available
-          scrollToBadgeSection();
-        }
-      } else {
-        // Navigate to home page then scroll to mint section
-        router.push("/").then(() => {
-          // Use a longer timeout to ensure the page is fully loaded
-          setTimeout(() => {
-            if (scrollToMintSection) {
-              scrollToMintSection();
-            } else {
-              // Fallback to direct element selection
-              scrollToBadgeSection();
-            }
-          }, 600); // Increased timeout for more reliable scrolling after navigation
-        });
+      // Dispatch custom event for tab navigation
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "mint" } }))
+      if (scrollToMintSection) {
+        scrollToMintSection()
       }
     }
-  };
-
- const scrollToBadgeSection = () => {
-  let headingElement = Array.from(document.querySelectorAll('h2, h3, h4'))
-    .find(el => el.textContent?.includes('Digital Badge Collection'));
-  
-  let badgeSection: Element | null = null;
-  
-  if (headingElement) {
-    const closestDiv = headingElement.closest('div');
-    if (closestDiv) {
-      badgeSection = closestDiv;
-    }
-  }
-  if (!badgeSection) {
-    badgeSection = document.querySelector('.badge-mint-section') || 
-                   document.querySelector('[data-section="badge-mint"]');
-  }
-  if (!badgeSection) {
-    badgeSection = document.querySelector('div.mb-8.mt-8:has(.text-emerald-500)');
-  }
-  if (!badgeSection) {
-    badgeSection = document.querySelector('div:has(h2):has(.text-emerald-500)');
   }
 
-  if (badgeSection) {
-    const navbarHeight = 80; // Approximate height of navbar
-    const badgeSectionPosition = badgeSection.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
-    
-    window.scrollTo({
-      top: badgeSectionPosition,
-      behavior: 'smooth'
-    });
-    
-    setActiveMenu("mint");
+  const handleReferralNavigation = () => {
+    setIsDropdownOpen(false);
+    setMobileMenuOpen(false);
+
+    window.dispatchEvent(new CustomEvent("navigate", { 
+      detail: { 
+        tab: "profile", 
+        subtab: "referrals" 
+      } 
+    }));
   }
-};
 
   // Handler to open activity sidebar
   const handleOpenActivitySidebar = () => {
@@ -291,9 +223,25 @@ const Navbar: React.FC<NavbarProps> = ({
   const copyAddressToClipboard = () => {
     if (address) {
       navigator.clipboard.writeText(address)
-      alert("Address copied to clipboard!")
+      setShowCopyToast(true)
+      setTimeout(() => setShowCopyToast(false), 2000) // Hide toast after 2 seconds
     }
   }
+
+  // Listen for navigation events from other components
+  useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        setActiveMenu(event.detail.tab)
+        
+      }
+    }
+
+    window.addEventListener("navigate", handleNavigate as EventListener)
+    return () => {
+      window.removeEventListener("navigate", handleNavigate as EventListener)
+    }
+  }, [])
 
   return (
     <>
@@ -396,11 +344,7 @@ const Navbar: React.FC<NavbarProps> = ({
                       />
                     </div>
                     {username ? (
-                      <ColoredUsername 
-                        username={username} 
-                        badgeTier={highestTier} 
-                        className="text-sm"
-                      />
+                      <ColoredUsername username={username} badgeTier={highestTier} className="text-sm" />
                     ) : (
                       <span className="text-sm font-medium text-gray-800 dark:text-emerald-300">
                         {formatAddress(address)}
@@ -426,7 +370,7 @@ const Navbar: React.FC<NavbarProps> = ({
                             />
                           </div>
                           <div>
-                          {username && (
+                            {username && (
                               <div className="text-sm font-semibold">
                                 <ColoredUsername username={username} badgeTier={highestTier} />
                               </div>
@@ -446,17 +390,6 @@ const Navbar: React.FC<NavbarProps> = ({
 
                       {/* Menu Items */}
                       <div className="py-1">
-                        {/* Referral Rewards */}
-                        <div className="px-4 py-3 flex justify-between items-center border-b border-gray-200 dark:border-emerald-800/30">
-                          <div className="flex items-center gap-2">
-                            <FaGift className="text-emerald-500" size={14} />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">Referral rewards</span>
-                          </div>
-                          <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">
-                            {totalRewardAmount.toFixed(4)} ETH
-                          </span>
-                        </div>
-
                         {/* Profile Page */}
                         <button
                           onClick={() => handleNav("profile")}
@@ -466,13 +399,15 @@ const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-sm text-gray-700 dark:text-gray-300">Profile page</span>
                         </button>
 
-                        {/* On-chain Activity */}
-                        <button
-                          onClick={handleOpenActivitySidebar}
-                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        {/* Referral Rewards */}
+                        <button 
+                          onClick={handleReferralNavigation}
+                          className="px-4 py-3 w-full flex justify-between items-center hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
                         >
-                          <FaHistory className="text-emerald-500" size={14} />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">On-chain activity</span>
+                          <div className="flex items-center gap-2">
+                            <FaGift className="text-emerald-500" size={14} />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Referral Rewards</span>
+                          </div>
                         </button>
 
                         {/* Settings */}
@@ -546,11 +481,7 @@ const Navbar: React.FC<NavbarProps> = ({
                       />
                     </div>
                     {username ? (
-                      <ColoredUsername 
-                        username={username} 
-                        badgeTier={highestTier} 
-                        className="text-sm"
-                      />
+                      <ColoredUsername username={username} badgeTier={highestTier} className="text-sm" />
                     ) : (
                       <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
                         {formatAddress(address)}
@@ -558,17 +489,18 @@ const Navbar: React.FC<NavbarProps> = ({
                     )}
 
                     {highestTier >= 0 && (
-                        <span 
-                          className="ml-1 text-xs px-1.5 py-0.5 rounded-full"
-                          style={{ 
-                            backgroundColor: getUsernameColor(highestTier) ? `${getUsernameColor(highestTier)}20` : undefined,
-                            color: getUsernameColor(highestTier) || undefined 
-                          }}
-                        >
-                          {getTierName(highestTier)}
-                        </span>
-                      )}
-                      
+                      <span
+                        className="ml-1 text-xs px-1.5 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: getUsernameColor(highestTier)
+                            ? `${getUsernameColor(highestTier)}20`
+                            : undefined,
+                          color: getUsernameColor(highestTier) || undefined,
+                        }}
+                      >
+                        {getTierName(highestTier)}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={disconnectWallet}
@@ -589,7 +521,10 @@ const Navbar: React.FC<NavbarProps> = ({
                         : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                     }`}
                   >
-                    <span className="font-medium">Dashboard</span>
+                    <div className="flex items-center space-x-3">
+                      <FaHome className="h-5 w-5" />
+                      <span className="font-medium">Dashboard</span>
+                    </div>
                   </button>
 
                   {/* Mint - Active */}
@@ -616,7 +551,10 @@ const Navbar: React.FC<NavbarProps> = ({
                         : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                     }`}
                   >
-                    <span className="font-medium">Leaderboard</span>
+                    <div className="flex items-center space-x-3">
+                      <FaTrophy className="h-5 w-5" />
+                      <span className="font-medium">Leaderboard</span>
+                    </div>
                   </button>
 
                   {/* Profile - Now Active */}
@@ -631,17 +569,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center space-x-3">
                       <FaUser className="h-5 w-5" />
                       <span className="font-medium">Profile</span>
-                    </div>
-                  </button>
-
-                  {/* Activity */}
-                  <button
-                    onClick={handleOpenActivitySidebar}
-                    className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <FaHistory className="h-5 w-5" />
-                      <span className="font-medium">On-chain Activity</span>
                     </div>
                   </button>
 
@@ -662,11 +589,31 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Activity Sidebar */}
-      {showActivitySidebar && address && <ActivitySidebar address={address} onClose={handleCloseActivitySidebar} />}
 
       {/* Settings Modal */}
       {showSettingsModal && <SettingsModal onClose={handleCloseSettings} />}
+
+      {showCopyToast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-fade-in-up">
+          <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500/90 to-teal-600/90 backdrop-blur-md px-4 py-3 rounded-lg shadow-lg border border-emerald-400/30">
+            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-white"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <span className="text-white font-medium text-sm">Address copied successfully</span>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -15,6 +15,8 @@ import {
   FaRocket,
   FaUsers
 } from 'react-icons/fa';
+import { IoIosStats } from "react-icons/io";
+import { TfiStatsUp } from "react-icons/tfi";
 import { 
   CONTRACT_ADDRESS, 
   USERNAME_REGISTRY_ADDRESS, 
@@ -140,6 +142,28 @@ const Footer: React.FC<FooterProps> = ({
     }
   };
 
+  const handleReferralNavigation = () => {
+    if (router.pathname !== "/profile") {
+      router.push("/profile").then(() => {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("navigate", { 
+            detail: { 
+              tab: "profile", 
+              subtab: "referrals" 
+            } 
+          }));
+        }, 300);
+      });
+    } else {
+      window.dispatchEvent(new CustomEvent("navigate", { 
+        detail: { 
+          tab: "profile", 
+          subtab: "referrals" 
+        } 
+      }));
+    }
+  };
+
   const scrollToLeaderboardSection = () => {
     let headingElement = Array.from(document.querySelectorAll('h2, h3, h4'))
       .find(el => el.textContent?.includes('Leaderboard') || el.textContent?.includes('Top Users'));
@@ -228,7 +252,7 @@ const Footer: React.FC<FooterProps> = ({
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-white/90">
-          {/* Logo and main info section */}
+          {/* Logo and main info section - Column 1 */}
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -281,97 +305,7 @@ const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
           
-          {/* Navigation */}
-          <div className="lg:ml-auto">
-            <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
-              Navigation
-              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500/50"></span>
-            </h4>
-            <ul className="space-y-3">
-              {/* Dashboard */}
-              <li>
-                <button
-                  onClick={() => handleNav("dashboard")}
-                  className={`relative  font-medium px-1 transition-colors ${
-                    activeMenu === "dashboard"
-                      ? "text-emerald-400"
-                      : "text-gray-300 hover:text-emerald-300"
-                  }`}
-                >
-                  Dashboard
-                </button>
-              </li>
-              
-              {/* Mint */}
-              <li>
-                <button
-                  onClick={() => handleNav("mint")}
-                  className={`relative text-md font-medium px-1 transition-colors ${
-                    activeMenu === "mint"
-                      ? "text-emerald-400"
-                      : "text-gray-300 hover:text-emerald-300"
-                  }`}
-                >
-                  Mint
-                </button>
-              </li>
-              
-              {/* Leaderboard */}
-              <li>
-                <button
-                  onClick={() => handleNav("leaderboard")}
-                  className={`relative text-md font-medium px-1 transition-colors ${
-                    activeMenu === "leaderboard"
-                      ? "text-emerald-400"
-                      : "text-gray-300 hover:text-emerald-300"
-                  }`}
-                >
-                  Leaderboard
-                </button>
-              </li>
-
-              {/* Deploy */}
-              <li>
-              <button className={`relative text-sm font-medium px-1 py-2 transition-colors ${
-                    activeMenu === "leaderboard"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
-                  }`}
-                >
-                  Deploy
-                </button>
-              </li>
-              
-              {/* Profile */}
-              <li>
-                <button
-                  onClick={() => handleNav("profile")}
-                  className={`relative text-md font-medium px-1 transition-colors ${
-                    activeMenu === "profile"
-                      ? "text-emerald-400"
-                      : "text-gray-300 hover:text-emerald-300"
-                  }`}
-                >
-                  Profile
-                  {activeMenu === "profile" && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
-                  )}
-                </button>
-              </li>
-              
-              {/* Referrals -> Redirect to Profile */}
-              <li>
-                <button
-                  onClick={() => handleNav("profile")}
-                  className="relative text-dm font-medium px-1 transition-colors text-gray-300 hover:text-emerald-300"
-                >
-                  Referrals
-                </button>
-              </li>
-            </ul>
-          </div>
-          
-          {/* Resources */}
+          {/* Resources - Column 2 */}
           <div className="lg:ml-auto">
             <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
               Resources
@@ -416,7 +350,7 @@ const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
           
-          {/* Contracts Section */}
+          {/* Tea Protocol Contracts - Column 3 */}
           <div>
             <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
               Tea Protocol Contracts
@@ -490,46 +424,35 @@ const Footer: React.FC<FooterProps> = ({
                   </div>
                 </div>
               )}
-              
-              <div className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
-                <div 
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => toggleSection('community')}
-                >
-                  <div className="flex items-center gap-2">
-                    <FaUsers className="text-emerald-400" />
-                    <span className="text-emerald-300 font-medium">Community Stats</span>
-                  </div>
-                  {expandedSection === 'community' ? (
-                    <FaChevronUp className="text-emerald-400" />
-                  ) : (
-                    <FaChevronDown className="text-emerald-400" />
-                  )}
+            </div>
+          </div>
+          
+          {/* Community Stats - Column 4 (moved from being nested) */}
+          <div>
+            <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
+              Community Stats
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-emerald-500/50"></span>
+            </h4>
+            <div className="bg-emerald-900/40 rounded-lg border border-emerald-700/30 backdrop-blur-sm shadow-lg p-4">
+                <div className="flex items-center gap-2">
+                  <TfiStatsUp className="text-emerald-400" />
+                  <span className="text-emerald-300 font-medium">Platform Statistics</span>
                 </div>
-                
-                {expandedSection === 'community' && (
-                  <div className="mt-4 space-y-3">
-                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                      <div className="text-gray-300 text-sm flex justify-between">
-                        <span>Total Users</span>
-                        <span className="text-emerald-300 font-medium">12,450+</span>
-                      </div>
-                    </div>
-                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                      <div className="text-gray-300 text-sm flex justify-between">
-                        <span>Daily Active Users</span>
-                        <span className="text-emerald-300 font-medium">3,200+</span>
-                      </div>
-                    </div>
-                    <div className="bg-emerald-900/40 p-3 rounded border border-emerald-700/20">
-                      <div className="text-gray-300 text-sm flex justify-between">
-                        <span>Total Transactions</span>
-                        <span className="text-emerald-300 font-medium">1.2M+</span>
-                      </div>
-                    </div>
+             
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300 flex items-center gap-1">
+                    <div className="text-emerald-400"><FaUsers className="h-3 w-3" /></div>
+                    1,850+ Users
                   </div>
-                )}
-              </div>
+                  <div className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300 flex items-center gap-1">
+                    <div className="text-emerald-400"><FaRocket className="h-3 w-3" /></div>
+                    400+ Daily Active
+                  </div>
+                  <div className="bg-emerald-900/60 px-2 py-1 rounded border border-emerald-700/20 text-xs text-gray-300 flex items-center gap-1">
+                    <div className="text-emerald-400"><IoIosStats className="h-3 w-3" /></div>
+                    15K+ Transactions
+                  </div>
+                </div>
             </div>
           </div>
         </div>
@@ -558,37 +481,12 @@ const Footer: React.FC<FooterProps> = ({
             <div className="flex flex-col items-center md:items-start space-y-3">
               <div className="flex items-center space-x-2">
                 <div className="relative">
-                  <FaLeaf className="h-5 w-5 text-emerald-500" />
+                  <FaLeaf className="h-8 w-8 text-emerald-500 mr-2" />
                   <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
                 </div>
-                <span className="text-emerald-400 font-semibold tracking-wide text-lg">
+                <span className="text-emerald-400 font-semibold tracking-wide text-2xl">
                   GM <span className="text-emerald-500">TEA</span>
                 </span>
-              </div>
-      
-            {/* Social icons with subtle hover effect */}
-            <div className="flex space-x-3">
-                <div className="w-7 h-7 rounded-full bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-800/30 flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition-all duration-300 cursor-pointer group">
-                  <div className="transform group-hover:-translate-y-0.5 transition-transform duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                      <path d="M19.633 7.997c.013.175.013.349.013.523 0 5.325-4.053 11.461-11.46 11.461-2.282 0-4.402-.661-6.186-1.809.324.037.636.05.973.05a8.07 8.07 0 0 0 5.001-1.721 4.036 4.036 0 0 1-3.767-2.793c.249.037.499.062.761.062.361 0 .724-.05 1.061-.137a4.027 4.027 0 0 1-3.23-3.953v-.05c.537.299 1.16.486 1.82.511a4.022 4.022 0 0 1-1.796-3.354c0-.748.199-1.434.548-2.032a11.457 11.457 0 0 0 8.306 4.215c-.062-.3-.1-.599-.1-.899a4.026 4.026 0 0 1 4.028-4.028c1.16 0 2.207.486 2.943 1.272a7.957 7.957 0 0 0 2.556-.973 4.02 4.02 0 0 1-1.771 2.22 8.073 8.073 0 0 0 2.319-.624 8.645 8.645 0 0 1-2.019 2.083z"></path>
-                    </svg>
-                  </div>
-                </div>
-                <div className="w-7 h-7 rounded-full bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-800/30 flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition-all duration-300 cursor-pointer group">
-                  <div className="transform group-hover:-translate-y-0.5 transition-transform duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                      <path d="M14.82 4.26a10.14 10.14 0 0 0-.53 1.1 14.66 14.66 0 0 0-4.58 0 10.14 10.14 0 0 0-.53-1.1 16 16 0 0 0-4.13 1.3 17.33 17.33 0 0 0-3 11.59 16.6 16.6 0 0 0 5.07 2.59A12.89 12.89 0 0 0 8.23 18a9.65 9.65 0 0 1-1.71-.83 3.39 3.39 0 0 0 .42-.33 11.66 11.66 0 0 0 10.12 0q.21.18.42.33a10.84 10.84 0 0 1-1.71.84 12.41 12.41 0 0 0 1.08 1.78 16.44 16.44 0 0 0 5.06-2.59 17.22 17.22 0 0 0-3-11.59 16.09 16.09 0 0 0-4.09-1.35zM8.68 14.81a1.94 1.94 0 0 1-1.8-2 1.93 1.93 0 0 1 1.8-2 1.93 1.93 0 0 1 1.8 2 1.93 1.93 0 0 1-1.8 2zm6.64 0a1.94 1.94 0 0 1-1.8-2 1.93 1.93 0 0 1 1.8-2 1.92 1.92 0 0 1 1.8 2 1.92 1.92 0 0 1-1.8 2z"></path>
-                    </svg>
-                  </div>
-                </div>
-                <div className="w-7 h-7 rounded-full bg-emerald-900/40 hover:bg-emerald-800/60 border border-emerald-800/30 flex items-center justify-center text-emerald-400 hover:text-emerald-300 transition-all duration-300 cursor-pointer group">
-                  <div className="transform group-hover:-translate-y-0.5 transition-transform duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
-                      <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"></path>
-                    </svg>
-                  </div>
-                </div>
               </div>
             </div>
             

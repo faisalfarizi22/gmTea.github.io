@@ -1,11 +1,8 @@
 // src/pages/api/points/[address].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { docVal } from '../../../mongodb/utils/documentHelper';
-import Checkin from '../../../mongodb/models/Checkin';
 import User from '../../../mongodb/models/User';
-import Badge from '../../../mongodb/models/Badge';
 import PointsHistory from '../../../mongodb/models/PointsHistory';
-import { getCheckInBoost, calculateAchievementPoints, calculateBadgePoints } from '../../../utils/pointCalculation';
 import dbConnect from '../../../mongodb/connection';
 import PointsService from '../../../mongodb/services/PointsService';
 
@@ -32,25 +29,18 @@ export default async function handler(
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Opsi 1: Hitung ulang poin real-time untuk memastikan data terbaru
-    // Ini mungkin membutuhkan waktu proses lebih lama tapi menghindari ketidakkonsistenan
-    await PointsService.recalculateSingleUserPoints(normalizedAddress);
-    
-    // Dapatkan breakdown poin yang sudah diperbarui
+    // Hapus recalculation pada setiap request
+    // Ambil data langsung dari database yang sudah teragregasi
     const pointsBreakdown = await PointsService.getUserPointsBreakdown(normalizedAddress);
 
-    // Opsi 2: Jika Anda tidak ingin menghitung ulang setiap kali API dipanggil,
-    // ambil data langsung dari database dengan getUserPointsBreakdown()
-    // const pointsBreakdown = await PointsService.getUserPointsBreakdown(normalizedAddress);
-
-    // Get history data for debugging and reference
+    // Get history data (dengan limit yang sama)
     const history = await PointsHistory.find({ address: normalizedAddress })
       .sort({ timestamp: -1 })
       .limit(20);
 
-    // Format response with rich information
+    // Format response dengan informasi yang sama
     const response = {
-      // Points from calculation
+      // Points breakdown
       ...pointsBreakdown,
       
       // User info
@@ -64,7 +54,7 @@ export default async function handler(
         rank: docVal(user, 'rank', null)
       },
       
-      // Add history (optional)
+      // Recent history
       recentHistory: history.map(entry => ({
         source: entry.source,
         reason: entry.reason,
@@ -75,7 +65,6 @@ export default async function handler(
       }))
     };
 
-    // Return the response
     return res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching points data:', error);

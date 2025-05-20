@@ -16,8 +16,6 @@ interface BadgesTabProps {
 }
 
 export default function BadgesTab({ address, badges = [] }: BadgesTabProps) {
-  // The UserBadges component will handle the data fetching internally
-  // We just need to pass the wallet address
   
   const isLoading = !address;
 
@@ -47,11 +45,6 @@ export default function BadgesTab({ address, badges = [] }: BadgesTabProps) {
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.3 }}
     >
-      {/* 
-        Pass the address to UserBadges component
-        The UserBadges component will handle fetching the badges data
-        from the API endpoint based on this address
-      */}
       {address && <UserBadges address={address} />}
     </motion.div>
   )

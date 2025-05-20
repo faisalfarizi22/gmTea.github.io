@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react"
 import { ethers, BigNumber } from "ethers"
+import { motion, AnimatePresence } from "framer-motion"
 import StatsCard from "@/components/StatsCard"
 import CountdownTimer from "@/components/CountdownTimer"
 import CheckinButton from "@/components/CheckinButton"
 import GMMessageList from "@/components/GMMessageList"
-import Leaderboard from "@/components/Leaderboard"
 import { useEthereumEvents } from "@/hooks/useEthereumEvents"
 import type { GMMessage, Web3State, CheckinStats } from "@/types"
 import { getUserHighestTier, getUserBadges } from "@/utils/badgeWeb3"
@@ -20,13 +20,17 @@ import {
   FaNetworkWired,
   FaTrophy,
   FaGem,
+  FaUser,
 } from "react-icons/fa"
-
-import { useRouter } from "next/router"
 import AudioPlayer from "@/components/AudioPlayer"
-import { motion, AnimatePresence } from "framer-motion"
 import useUserDataCombined from "@/hooks/useUserData"
-import { useScrollFunctions } from "@/hooks/useScrollFunctions"
+import Navbar from "@/components/Navbar"
+
+// Lazy load components for tabs that aren't initially visible
+const LazyBadgeMintSection = lazy(() => import("@/components/BadgeMintSection"))
+const LazyLeaderboard = lazy(() => import("@/components/Leaderboard"))
+const LazyPointsLeaderboard = lazy(() => import("@/components/LeaderboardPoints"))
+const LazyProfileSection = lazy(() => import("@/components/profile/ProfilePage"))
 
 // Notification type
 interface Notification {
@@ -39,10 +43,23 @@ interface UserBadge {
   tokenId: number
   tier: number
   mintedAt: number
-  transactionHash?: string // optional jika kadang-kadang ada
+  transactionHash?: string
 }
 
+// Tab type
+type TabType = "dashboard" | "mint" | "leaderboard" | "profile"
+
 export default function Home() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard")
+  const [loadedTabs, setLoadedTabs] = useState<TabType[]>(["dashboard"])
+  const [previousTab, setPreviousTab] = useState<TabType | null>(null); // Untuk menyimpan tab sebelumnya guna menentukan arah animasi
+
+  // Refs for scrolling to sections
+  const mintSectionRef = useRef<HTMLDivElement>(null)
+  const leaderboardRef = useRef<HTMLDivElement>(null)
+  const profileRef = useRef<HTMLDivElement>(null)
+
   // Web3 state
   const [web3State, setWeb3State] = useState<Web3State>({
     isConnected: false,
@@ -68,17 +85,45 @@ export default function Home() {
   const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0)
   const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false)
   const [userBadges, setUserBadges] = useState<UserBadge[]>([])
-  const { userData } = useUserDataCombined(web3State.address)
+  const { userData } = useUserDataCombined(web3State.address) // userData untuk Home
   const [leaderboardType, setLeaderboardType] = useState<"checkin" | "points">("checkin")
 
   // Forum state - keep for future implementation but removed floating button
   const [isForumOpen, setIsForumOpen] = useState(false)
 
-  // Reference to leaderboard section for scrolling - Fix the type here
-  const leaderboardRef = useRef<HTMLDivElement>(null)
-  const badgeMintSectionRef = useRef<HTMLDivElement>(null)
-
  
+  // Function to change active tab
+  const changeTab = (tab: TabType) => {
+    setPreviousTab(activeTab); // Save current tab as 'previous' before changing
+    setActiveTab(tab);
+
+    // Add to loaded tabs if not already loaded
+    if (!loadedTabs.includes(tab)) {
+      setLoadedTabs((prev) => [...prev, tab]);
+    }
+    
+    // Dispatch a custom event to notify the AudioPlayer about the tab change
+    window.dispatchEvent(
+      new CustomEvent('tabChanged', { 
+        detail: { 
+          tab: tab 
+        } 
+      })
+    );
+  }
+
+  // Scroll functions for navbar integration
+  const scrollToMintSection = useCallback(() => {
+    changeTab("mint")
+  }, [activeTab]) // Tambahkan activeTab agar previousTab terupdate
+
+  const scrollToLeaderboard = useCallback(() => {
+    changeTab("leaderboard")
+  }, [activeTab]) // Tambahkan activeTab
+
+  const scrollToProfile = useCallback(() => {
+    changeTab("profile")
+  }, [activeTab]) // Tambahkan activeTab
 
   useEffect(() => {
     const savedPreference = localStorage.getItem("leaderboardPreference") || "checkin"
@@ -95,9 +140,9 @@ export default function Home() {
         try {
           const badges = await getUserBadges(web3State.address)
           setUserBadges(badges)
-          console.log("Loaded user badges:", badges)
+          console.log("Loaded user badges in Home:", badges)
         } catch (error) {
-          console.error("Error loading user badges:", error)
+          console.error("Error loading user badges in Home:", error)
           setUserBadges([])
         }
       }
@@ -105,15 +150,10 @@ export default function Home() {
 
     if (web3State.isConnected && web3State.address) {
       loadBadgeData()
+    } else {
+      setUserBadges([]) // Kosongkan badges jika tidak terhubung
     }
   }, [web3State.isConnected, web3State.address])
-
-  // Inside your Home component
-  const router = useRouter()
-
-  const handleMintClick = () => {
-    router.push("/mint") // Navigate to your mint page
-  }
 
   // Notification functions
   const addNotification = (message: string, type: "success" | "error" | "info" | "warning") => {
@@ -121,7 +161,7 @@ export default function Home() {
     setNotifications((prev) => [...prev, { id, message, type }])
 
     setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      removeNotification(id)
     }, 5000)
   }
 
@@ -137,36 +177,32 @@ export default function Home() {
         count = await contract.getCheckinCount(address)
       } catch (e) {
         console.warn("Error calling getCheckinCount with address", e)
-
         try {
-          const userData = await contract.userCheckins(address)
-          if (userData && userData.checkinCount) {
-            count = userData.checkinCount
+          const userDataVal = await contract.userCheckins(address)
+          if (userDataVal && userDataVal.checkinCount) {
+            count = userDataVal.checkinCount
           }
         } catch (mappingError) {
-          console.warn("Error accessing userCheckins mapping", mappingError)
+          console.warn("Error accessing userCheckins mapping for count", mappingError)
           count = 0
         }
       }
 
-      // Get time until next checkin
       let timeRemaining: number | BigNumber = 0
       try {
         timeRemaining = await contract.timeUntilNextCheckin(address)
       } catch (e) {
         console.warn("Error calling timeUntilNextCheckin", e)
-
         try {
-          const userData = await contract.userCheckins(address)
-          if (userData && userData.lastCheckinTime) {
-            const lastCheckinTime = BigNumber.isBigNumber(userData.lastCheckinTime)
-              ? userData.lastCheckinTime.toNumber()
-              : Number(userData.lastCheckinTime)
+          const userDataVal = await contract.userCheckins(address)
+          if (userDataVal && userDataVal.lastCheckinTime) {
+            const lastCheckinTime = BigNumber.isBigNumber(userDataVal.lastCheckinTime)
+              ? userDataVal.lastCheckinTime.toNumber()
+              : Number(userDataVal.lastCheckinTime)
 
             if (lastCheckinTime > 0) {
               const nextCheckinTime = lastCheckinTime + 24 * 60 * 60
               const currentTime = Math.floor(Date.now() / 1000)
-
               if (currentTime < nextCheckinTime) {
                 timeRemaining = nextCheckinTime - currentTime
               } else {
@@ -177,7 +213,7 @@ export default function Home() {
             }
           }
         } catch (mappingError) {
-          console.warn("Error calculating timeRemaining", mappingError)
+          console.warn("Error calculating timeRemaining from mapping", mappingError)
           timeRemaining = 0
         }
       }
@@ -200,8 +236,6 @@ export default function Home() {
     async (contract: ethers.Contract) => {
       try {
         setIsLoadingMessages(true)
-
-        // First check if we have cached messages
         const cachedMessages = localStorage.getItem("gmtea_recentMessages")
         let parsedMessages: GMMessage[] = []
         let cacheValid = false
@@ -209,96 +243,63 @@ export default function Home() {
         if (cachedMessages) {
           try {
             const parsed = JSON.parse(cachedMessages)
-            if (parsed.timestamp && Date.now() - parsed.timestamp < 10 * 60 * 1000) {
-              // 10 minute cache
+            if (parsed.timestamp && Date.now() - parsed.timestamp < 10 * 60 * 1000) { // 10 menit cache
               parsedMessages = parsed.data
               cacheValid = true
-
-              // Show cached messages immediately
               setMessages(parsedMessages)
-              setIsLoadingMessages(false)
+              // setIsLoadingMessages(false); // Jangan set false di sini jika akan fetch lagi
             }
           } catch (e) {
             console.warn("Error parsing cached messages:", e)
           }
         }
+        
+        if (!cacheValid) setIsLoadingMessages(true); // Hanya set loading true jika cache tidak valid atau akan fetch
 
-        // Set up a timeout for the fetch operation
         const messagesPromise = contract.getRecentGMs()
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Loading messages timeout")), 15000),
         )
 
-        // Try to fetch fresh data
         try {
-          const recentGMs = await Promise.race([messagesPromise, timeoutPromise])
-
+          const recentGMs = await Promise.race([messagesPromise, timeoutPromise]) as any[]; // Perlu type assertion jika contract.getRecentGMs() tidak well-typed
           if (Array.isArray(recentGMs)) {
             const formattedMessages = recentGMs.map((msg) => ({
               user: msg.user,
-              timestamp: typeof msg.timestamp === "number" ? msg.timestamp : msg.timestamp?.toNumber() || 0,
+              timestamp: BigNumber.isBigNumber(msg.timestamp) ? msg.timestamp.toNumber() : Number(msg.timestamp || 0),
               message: msg.message || "GM!",
-            }))
-
+            })).sort((a,b) => b.timestamp - a.timestamp); // Urutkan dari terbaru
             setMessages(formattedMessages)
-
-            // Cache the messages
             localStorage.setItem(
               "gmtea_recentMessages",
-              JSON.stringify({
-                data: formattedMessages,
-                timestamp: Date.now(),
-              }),
+              JSON.stringify({ data: formattedMessages, timestamp: Date.now() }),
             )
           } else {
-            console.error("Invalid messages format:", recentGMs)
-            // Keep using cached messages if available
-            if (!cacheValid) {
-              setMessages([])
-            }
+            console.error("Invalid messages format received:", recentGMs);
+            if (!cacheValid) setMessages([]); // Hanya set kosong jika tidak ada cache valid
           }
         } catch (error) {
-          console.error("Error loading recent messages:", error)
-
-          // If timeout occurred but we have cached messages, keep showing them
-          if (cacheValid) {
-            // Just keep the cached messages visible and show a subtle notification
-            const timeoutNotification = document.getElementById("timeout-notification")
-            if (timeoutNotification) {
-              timeoutNotification.classList.remove("hidden")
-              setTimeout(() => {
-                timeoutNotification.classList.add("hidden")
-              }, 5000)
-            }
-          } else {
-            // If no cache is available, show fallback messages
-            if (web3State.isConnected) {
-              setMessages([
-                {
-                  user: "0x1234567890123456789012345678901234567890",
-                  timestamp: Math.floor(Date.now() / 1000) - 3600,
-                  message: "GM from the Tea community! 🍵",
-                },
-                {
-                  user: "0x0987654321098765432109876543210987654321",
-                  timestamp: Math.floor(Date.now() / 1000) - 7200,
-                  message: "Starting the day with a fresh cup of Tea! ☕",
-                },
-              ])
-            } else {
-              setMessages([])
-            }
+          console.error("Error loading fresh recent messages:", error)
+          if (!cacheValid) { // Jika fetch gagal DAN cache tidak valid
+             if (web3State.isConnected) { // Tampilkan pesan fallback hanya jika terhubung tapi gagal fetch
+                setMessages([
+                    { user: "0x123...", timestamp: Math.floor(Date.now() / 1000) - 3600, message: "GM from the Tea community! 🍵 (fallback)" },
+                    { user: "0x098...", timestamp: Math.floor(Date.now() / 1000) - 7200, message: "Starting the day with a fresh cup of Tea! ☕ (fallback)" },
+                ]);
+             } else {
+                setMessages([]);
+             }
           }
-        } finally {
-          setIsLoadingMessages(false)
+          // Jika cache valid, biarkan pesan cache ditampilkan
         }
       } catch (error) {
-        console.error("Error in loadRecentMessages:", error)
+        console.error("Outer error in loadRecentMessages:", error)
+        setMessages([]) // Fallback jika ada error di luar blok try-catch fetch
+      } finally {
         setIsLoadingMessages(false)
-        setMessages([])
       }
     },
-    [web3State.isConnected],
+    [web3State.isConnected], // Re-fetch jika status koneksi berubah
   )
 
   // Load global count
@@ -307,12 +308,8 @@ export default function Home() {
 
     try {
       setIsLoadingGlobalCount(true)
-
-      console.log("Loading global check-in count...")
       const count = await getTotalCheckins(web3State.contract)
-      console.log("Global check-in count:", count)
-
-      if (count > 0) {
+      if (count > 0) { // Hanya update jika count > 0 untuk menghindari reset ke 0 jika ada error sementara
         setGlobalCheckinCount(count)
       }
     } catch (error) {
@@ -325,73 +322,33 @@ export default function Home() {
   // Connect wallet function
   const handleConnectWallet = useCallback(async () => {
     if (web3State.isLoading) return
-
+    setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }))
     try {
-      console.log("handleConnectWallet called - starting wallet connection")
-      setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }))
-
-      // Check if already connected through ThirdwebProvider
-      const ethereum = (window as any).ethereum
-      let address, provider, signer, chainId
-
-      if (ethereum && ethereum.selectedAddress) {
-        // Wallet already connected through ThirdwebProvider
-        address = ethereum.selectedAddress
-        provider = new ethers.providers.Web3Provider(ethereum)
-        signer = provider.getSigner()
-        chainId = Number.parseInt(ethereum.chainId, 16) // Convert from hex
-
-        console.log("Using already connected wallet:", address)
-      } else {
-        // Not connected, use normal connectWallet function
-        const result = await connectWallet()
-
-        if (!result || !result.address) {
-          throw new Error("Failed to connect: No address returned")
-        }
-        ;({ signer, address, chainId, provider } = result)
+      const result = await connectWallet() // Menggunakan utilitas connectWallet
+      if (!result || !result.address || !result.signer || !result.provider || !result.chainId) {
+        throw new Error("Failed to connect: Essential properties missing")
       }
-
-      console.log("Wallet connected successfully:", address)
-
-      const isCorrectNetwork = chainId === TEA_SEPOLIA_CHAIN_ID
-      setShowNetworkAlert(!isCorrectNetwork)
-
+      const { signer, address, chainId, provider } = result;
       const contract = getContract(signer)
-
-      // Update state
       setWeb3State({
-        isConnected: true,
-        address,
-        provider,
-        signer,
-        contract,
-        isLoading: false,
-        error: null,
-        chainId,
+        isConnected: true, address, provider, signer, contract,
+        isLoading: false, error: null, chainId,
       })
-
-      console.log("Web3 state updated - isConnected:", true)
-
-      // Set to localStorage for persistence
       localStorage.setItem("walletConnected", "true")
       localStorage.setItem("walletAddress", address)
 
-      // Load user data
-      if (isCorrectNetwork) {
+      if (chainId === TEA_SEPOLIA_CHAIN_ID) {
+        setShowNetworkAlert(false)
         await Promise.all([loadUserData(address, contract), loadRecentMessages(contract)])
+      } else {
+        setShowNetworkAlert(true)
       }
     } catch (error: any) {
       console.error("Error connecting wallet:", error)
-
       setWeb3State((prev) => ({
-        ...prev,
-        isConnected: false,
-        isLoading: false,
+        ...prev, isConnected: false, isLoading: false,
         error: error.message || "Failed to connect wallet",
       }))
-
-      // Clear any stored connection data
       localStorage.removeItem("walletConnected")
       localStorage.removeItem("walletAddress")
     }
@@ -399,97 +356,68 @@ export default function Home() {
 
   // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
-    // Reset web3 state
     setWeb3State({
-      isConnected: false,
-      address: null,
-      provider: null,
-      signer: null,
-      contract: null,
-      isLoading: false,
-      error: null,
-      chainId: null,
+      isConnected: false, address: null, provider: null, signer: null, contract: null,
+      isLoading: false, error: null, chainId: null,
     })
-
-    // Reset UI state
-    setCheckinStats({
-      userCheckinCount: 0,
-      timeUntilNextCheckin: 0,
-    })
+    setCheckinStats({ userCheckinCount: 0, timeUntilNextCheckin: 0, })
     setMessages([])
     setShowNetworkAlert(false)
-
-    // Clear local storage
+    setUserBadges([]) // Kosongkan badges saat disconnect
     localStorage.removeItem("walletConnected")
     localStorage.removeItem("walletAddress")
-
     console.log("Wallet disconnected")
   }, [])
 
   // Handle checkin
   const handleCheckin = async (message: string) => {
-    if (!web3State.contract || !web3State.isConnected) return
-
+    if (!web3State.contract || !web3State.signer || !web3State.address) {
+        addNotification("Please connect your wallet first.", "warning");
+        return;
+    }
+    setIsCheckinLoading(true)
     try {
-      setIsCheckinLoading(true)
-
-      const provider = getProvider()
-      if (!provider) throw new Error("Provider not found")
-
-      const signer = provider.getSigner()
-      const contract = getContract(signer)
-
-      const gasLimit = await contract.estimateGas.checkIn(message, {
-        value: ethers.utils.parseEther(CHECKIN_FEE),
-      })
-
-      const bufferedGasLimit = gasLimit.mul(120).div(100)
-
+      const contractWithSigner = web3State.contract.connect(web3State.signer); // Pastikan kontrak terhubung dengan signer
+      const fee = ethers.utils.parseEther(CHECKIN_FEE);
+      // Estimasi gas dengan penanganan error
+      let gasLimit;
+      try {
+        gasLimit = await contractWithSigner.estimateGas.checkIn(message, { value: fee });
+      } catch (gasError: any) {
+        console.error("Gas estimation failed:", gasError);
+        addNotification(gasError.reason || "Gas estimation failed. Try again.", "error");
+        setIsCheckinLoading(false);
+        return;
+      }
+      
+      const bufferedGasLimit = gasLimit.mul(120).div(100); // Buffer 20%
       addNotification("Sending your GM to the blockchain...", "info")
-
-      const tx = await contract.checkIn(message, {
-        value: ethers.utils.parseEther(CHECKIN_FEE),
+      const tx = await contractWithSigner.checkIn(message, {
+        value: fee,
         gasLimit: bufferedGasLimit,
       })
-
       console.log("Transaction sent:", tx.hash)
-
       addNotification("Transaction sent! Waiting for confirmation...", "info")
-
       await tx.wait()
-
       console.log("Transaction confirmed")
+      addNotification("GM successfully posted! ☀️ Have a tea-riffic day!", "success")
+      // Reload data setelah check-in berhasil
+      await Promise.all([
+          loadUserData(web3State.address, web3State.contract), 
+          loadRecentMessages(web3State.contract),
+          loadGlobalCount() // Update global count juga
+      ]);
 
-      if (web3State.address) {
-        // Reload user data and recent messages
-        await Promise.all([loadUserData(web3State.address, contract), loadRecentMessages(contract)])
-
-        // Update global checkin count after a successful checkin
-        // Increment the current count by 1 for immediate feedback
-        setGlobalCheckinCount((prevCount) => prevCount + 1)
-
-        // Also trigger a refresh of the actual count from blockchain
-        // but don't await it so UI stays responsive
-        setTimeout(() => {
-          loadGlobalCount()
-        }, 2000)
-
-        addNotification("GM successfully posted! ☀️ Have a tea-riffic day!", "success")
-      }
     } catch (error: any) {
       console.error("Error checking in:", error)
-
-      // Handle error
-      let errorMessage = "Failed to check in"
-
-      if (error.code === 4001) {
-        errorMessage = "Transaction rejected by user"
-      } else if (error.message.includes("timeout")) {
-        errorMessage = "Transaction taking too long. Check network status."
-      } else if (error.message.includes("gas")) {
-        errorMessage = "Gas estimation failed. The network might be congested."
+      let errorMessage = "Failed to check in."
+      if (error.code === 4001) { // User rejected transaction
+        errorMessage = "Transaction rejected by user."
+      } else if (error.reason) {
+        errorMessage = error.reason;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-
       addNotification(errorMessage, "error")
     } finally {
       setIsCheckinLoading(false)
@@ -498,177 +426,191 @@ export default function Home() {
 
   // Switch network function
   const handleSwitchNetwork = useCallback(async () => {
+    setWeb3State((prev) => ({ ...prev, isLoading: true }))
     try {
-      setWeb3State((prev) => ({ ...prev, isLoading: true }))
-
-      await switchToTeaSepolia()
-      setShowNetworkAlert(false)
-
-      // Reconnect with correct network
-      await handleConnectWallet()
+      await switchToTeaSepolia() // Menggunakan utilitas switchToTeaSepolia
+      // Setelah switch, event 'chainChanged' akan di-trigger oleh useEthereumEvents,
+      // yang seharusnya me-reload halaman atau memanggil handleConnectWallet
+      // Untuk kepastian, kita bisa panggil handleConnectWallet di sini juga
+      setShowNetworkAlert(false); // Optimistic update
+      await handleConnectWallet(); // Panggil connect wallet untuk sinkronisasi
     } catch (error) {
       console.error("Error switching network:", error)
+      addNotification("Failed to switch network. Please do it manually in your wallet.", "error");
       setWeb3State((prev) => ({ ...prev, isLoading: false }))
     }
   }, [handleConnectWallet])
 
   // Forum handlers - kept for future implementation
-  const openForum = useCallback(() => {
-    setIsForumOpen(true)
-  }, [])
+  const openForum = useCallback(() => { setIsForumOpen(true) }, [])
+  const closeForum = useCallback(() => { setIsForumOpen(false) }, [])
 
-  const closeForum = useCallback(() => {
-    setIsForumOpen(false)
-  }, [])
-
-  // For debugging
+  // Debug log for web3State
   useEffect(() => {
-    console.log("Web3 state updated:", {
-      isConnected: web3State.isConnected,
-      address: web3State.address,
-      chainId: web3State.chainId,
-    })
-  }, [web3State.isConnected, web3State.address, web3State.chainId])
+    console.log("Home Web3State:", web3State);
+  }, [web3State])
 
   // Attempt to reconnect wallet on page load
   useEffect(() => {
     const checkPreviousConnection = async () => {
-      try {
-        const wasConnected = localStorage.getItem("walletConnected") === "true"
-        const storedAddress = localStorage.getItem("walletAddress")
-
-        if (wasConnected && storedAddress && !web3State.isConnected && !web3State.isLoading) {
-          const ethereum = (window as any).ethereum
-          if (!ethereum) return
-
-          const accounts = await ethereum.request({ method: "eth_accounts" })
-          if (accounts && accounts.length > 0 && accounts.includes(storedAddress.toLowerCase())) {
-            await handleConnectWallet()
-          } else {
-            localStorage.removeItem("walletConnected")
-            localStorage.removeItem("walletAddress")
-          }
-        }
-      } catch (error) {
-        console.error("Error checking previous connection:", error)
-        localStorage.removeItem("walletConnected")
-        localStorage.removeItem("walletAddress")
+      if (localStorage.getItem("walletConnected") === "true" && !web3State.isConnected && !web3State.isLoading) {
+        console.log("Attempting to reconnect previous wallet session...");
+        await handleConnectWallet();
       }
     }
-
-    const timer = setTimeout(() => {
-      checkPreviousConnection()
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading])
+    // Beri sedikit jeda untuk memastikan provider wallet (jika ada extension) termuat
+    const timer = setTimeout(checkPreviousConnection, 500); 
+    return () => clearTimeout(timer);
+  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading]) // Re-run if these change unexpectedly
 
   // Ensure contract is properly initialized
   useEffect(() => {
-    if (web3State.isConnected && web3State.address && !web3State.contract) {
+    if (web3State.isConnected && web3State.signer && !web3State.contract) {
       try {
-        const provider = getProvider()
-        if (provider) {
-          const signer = provider.getSigner()
-          const contract = getContract(signer)
-
-          setWeb3State((prev) => ({
-            ...prev,
-            contract,
-            signer,
-            provider,
-          }))
-        }
+        const contractInstance = getContract(web3State.signer)
+        setWeb3State((prev) => ({ ...prev, contract: contractInstance, }))
       } catch (error) {
-        console.error("Error initializing contract:", error)
+        console.error("Error re-initializing contract in Home:", error)
       }
     }
-  }, [web3State.isConnected, web3State.address, web3State.contract])
+  }, [web3State.isConnected, web3State.signer, web3State.contract])
+
 
   // Use Ethereum Events hook
   useEthereumEvents({
-    accountsChanged: (accounts) => {
+    accountsChanged: async (accounts) => {
+      console.log("Home: accountsChanged", accounts);
       if (accounts.length === 0) {
         handleDisconnectWallet()
-      } else if (web3State.address !== accounts[0] && web3State.isConnected) {
-        handleConnectWallet()
+      } else if (web3State.address && accounts[0].toLowerCase() !== web3State.address.toLowerCase()) {
+        // Akun berubah, coba sambungkan ulang dengan akun baru
+        console.log("Account switched, reconnecting...");
+        await handleConnectWallet(); 
+      } else if (!web3State.address && accounts.length > 0) {
+        // Jika sebelumnya tidak ada alamat, tapi sekarang ada (misal, auto-connect oleh wallet)
+        console.log("New account detected, connecting...");
+        await handleConnectWallet();
       }
     },
-    chainChanged: () => {
-      window.location.reload()
+    chainChanged: (chainIdHex) => {
+      console.log("Home: chainChanged to", chainIdHex, ". Reloading for consistency.");
+      // Reload halaman adalah cara paling aman untuk memastikan semua state sinkron
+      window.location.reload(); 
     },
     disconnect: () => {
+      console.log("Home: disconnect event from provider");
       handleDisconnectWallet()
     },
   })
 
-  // Load user data and recent messages
+  // Load user data and recent messages, and global count
   useEffect(() => {
-    if (!web3State.isConnected || !web3State.address || !web3State.contract) return
-
-    console.log("Setting up user data refresh interval")
-
-    // Initial data load
-    const loadInitialUserData = async () => {
-      try {
+    if (web3State.isConnected && web3State.address && web3State.contract) {
+      console.log("Setting up initial data load and refresh intervals in Home")
+      const loadAllInitialData = async () => {
         await Promise.all([
-          loadUserData(web3State.address as string, web3State.contract),
-          loadRecentMessages(web3State.contract),
-        ])
-      } catch (error) {
-        console.error("Error loading initial user data:", error)
-      }
-    }
-
-    // Execute initial load
-    loadInitialUserData()
-
-    // Set up refresh interval for user data
-    const userDataInterval = setInterval(() => {
-      if (web3State.address && web3State.contract) {
-        loadUserData(web3State.address, web3State.contract)
-        loadRecentMessages(web3State.contract)
-      }
-    }, 30000) // Refresh user data every 30 seconds
-
-    // Clean up interval when component unmounts or deps change
-    return () => {
-      clearInterval(userDataInterval)
-    }
-  }, [web3State.isConnected, web3State.address, web3State.contract, loadUserData, loadRecentMessages])
-
-  // Separate useEffect for global count refresh
-  useEffect(() => {
-    if (!web3State.contract) return
-
-    console.log("Setting up global count refresh interval")
-
-    // Initial global count load
-    loadGlobalCount()
-
-    // Set up refresh interval for global count
-    const globalCountInterval = setInterval(
-      () => {
-        if (web3State.contract) {
+          loadUserData(web3State.address as string, web3State.contract as ethers.Contract),
+          loadRecentMessages(web3State.contract as ethers.Contract),
           loadGlobalCount()
-        }
-      },
-      5 * 60 * 1000,
-    ) // Refresh global count every 5 minutes
+        ]);
+      }
+      loadAllInitialData();
 
-    // Clean up interval when component unmounts or deps change
-    return () => {
-      clearInterval(globalCountInterval)
+      const userDataInterval = setInterval(() => {
+        if (web3State.address && web3State.contract) { // Double check
+          loadUserData(web3State.address, web3State.contract)
+          loadRecentMessages(web3State.contract)
+        }
+      }, 60000) // Refresh user data & messages setiap 60 detik
+
+      const globalCountInterval = setInterval(() => {
+        if (web3State.contract) { // Double check
+            loadGlobalCount()
+        }
+      }, 5 * 60 * 1000); // Refresh global count setiap 5 menit
+
+      return () => {
+        clearInterval(userDataInterval)
+        clearInterval(globalCountInterval)
+      }
     }
-  }, [web3State.contract, loadGlobalCount])
+  }, [web3State.isConnected, web3State.address, web3State.contract, loadUserData, loadRecentMessages, loadGlobalCount])
+
+
+  // Listen for navigation events from navbar
+  useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        changeTab(event.detail.tab as TabType)
+      }
+    }
+    window.addEventListener("navigate", handleNavigate as EventListener)
+    return () => {
+      window.removeEventListener("navigate", handleNavigate as EventListener)
+    }
+  }, [activeTab]) // Tambahkan activeTab agar previousTab di `changeTab` selalu up-to-date
+
+  // --- VARIAN ANIMASI TAB YANG DIPERBARUI ---
+  const tabVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? '100%' : '-100%',
+      opacity: 0,
+      rotate: direction > 0 ? 5 : -5, // Mengurangi sudut rotasi
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+      rotate: 0,
+      transition: {
+        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        opacity: { duration: 0.45, ease: "easeOut" },
+        rotate: { duration: 0.5, ease: "easeOut" },
+      },
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? '100%' : '-100%',
+      opacity: 0,
+      rotate: direction < 0 ? -5 : 5,
+      transition: {
+        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        opacity: { duration: 0.35, ease: "easeIn" },
+        rotate: { duration: 0.4, ease: "easeIn" },
+      },
+    }),
+  };
+
+  const getDirection = (current: TabType, previous: TabType | null): number => {
+    if (!previous || previous === current) return 1; // Default direction or if no change
+    const tabOrder: TabType[] = ["dashboard", "mint", "leaderboard", "profile"];
+    const currentIndex = tabOrder.indexOf(current);
+    const previousIndex = tabOrder.indexOf(previous);
+    if (currentIndex === -1 || previousIndex === -1) return 1; // Fallback
+    return currentIndex > previousIndex ? 1 : -1;
+  };
+
 
   return (
     <div className="min-h-screen tea-leaf-pattern">
+      <Navbar
+        address={web3State.address}
+        connectWallet={handleConnectWallet}
+        disconnectWallet={handleDisconnectWallet}
+        isConnecting={web3State.isLoading}
+        scrollToLeaderboard={scrollToLeaderboard}
+        scrollToMintSection={scrollToMintSection}
+      />
+
       <main className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Network alert */}
         {showNetworkAlert && (
-          <div className="mb-6 rounded-xl overflow-hidden">
-            <div className="bg-yellow-500 bg-gradient-to-r from-yellow-500 to-amber-500 p-4 border-l-4 border-yellow-600">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-6 rounded-xl overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 backdrop-blur-md p-4 border-l-4 border-yellow-600 shadow-xl">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <FaNetworkWired className="h-5 w-5 text-white" />
@@ -681,186 +623,224 @@ export default function Home() {
                 <div>
                   <button
                     onClick={handleSwitchNetwork}
-                    className="px-4 py-1.5 rounded-lg bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                    disabled={web3State.isLoading}
+                    className="px-4 py-1.5 rounded-lg bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all shadow-md"
                   >
-                    Switch Network
+                    {web3State.isLoading ? "Switching..." : "Switch Network"}
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* Original layout - Stats on left, Activity feed on right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Stats Section */}
-          <div className="lg:col-span-5 space-y-6">
-            <StatsCard address={web3State.address} timeUntilNextCheckin={checkinStats.timeUntilNextCheckin} />
+        {/* UPDATED TAB CONTAINER: Remove fixed height constraint and adjust overflow handling */}
+        <div className="relative overflow-visible"> {/* Changed from overflow-hidden and removed min-h-[80vh] */}
+          <AnimatePresence initial={false} mode="wait" custom={getDirection(activeTab, previousTab)}>
+            {activeTab === "dashboard" && (
+              <motion.div
+                key="dashboard"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" // Removed absolute positioning and h-full
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-5 space-y-6">
+                     <StatsCard 
+                        checkinCount={checkinStats.userCheckinCount}
+                        timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
+                        isLoading={web3State.isLoading}
+                        globalCheckinCount={globalCheckinCount}
+                        isLoadingGlobalCount={isLoadingGlobalCount}
+                      />
+                    <CountdownTimer
+                      initialSeconds={checkinStats.timeUntilNextCheckin}
+                      onComplete={() => {
+                        if (web3State.address && web3State.contract) {
+                          loadUserData(web3State.address, web3State.contract)
+                        }
+                      }}
+                    />
+                    <CheckinButton
+                      canCheckin={checkinStats.timeUntilNextCheckin <= 0 && web3State.isConnected}
+                      onCheckin={handleCheckin}
+                      isLoading={isCheckinLoading}
+                    />
+                  </div>
+                  <div className="lg:col-span-7">
+                    <GMMessageList
+                      messages={messages}
+                      isLoading={isLoadingMessages}
+                      onRefresh={() => web3State.contract && loadRecentMessages(web3State.contract)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-            <CountdownTimer
-              initialSeconds={checkinStats.timeUntilNextCheckin}
-              onComplete={() => {
-                if (web3State.address && web3State.contract) {
-                  loadUserData(web3State.address, web3State.contract)
-                }
-              }}
-            />
+            {activeTab === "mint" && loadedTabs.includes("mint") && (
+              <motion.div
+                key="mint"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={mintSectionRef} className="badge-mint-section" data-section="badge-mint">
+                 <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Badge Minting...</div>}>
+                      <LazyBadgeMintSection
+                        address={web3State.address || ""}
+                        signer={web3State.signer}
+                        badges={userBadges}
+                        onMintComplete={async () => {
+                          if (web3State.contract && web3State.address) {
+                            loadGlobalCount();
+                            await loadUserData(web3State.address, web3State.contract);
+                            const updatedBadges = await getUserBadges(web3State.address);
+                            setUserBadges(updatedBadges);
+                            window.dispatchEvent(new CustomEvent("badgeUpdate", { detail: { badges: updatedBadges }}));
+                            await loadRecentMessages(web3State.contract);
+                          }
+                        }}
+                      />
+                    </Suspense>
+                </div>
+              </motion.div>
+            )}
 
-            <CheckinButton
-              canCheckin={checkinStats.timeUntilNextCheckin <= 0}
-              onCheckin={handleCheckin}
-              isLoading={isCheckinLoading}
-            />
-          </div>
-
-          {/* Activity Feed Section */}
-          <div className="lg:col-span-7">
-            <GMMessageList
-              messages={messages}
-              isLoading={isLoadingMessages}
-              onRefresh={() => web3State.contract && loadRecentMessages(web3State.contract)}
-            />
-          </div>
+            {activeTab === "leaderboard" && loadedTabs.includes("leaderboard") && (
+              <motion.div
+                key="leaderboard"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={leaderboardRef} className="" id="leaderboard-section" data-section="leaderboard">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="inline-flex rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-black/70 backdrop-blur-md shadow-sm p-1">
+                      <button
+                        onClick={() => setLeaderboardType("checkin")}
+                        className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
+                          leaderboardType === "checkin" ? "bg-emerald-500 text-white shadow-md" : "text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-700"
+                        }`}
+                      > <FaCheckCircle className="mr-1.5 h-3.5 w-3.5 inline-block" /> Check-ins </button>
+                      <button
+                        onClick={() => setLeaderboardType("points")}
+                        className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
+                          leaderboardType === "points" ? "bg-emerald-500 text-white shadow-md" : "text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-700"
+                        }`}
+                      > <FaGem className="mr-1.5 h-3.5 w-3.5 inline-block" /> Points </button>
+                    </div>
+                  </div>
+                  <div className="relative overflow-visible">
+                    <AnimatePresence mode="wait">
+                       <motion.div
+                          key={leaderboardType}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          {leaderboardType === "checkin" ? (
+                            <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Check-in Leaderboard...</div>}>
+                              <LazyLeaderboard currentUserAddress={web3State.address} />
+                            </Suspense>
+                          ) : (
+                            <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Points Leaderboard...</div>}>
+                              <LazyPointsLeaderboard currentUserAddress={web3State.address} contract={web3State.contract} />
+                            </Suspense>
+                          )}
+                       </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            {activeTab === "profile" && loadedTabs.includes("profile") && (
+               <motion.div
+                key="profile"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={profileRef} className="mt-4 pt-4" id="profile-section" data-section="profile">
+                  <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Profile...</div>}>
+                    <LazyProfileSection /> 
+                  </Suspense>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-
        
 
-        {/* Leaderboard */}
-        <div
-          ref={leaderboardRef}
-          className="mt-8 pt-4 scroll-mt-28"
-          id="leaderboard-section"
-          data-section="leaderboard"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-emerald-700 dark:text-emerald-300 flex items-center">
-              <div className="relative">
-                <FaTrophy className="mr-2 text-emerald-500" />
-                <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
-              </div>
-              Community Leaderboard
-            </h2>
-
-            {/* Tab Switcher - Simple Version */}
-            <div className="inline-flex rounded-lg border border-emerald-200 dark:border-emerald-800/30 bg-white dark:bg-black/50 backdrop-blur-md shadow-sm p-1">
-              <button
-                onClick={() => setLeaderboardType("checkin")}
-                className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
-                  leaderboardType === "checkin"
-                    ? "bg-emerald-500 text-white shadow-md"
-                    : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                }`}
-              >
-                <span className="flex items-center">
-                  <FaCheckCircle className="mr-1.5 h-3 w-3" />
-                  Check-ins
-                </span>
-              </button>
-              <button
-                onClick={() => setLeaderboardType("points")}
-                className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
-                  leaderboardType === "points"
-                    ? "bg-emerald-500 text-white shadow-md"
-                    : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                }`}
-              >
-                <span className="flex items-center">
-                  <FaGem className="mr-1.5 h-3 w-3" />
-                  Points
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Leaderboard Container dengan Animasi */}
-          <div className="relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              {leaderboardType === "checkin" ? (
-                <motion.div
-                  key="checkin-leaderboard"
-                  initial={{ x: 300, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -300, opacity: 0 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    opacity: { duration: 0.2 },
-                  }}
-                >
-                  <Leaderboard currentUserAddress={web3State.address} />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="points-leaderboard"
-                  initial={{ x: 300, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -300, opacity: 0 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    opacity: { duration: 0.2 },
-                  }}
-                >
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Audio Player - Fixed position */}
         <AudioPlayer initialVolume={0.3} />
       </main>
 
       {/* Notification container */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-3 flex flex-col items-end">
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`max-w-md rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${
-              notification.type === "success"
-                ? "bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500"
-                : notification.type === "error"
-                  ? "bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500"
-                  : notification.type === "info"
-                    ? "bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500"
-                    : "bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500"
-            }`}
-          >
-            <div className="p-4 flex">
-              <div className="flex-shrink-0">
-                {notification.type === "success" && <FaCheckCircle className="h-5 w-5 text-emerald-500" />}
-                {notification.type === "error" && <FaExclamationCircle className="h-5 w-5 text-red-500" />}
-                {notification.type === "info" && <FaInfoCircle className="h-5 w-5 text-blue-500" />}
-                {notification.type === "warning" && <FaExclamationCircle className="h-5 w-5 text-orange-500" />}
-              </div>
-              <div className="ml-3 flex-1">
-                <p
-                  className={`text-sm font-medium ${
-                    notification.type === "success"
-                      ? "text-emerald-700 dark:text-emerald-300"
-                      : notification.type === "error"
-                        ? "text-red-700 dark:text-red-300"
-                        : notification.type === "info"
-                          ? "text-blue-700 dark:text-blue-300"
-                          : "text-orange-700 dark:text-orange-300"
-                  }`}
-                >
-                  {notification.message}
-                </p>
-              </div>
-              <button
-                onClick={() => removeNotification(notification.id)}
-                className="ml-4 inline-flex text-gray-400 focus:outline-none focus:text-gray-500 rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <FaTimes className="h-4 w-4" />
-              </button>
-            </div>
-            {/* Progress bar */}
-            <div className="h-1 bg-emerald-500 dark:bg-emerald-600 animate-[progress_5s_linear_forwards]"></div>
-          </div>
-        ))}
+      <div className="fixed bottom-4 right-4 z-[100] space-y-3 flex flex-col items-end max-h-[90vh] overflow-y-auto scrollbar-hide">
+        <AnimatePresence>
+            {notifications.map((notification) => (
+            <motion.div
+                key={notification.id}
+                layout
+                initial={{ opacity: 0, y: 50, scale: 0.3 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: "100%", scale: 0.5, transition: { duration: 0.4, ease: "easeIn" } }}
+                transition={{ type: "spring", stiffness: 200, damping: 20, mass: 0.7 }}
+                className={`w-full max-w-full rounded-lg shadow-2xl overflow-hidden backdrop-blur-md border-l-4
+                ${ notification.type === "success" ? "bg-emerald-50/80 dark:bg-emerald-700/50 border-emerald-500" 
+                : notification.type === "error" ? "bg-red-50/80 dark:bg-red-700/50 border-red-500" 
+                : notification.type === "info" ? "bg-blue-50/80 dark:bg-blue-700/50 border-blue-500" 
+                : "bg-orange-50/80 dark:bg-orange-700/50 border-orange-500" }`}
+            >
+                <div className="p-4 flex items-start">
+                <div className="flex-shrink-0 mt-0.5">
+                    {notification.type === "success" && <FaCheckCircle className="h-5 w-5 text-emerald-500 dark:text-emerald-300" />}
+                    {notification.type === "error" && <FaExclamationCircle className="h-5 w-5 text-red-500 dark:text-red-300" />}
+                    {notification.type === "info" && <FaInfoCircle className="h-5 w-5 text-blue-500 dark:text-blue-300" />}
+                    {notification.type === "warning" && <FaExclamationCircle className="h-5 w-5 text-orange-500 dark:text-orange-300" />}
+                </div>
+                <div className="ml-3 w-0 flex-1">
+                    <p className={`text-sm font-medium ${
+                        notification.type === "success" ? "text-emerald-800 dark:text-emerald-100" :
+                        notification.type === "error" ? "text-red-800 dark:text-red-100" :
+                        notification.type === "info" ? "text-blue-800 dark:text-blue-100" :
+                        "text-orange-800 dark:text-orange-100"
+                    }`}>{notification.message}</p>
+                </div>
+                <div className="ml-4 flex-shrink-0 flex">
+                    <button
+                    onClick={() => removeNotification(notification.id)}
+                    className="inline-flex text-gray-400 dark:text-gray-300 hover:text-gray-500 dark:hover:text-white focus:outline-none"
+                    >
+                    <span className="sr-only">Close</span>
+                    <FaTimes className="h-5 w-5" />
+                    </button>
+                </div>
+                </div>
+                {/* Progress bar */}
+                <div className={`h-1 ${
+                    notification.type === "success" ? "bg-emerald-500/70" :
+                    notification.type === "error" ? "bg-red-500/70" :
+                    notification.type === "info" ? "bg-blue-500/70" :
+                    "bg-orange-500/70"
+                } animate-[progress_5s_linear_forwards]`}></div>
+            </motion.div>
+            ))}
+        </AnimatePresence>
       </div>
     </div>
   )

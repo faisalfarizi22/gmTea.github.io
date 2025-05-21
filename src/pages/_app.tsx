@@ -1,15 +1,14 @@
 "use client"
 import type { AppProps } from "next/app"
 import Head from "next/head"
+import Script from "next/script" // Tambahkan import ini
 import "@/styles/globals.css"
 import { ThirdwebProvider } from "thirdweb/react"
 import { useRouter } from "next/router"
-import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
 import WalletRequired from "@/components/WalletRequired"
 import { useWalletState } from "@/hooks/useWalletState"
 import { useScrollFunctions } from "@/hooks/useScrollFunctions"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 import ConnectionStatusProvider from "@/components/ConnectionStatusProvider"
 
 function GMApp({ Component, pageProps }: AppProps) {
@@ -41,10 +40,27 @@ function GMApp({ Component, pageProps }: AppProps) {
         />
       </Head>
 
+      {/* Google Analytics */}
+      <Script
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=G-LCY12CWTZ4`}
+      />
+      <Script
+        id="gtag-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-LCY12CWTZ4');
+          `,
+        }}
+      />
+
       <ConnectionStatusProvider>
         <ThirdwebProvider>
           
-          <SpeedInsights/>
           <main>
             {shouldRequireWallet ? (
               <WalletRequired

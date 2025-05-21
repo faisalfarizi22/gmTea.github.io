@@ -11,7 +11,8 @@
     "indexer:reindex": "ts-node src/scripts/runIndexer.js --reindex",
     "indexer:fast": "ts-node src/scripts/runIndexer.js --frequency=1",
     "indexer:veryfast": "ts-node src/scripts/runIndexer.js --frequency=0.16666667",
-    "db:setup": "node src/scripts/setupDatabase.js"
+    "db:setup": "node src/scripts/setupDatabase.js",
+    "badge-indexer": "ts-node src/scripts/runBadgeIndexer.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

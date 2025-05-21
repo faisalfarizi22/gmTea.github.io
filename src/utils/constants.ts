@@ -4,7 +4,7 @@ export const REFERRAL_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEAREFERRAL_A
 export const BADGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEABADGE_ADDRESS || "0xF76C16061F1133d47159F1Ea683D05cDC24e5d9d";
 export const MESSAGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEACHAT_ADDRESS
 export const TEA_SEPOLIA_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_TEA_SEPOLIA_CHAIN_ID || "10218", 10);
-export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/";
+export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public";
 export const TEA_SEPOLIA_CHAIN = {
   chainId: `0x${TEA_SEPOLIA_CHAIN_ID.toString(16)}`,
   chainName: "Tea Sepolia Testnet",

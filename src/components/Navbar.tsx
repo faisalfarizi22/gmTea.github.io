@@ -19,6 +19,7 @@ import {
   FaCopy,
   FaTrophy,
   FaHome,
+  FaTint,
 } from "react-icons/fa"
 import ConnectWalletButton from "./ConnectWalletButton"
 import { getUserReferralStats, checkUsername } from "@/utils/badgeWeb3"
@@ -34,11 +35,10 @@ interface NavbarProps {
   connectWallet: () => Promise<void>
   disconnectWallet: () => void
   isConnecting: boolean
-  scrollToLeaderboard?: () => void // Function to scroll to leaderboard
-  scrollToMintSection?: () => void // Function to scroll to mint section
+  scrollToLeaderboard?: () => void
+  scrollToMintSection?: () => void
 }
 
-// Function to generate avatar URL using DiceBear
 const getAvatarUrl = (address: string): string => `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -69,22 +69,18 @@ const Navbar: React.FC<NavbarProps> = ({
   const [isLoadingUserData, setIsLoadingUserData] = useState(false)
   const [highestTier, setHighestTier] = useState<number>(-1)
 
-  // Load user data when address is available
   useEffect(() => {
     const loadUserData = async () => {
       if (!address) return
 
       setIsLoadingUserData(true)
       try {
-        // Get username
         const usernameResult = await checkUsername(address)
         setUsername(usernameResult)
 
-        // Get highest tier badge
         const highestTierResult = await getUserHighestTier(address)
         setHighestTier(highestTierResult)
 
-        // Get referral stats
         const stats = await getUserReferralStats(address)
         if (stats) {
           setReferralStats(stats)
@@ -99,7 +95,6 @@ const Navbar: React.FC<NavbarProps> = ({
     loadUserData()
   }, [address])
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10)
@@ -109,7 +104,6 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -127,7 +121,6 @@ const Navbar: React.FC<NavbarProps> = ({
     }
   }, [])
 
-  // Close mobile menu when screen size increases
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -139,7 +132,6 @@ const Navbar: React.FC<NavbarProps> = ({
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  // Handle hover enter with delay
   const handleMouseEnter = () => {
     if (hoverTimeout) {
       clearTimeout(hoverTimeout)
@@ -148,7 +140,6 @@ const Navbar: React.FC<NavbarProps> = ({
     setIsDropdownOpen(true)
   }
 
-  // Handle hover leave with delay
   const handleMouseLeave = () => {
     const timeout = setTimeout(() => {
       setIsDropdownOpen(false)
@@ -156,32 +147,32 @@ const Navbar: React.FC<NavbarProps> = ({
     setHoverTimeout(timeout as unknown as NodeJS.Timeout)
   }
 
-  // Calculate total reward amount
   const pendingRewardAmount = Number.parseFloat(referralStats.pendingRewardsAmount)
-  // Handle navigation
+
   const handleNav = (menu: string) => {
     setActiveMenu(menu)
     setMobileMenuOpen(false)
 
     if (menu === "dashboard") {
-      // Dispatch custom event for tab navigation
       window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "dashboard" } }))
     } else if (menu === "leaderboard") {
-      // Dispatch custom event for tab navigation
       window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "leaderboard" } }))
       if (scrollToLeaderboard) {
         scrollToLeaderboard()
       }
     } else if (menu === "profile") {
-      // Dispatch custom event for tab navigation
       window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "profile" } }))
     } else if (menu === "mint") {
-      // Dispatch custom event for tab navigation
       window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "mint" } }))
       if (scrollToMintSection) {
         scrollToMintSection()
       }
     }
+  }
+
+  const handleFaucetClick = () => {
+    window.open("https://faucet-sepolia.tea.xyz/", "_blank", "noopener,noreferrer")
+    setMobileMenuOpen(false)
   }
 
   const handleReferralNavigation = () => {
@@ -196,45 +187,38 @@ const Navbar: React.FC<NavbarProps> = ({
     }));
   }
 
-  // Handler to open activity sidebar
   const handleOpenActivitySidebar = () => {
     setShowActivitySidebar(true)
     setIsDropdownOpen(false)
-    document.body.style.overflow = "hidden" // Prevent scrolling when sidebar is open
+    document.body.style.overflow = "hidden"
   }
 
-  // Handler to close activity sidebar
   const handleCloseActivitySidebar = () => {
     setShowActivitySidebar(false)
-    document.body.style.overflow = "" // Restore scrolling
+    document.body.style.overflow = ""
   }
 
-  // Handler for settings modal
   const handleOpenSettings = () => {
     setShowSettingsModal(true)
     setIsDropdownOpen(false)
   }
 
-  // Handler to close settings modal
   const handleCloseSettings = () => {
     setShowSettingsModal(false)
   }
 
-  // Copy wallet address to clipboard
   const copyAddressToClipboard = () => {
     if (address) {
       navigator.clipboard.writeText(address)
       setShowCopyToast(true)
-      setTimeout(() => setShowCopyToast(false), 2000) // Hide toast after 2 seconds
+      setTimeout(() => setShowCopyToast(false), 2000)
     }
   }
 
-  // Listen for navigation events from other components
   useEffect(() => {
     const handleNavigate = (event: CustomEvent) => {
       if (event.detail && event.detail.tab) {
         setActiveMenu(event.detail.tab)
-        
       }
     }
 
@@ -253,7 +237,6 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 md:h-20">
-            {/* Logo */}
             <div className="flex items-center">
               <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleNav("dashboard")}>
                 <div className="relative">
@@ -269,10 +252,8 @@ const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Central Menu - Desktop (no icons) */}
             {address && (
               <div className="hidden md:flex items-center justify-center space-x-10">
-                {/* Dashboard (Home) */}
                 <button
                   onClick={() => handleNav("dashboard")}
                   className={`relative text-sm font-medium px-1 py-2 transition-colors ${
@@ -287,7 +268,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                {/* Mint - Active */}
                 <button
                   onClick={() => handleNav("mint")}
                   className={`relative text-sm font-medium px-1 py-2 transition-colors ${
@@ -302,7 +282,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                {/* Leaderboard */}
                 <button
                   onClick={() => handleNav("leaderboard")}
                   className={`relative text-sm font-medium px-1 py-2 transition-colors ${
@@ -316,15 +295,19 @@ const Navbar: React.FC<NavbarProps> = ({
                     <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
                   )}
                 </button>
+
+                <button
+                  onClick={handleFaucetClick}
+                  className="relative text-sm font-medium px-1 py-2 transition-colors text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
+                >
+                  Faucet
+                </button>
               </div>
             )}
 
-            {/* Right Side Navigation */}
             <div className="hidden md:flex items-center gap-4">
-              {/* Theme Toggle Button */}
               <ThemeToggle />
 
-              {/* Wallet Connection with Hover Dropdown */}
               {!address ? (
                 <ConnectWalletButton connectWallet={connectWallet} />
               ) : (
@@ -334,9 +317,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
                 >
-                  {/* Wallet Button - Shows username or address with avatar */}
                   <button className="flex items-center gap-2 bg-white dark:bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border border-gray-200 dark:border-emerald-500/20 shadow-sm">
-                    {/* Avatar */}
                     <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
                       <AvatarWithFrame
                         avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
@@ -356,13 +337,10 @@ const Navbar: React.FC<NavbarProps> = ({
                     />
                   </button>
 
-                  {/* Hover Dropdown Menu */}
                   {isDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-xl bg-white dark:bg-black/80 backdrop-blur-md border border-gray-200 dark:border-emerald-500/20 z-50 overflow-hidden">
-                      {/* Header with username and address */}
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-emerald-500/20 bg-gray-50 dark:bg-emerald-900/10">
                         <div className="flex items-center gap-3">
-                          {/* Avatar */}
                           <div className="h-8 w-8 rounded-full overflow-hidden">
                             <AvatarWithFrame
                               avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
@@ -389,9 +367,7 @@ const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       </div>
 
-                      {/* Menu Items */}
                       <div className="py-1">
-                        {/* Profile Page */}
                         <button
                           onClick={() => handleNav("profile")}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
@@ -400,7 +376,6 @@ const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-sm text-gray-700 dark:text-gray-300">Profile page</span>
                         </button>
 
-                        {/* Referral Rewards */}
                         <button 
                           onClick={handleReferralNavigation}
                           className="px-4 py-3 w-full flex justify-between items-center hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
@@ -411,7 +386,6 @@ const Navbar: React.FC<NavbarProps> = ({
                           </div>
                         </button>
 
-                        {/* On-chain Activity */}
                         <button
                           onClick={handleOpenActivitySidebar}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
@@ -420,7 +394,6 @@ const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-sm text-gray-700 dark:text-gray-300">On-chain activity</span>
                         </button>
 
-                        {/* Settings */}
                         <button
                           onClick={handleOpenSettings}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
@@ -429,7 +402,6 @@ const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-sm text-gray-700 dark:text-gray-300">Settings</span>
                         </button>
 
-                        {/* Disconnect */}
                         <button
                           onClick={disconnectWallet}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors text-left"
@@ -444,7 +416,6 @@ const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Mobile Menu Button */}
             <div className="flex md:hidden items-center space-x-3">
               <ThemeToggle />
               <button
@@ -464,7 +435,6 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
       </nav>
 
-      {/* Mobile Menu */}
       <div
         ref={mobileMenuRef}
         className={`fixed inset-0 top-16 bg-white dark:bg-gray-900 z-40 transform transition-transform duration-300 ease-in-out md:hidden ${
@@ -473,7 +443,6 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="px-4 pt-4 pb-6 space-y-6">
           <div className="flex flex-col space-y-4">
-            {/* Show address or connect button */}
             {!address ? (
               <div className="px-2 py-2">
                 <ConnectWalletButton connectWallet={connectWallet} />
@@ -482,7 +451,6 @@ const Navbar: React.FC<NavbarProps> = ({
               <div className="px-2 py-2 flex flex-col space-y-4">
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/30 px-4 py-3 rounded-lg">
                   <div className="flex items-center gap-2">
-                    {/* Avatar */}
                     <div className="h-6 w-6 rounded-full overflow-hidden">
                       <AvatarWithFrame
                         avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
@@ -520,9 +488,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 </div>
 
-                {/* Mobile Menu Items */}
                 <div className="grid grid-cols-1 gap-2">
-                  {/* Dashboard */}
                   <button
                     onClick={() => handleNav("dashboard")}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
@@ -537,7 +503,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* Mint - Active */}
                   <button
                     onClick={() => handleNav("mint")}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
@@ -552,7 +517,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* Leaderboard */}
                   <button
                     onClick={() => handleNav("leaderboard")}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
@@ -567,7 +531,16 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* Profile - Now Active */}
+                  <button
+                    onClick={handleFaucetClick}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaTint className="h-5 w-5" />
+                      <span className="font-medium">Faucet</span>
+                    </div>
+                  </button>
+
                   <button
                     onClick={() => handleNav("profile")}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
@@ -582,7 +555,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* Activity */}
                   <button
                     onClick={handleOpenActivitySidebar}
                     className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
@@ -593,7 +565,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
-                  {/* Settings */}
                   <button
                     onClick={handleOpenSettings}
                     className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
@@ -610,10 +581,8 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Activity Sidebar */}
       {showActivitySidebar && address && <ActivitySidebar address={address} onClose={handleCloseActivitySidebar} />}
 
-      {/* Settings Modal */}
       {showSettingsModal && <SettingsModal onClose={handleCloseSettings} />}
 
       {showCopyToast && (

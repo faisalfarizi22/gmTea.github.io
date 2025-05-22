@@ -1,22 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaLeaf, FaStream, FaGlobe, FaSpinner, FaSync } from 'react-icons/fa';
 import { GMMessage } from '@/types';
 import { formatAddress, formatTimestamp } from '@/utils/web3';
 import ChatMessage from "@/components/chat/ChatMessage";
-import { getUserHighestTier, checkUsername, registerUsernameUpdateCallback, registerTierUpdateCallback } from "@/utils/badgeWeb3";
-import { cacheData, getCachedData } from '@/utils/socialBenefitsUtils';
-import ColoredUsername from './user/ColoredUsername';
+import { getUserSocialBenefits, getTierName, processMessageEmotes } from '@/utils/socialBenefitsUtils';
+import { BADGE_TIERS } from '@/utils/constants';
+import { useUserDataCombined } from '@/hooks/useUserData';
 
 interface GMMessageListProps {
   messages: GMMessage[];
   isLoading: boolean;
   onRefresh?: () => Promise<void>;
-}
-interface MessageItem {
-  user: string;
-  message: string;
-  timestamp: number;
 }
 
 const GMMessageList: React.FC<GMMessageListProps> = ({ 
@@ -25,205 +20,72 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
   onRefresh 
 }) => {
   const sortedMessages = [...messages].sort((a, b) => b.timestamp - a.timestamp);
-  const [userTiers, setUserTiers] = useState<Record<string, number>>({});
-  const [usernames, setUsernames] = useState<Record<string, string | null>>({});
   
-  const getAvatarUrl = (address: string) => `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
-
-
-  const useBadgeTier = (address: string | null) => {
-    const [tier, setTier] = useState<number>(-1);
-    
-    useEffect(() => {
-      if (!address) return;
-      
-      // Get initial tier
-      const fetchTier = async () => {
-        const initialTier = await getUserHighestTier(address);
-        setTier(initialTier);
-      };
-      
-      fetchTier();
-      
-      // Register callback untuk update tier
-      const unregister = registerTierUpdateCallback((updatedAddress, updatedTier) => {
-        if (updatedAddress === address) {
-          setTier(updatedTier);
-        }
-      });
-      
-      return () => {
-        // Unregister callback when component unmounts
-        unregister();
-      };
-    }, [address]);
-    
-    return tier;
-  };
+  const [usersData, setUsersData] = useState<Record<string, {
+    highestTier: number,
+    username: string | null,
+    tierName: string
+  }>>({});
   
-  // Hook kustom untuk menggunakan username dengan update otomatis
-  const useUsername = (address: string | null) => {
-    const [username, setUsername] = useState<string | null>(null);
-    
-    useEffect(() => {
-      if (!address) return;
-      
-      // Get initial username
-      const fetchUsername = async () => {
-        const initialUsername = await checkUsername(address);
-        setUsername(initialUsername);
-      };
-      
-      fetchUsername();
-      
-      // Register callback untuk update username
-      const unregister = registerUsernameUpdateCallback((updatedAddress, updatedUsername) => {
-        if (updatedAddress === address) {
-          setUsername(updatedUsername);
-        }
-      });
-      
-      return () => {
-        // Unregister callback when component unmounts
-        unregister();
-      };
-    }, [address]);
-    
-    return username;
-  };
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+ 
+  const uniqueAddresses = React.useMemo(() => {
+    return Array.from(new Set(sortedMessages.map(msg => msg.user)));
+  }, [sortedMessages]);
   
-  // Gunakan hook dalam komponen
-  const MessageItem = ({ message }: { message: MessageItem }) => {
-  const tier = useBadgeTier(message.user);
-  const username = useUsername(message.user);
-    
-    // Render dengan tier dan username
-    return (
-      <div>
-        {username ? (
-          <ColoredUsername username={username} badgeTier={tier} />
-        ) : (
-          <span>{formatAddress(message.user)}</span>
-        )}
-        <p>{message.message}</p>
-      </div>
-    );
-  };
-  
-  // Load user data for all message senders
   useEffect(() => {
-    let isMounted = true;
-    const pendingRequests: Record<string, boolean> = {}; // Track active requests to avoid duplicates
+    if (!uniqueAddresses.length) return;
     
-    const loadUserData = async () => {
-      if (messages.length === 0) return;
+    const addressesToFetch = uniqueAddresses.filter(addr => !usersData[addr]);
+    if (!addressesToFetch.length) return;
+    
+    async function fetchUserData() {
+      setLoadingUsers(true);
+      const newUsersData = { ...usersData };
       
-      // Use existing states as starting point to avoid flickering
-      const currentTiers = { ...userTiers };
-      const currentUsernames = { ...usernames };
+      const batchSize = 3;
       
-      // Unique addresses to check
-      const uniqueAddresses = Array.from(new Set(messages.map(msg => msg.user)));
-      
-      // Function to safely fetch user tier
-      const fetchUserTier = async (address: string) => {
-        // Skip if already checking this address
-        if (pendingRequests[`tier_${address}`]) return null;
-        pendingRequests[`tier_${address}`] = true;
+      for (let i = 0; i < addressesToFetch.length; i += batchSize) {
+        const batch = addressesToFetch.slice(i, i + batchSize);
         
-        try {
-          // Langsung gunakan hasil yang sudah ada jika tersedia
-          if (currentTiers[address] !== undefined) return { address, tier: currentTiers[address] };
-          
-          // Try to get tier with error handling
-          const tier = await getUserHighestTier(address)
-            .catch(error => {
-              console.warn(`Error fetching tier for ${address}:`, error);
-              return -1;
-            });
+        await Promise.all(batch.map(async (address) => {
+          try {
+            const response = await fetch(`/api/users/${address}`);
+            if (!response.ok) {
+              throw new Error(`User API error: ${response.status}`);
+            }
             
-          return { address, tier };
-        } catch (error) {
-          console.error(`Failed to fetch tier for ${address}:`, error);
-          return { address, tier: -1 };
-        } finally {
-          pendingRequests[`tier_${address}`] = false;
-        }
-      };
-      
-      // Function to safely fetch username
-      const fetchUsername = async (address: string) => {
-        // Skip if already checking this address
-        if (pendingRequests[`username_${address}`]) return null;
-        pendingRequests[`username_${address}`] = true;
-        
-        try {
-          // Langsung gunakan hasil yang sudah ada jika tersedia
-          if (currentUsernames[address] !== undefined) return { address, username: currentUsernames[address] };
-          
-          // Try to get username with error handling
-          const username = await checkUsername(address)
-            .catch(error => {
-              console.warn(`Error fetching username for ${address}:`, error);
-              return null;
-            });
+            const userData = await response.json();
             
-          return { address, username };
-        } catch (error) {
-          console.error(`Failed to fetch username for ${address}:`, error);
-          return { address, username: null };
-        } finally {
-          pendingRequests[`username_${address}`] = false;
-        }
-      };
-      
-      // Process a few addresses at a time to avoid overwhelming the RPC
-      const BATCH_SIZE = 5;
-      
-      for (let i = 0; i < uniqueAddresses.length; i += BATCH_SIZE) {
-        if (!isMounted) break;
+            newUsersData[address] = {
+              highestTier: userData.user?.highestBadgeTier ?? -1,
+              username: userData.user?.username || null,
+              tierName: getTierName(userData.user?.highestBadgeTier ?? -1)
+            };
+          } catch (error) {
+            console.error(`Error fetching data for ${address}:`, error);
+            newUsersData[address] = {
+              highestTier: -1,
+              username: null,
+              tierName: 'None'
+            };
+          }
+        }));
         
-        const batch = uniqueAddresses.slice(i, i + BATCH_SIZE);
-        
-        // Process batch of addresses
-        const tierPromises = batch.map(fetchUserTier);
-        const usernamePromises = batch.map(fetchUsername);
-        
-        // Wait for current batch to complete
-        const [tierResults, usernameResults] = await Promise.all([
-          Promise.all(tierPromises),
-          Promise.all(usernamePromises)
-        ]);
-        
-        if (!isMounted) break;
-        
-        // Update state with batch results
-        const newTiers = { ...currentTiers };
-        tierResults.filter(Boolean).forEach(result => {
-          if (result) newTiers[result.address] = result.tier;
-        });
-        
-        const newUsernames = { ...currentUsernames };
-        usernameResults.filter(Boolean).forEach(result => {
-          if (result) newUsernames[result.address] = result.username;
-        });
-        
-        setUserTiers(newTiers);
-        setUsernames(newUsernames);
-        
-        // Small delay between batches to avoid rate limiting
-        if (i + BATCH_SIZE < uniqueAddresses.length) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        if (i + batchSize < addressesToFetch.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
-    };
+      
+      setUsersData(newUsersData);
+      setLoadingUsers(false);
+    }
     
-    loadUserData();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [messages]);
+    fetchUserData();
+  }, [uniqueAddresses, usersData]);
+  
+  const getAvatarUrl = (address: string) => 
+    `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
 
   return (
     <div className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl border border-gray-200 dark:border-emerald-700/30 shadow-lg p-6">
@@ -288,8 +150,31 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-hide">
               <AnimatePresence>
                 {sortedMessages.map((message, index) => {
-                  const badgeTier = userTiers[message.user] ?? -1;
-                  const username = usernames[message.user] ?? null;
+                  const userData = usersData[message.user] || {
+                    highestTier: -1,
+                    username: null,
+                    tierName: 'None'
+                  };
+                  
+                  const userHighestTier = userData.highestTier;
+                  const username = userData.username;
+                  
+                  const benefits = getUserSocialBenefits(userHighestTier);
+                  
+                  const processedMessage = benefits.chatEmotes 
+                    ? processMessageEmotes(message.message || 'GM!', userHighestTier)
+                    : message.message || 'GM!';
+                  
+                  let tierColor = '';
+                  if (userHighestTier >= 0 && userHighestTier <= 4) {
+                    const tierKey = Object.keys(BADGE_TIERS).find(
+                      key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === userHighestTier
+                    );
+                    
+                    if (tierKey) {
+                      tierColor = BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].color;
+                    }
+                  }
                   
                   return (
                     <motion.div 
@@ -298,7 +183,6 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                     >
-                      {/* Use try-catch untuk menghindari crash jika komponen gagal render */}
                       {(() => {
                         try {
                           return (
@@ -307,13 +191,13 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
                               username={username}
                               userAddress={message.user}
                               avatarUrl={getAvatarUrl(message.user)}
-                              badgeTier={badgeTier}
+                              badgeTier={userHighestTier}
                               timestamp={message.timestamp}
                             />
                           );
                         } catch (error) {
                           console.error("Error rendering ChatMessage:", error);
-                          // Fallback rendering jika ChatMessage gagal
+                        
                           return (
                             <div className="p-4 rounded-xl bg-white dark:bg-gray-800/30 border border-emerald-50 dark:border-emerald-800/30 shadow-sm">
                               <div className="flex justify-between">
@@ -350,6 +234,13 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
             <div className="h-1.5 w-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></div>
             Refresh Messages
           </button>
+        </div>
+      )}
+      
+      {/* User data loading indicator */}
+      {loadingUsers && (
+        <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 text-center">
+          Loading user data...
         </div>
       )}
     </div>

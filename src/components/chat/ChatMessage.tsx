@@ -1,4 +1,3 @@
-// components/ChatMessage.tsx
 import React from "react";
 import { getUsernameColor, processMessageEmotes, getChatPrivileges } from "@/utils/socialBenefitsUtils";
 import AvatarWithFrame from "@/components/user/AvatarWithFrame";
@@ -22,21 +21,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     badgeTier,
     timestamp 
   }) => {
-    // Gunakan try-catch untuk menangani error pada rendering
     try {
       const chatPrivileges = getChatPrivileges(badgeTier);
       const usernameColor = getUsernameColor(badgeTier);
       
-      // Process emotes dengan error handling
       let processedMessage = message || 'GM!';
       try {
         processedMessage = processMessageEmotes(message, badgeTier);
       } catch (error) {
         console.error("Error processing emotes:", error);
-        // Gunakan pesan asli jika processing emotes gagal
       }
       
-      // Get formatted time dengan error handling
       let formattedTime = '';
       try {
         formattedTime = formatTimestamp(timestamp);
@@ -53,7 +48,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         } hover:shadow-md hover:border-emerald-200 dark:hover:border-emerald-700/50 transition-all duration-200 group`}>
           <div className="flex justify-between items-start">
             <div className="flex items-center">
-              {/* Avatar with frame - dengan error boundary */}
               <div className="mr-2 h-6 w-6">
                 {(() => {
                   try {
@@ -65,7 +59,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                       />
                     );
                   } catch (e) {
-                    // Fallback: jika AvatarWithFrame gagal, tampilkan avatar tanpa frame
                     return (
                       <div className="rounded-full overflow-hidden h-6 w-6">
                         <img 
@@ -90,7 +83,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                     </span>
                   );
                 } catch (e) {
-                  // Fallback: jika ColoredUsername gagal, gunakan alamat terformat
                   return (
                     <span className="font-medium text-emerald-700 dark:text-emerald-300">
                       {formatAddress(userAddress)}

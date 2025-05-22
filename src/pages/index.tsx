@@ -606,11 +606,8 @@ export default function Home() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-5 space-y-6">
                      <StatsCard 
-                        checkinCount={checkinStats.userCheckinCount}
+                        address={web3State.address}
                         timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
-                        isLoading={web3State.isLoading}
-                        globalCheckinCount={globalCheckinCount}
-                        isLoadingGlobalCount={isLoadingGlobalCount}
                       />
                     <CountdownTimer
                       initialSeconds={checkinStats.timeUntilNextCheckin}

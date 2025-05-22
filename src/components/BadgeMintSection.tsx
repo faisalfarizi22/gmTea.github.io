@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ethers } from "ethers"
@@ -26,7 +25,6 @@ interface BadgeMintSectionProps {
   }>
 }
 
-// Transaction state type
 type TxState = {
   status: "idle" | "preparing" | "awaiting_wallet" | "pending" | "success" | "error"
   error: string | null
@@ -34,7 +32,6 @@ type TxState = {
   confirmations: number
 }
 
-// Badge supply info
 interface BadgeSupply {
   maxSupply: number
   currentSupply: number
@@ -76,8 +73,6 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
   const [activeTab, setActiveTab] = useState("overview")
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const notificationIdRef = useRef<number>(0);
-
-  // Badge tier information with benefits
   const badgeTiers = [
     {
       id: 0,
@@ -126,7 +121,6 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
     },
   ]
 
-  // Check if user has minted a specific tier - use badges from database
   const hasUserMintedTier = (tier: number): boolean => {
     if (!badges || !Array.isArray(badges)) {
       return false;
@@ -134,15 +128,12 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
     return badges.some(badge => badge.tier === tier);
   };
   
-  // Compute highest tier based on badges prop
   useEffect(() => {
     console.log("Badges from props:", badges);
     
-    // Calculate highestTier directly from badges array
     let maxTier = -1;
     
     if (badges && badges.length > 0) {
-      // Find highest tier from badges
       for (const badge of badges) {
         if (badge.tier > maxTier) {
           maxTier = badge.tier;

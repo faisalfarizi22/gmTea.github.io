@@ -1,28 +1,82 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaChartLine, FaLeaf, FaUsers, FaSync } from 'react-icons/fa';
 import { formatTimeRemaining } from '@/utils/web3';
+import { useUserDataCombined } from '@/hooks/useUserData';
 
 interface StatsCardProps {
-  checkinCount: number;
+  address: string | null;
   timeUntilNextCheckin: number;
-  isLoading: boolean;
-  globalCheckinCount: number;
-  isLoadingGlobalCount?: boolean;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({
-  checkinCount,
+  address,
   timeUntilNextCheckin,
-  isLoading,
-  globalCheckinCount,
-  isLoadingGlobalCount = false,
 }) => {
+  const { 
+    userData, 
+    checkins, 
+    isLoading: isLoadingUserData,
+    refetch: refetchUserData 
+  } = useUserDataCombined(address);
+  
+  const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0);
+  const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(true);
+  
   const canCheckin = timeUntilNextCheckin <= 0;
   
-  // Function to format large numbers with comma separators
   const formatNumber = (num: number): string => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+  
+ useEffect(() => {
+    const fetchGlobalCheckinCount = async () => {
+      setIsLoadingGlobalCount(true);
+      try {
+        const response = await fetch('/api/checkins/latest?limit=1');
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        setGlobalCheckinCount(data.stats?.totalCheckins || 0);
+      } catch (error) {
+        console.error('Error fetching global checkin count:', error);
+     
+        setGlobalCheckinCount(0);
+      } finally {
+        setIsLoadingGlobalCount(false);
+      }
+    };
+    
+    fetchGlobalCheckinCount();
+    
+    const intervalId = setInterval(fetchGlobalCheckinCount, 5 * 60 * 1000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+  
+  const userCheckinCount = userData?.checkinCount || 0;
+  
+  const refreshData = async () => {
+   
+    refetchUserData();
+    
+    setIsLoadingGlobalCount(true);
+    try {
+      const response = await fetch('/api/checkins/latest?limit=1');
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      setGlobalCheckinCount(data.stats?.totalCheckins || 0);
+    } catch (error) {
+      console.error('Error refreshing global count:', error);
+    } finally {
+      setIsLoadingGlobalCount(false);
+    }
   };
   
   return (
@@ -40,7 +94,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         
         <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-300/70 mb-2 relative z-10">Your Check-ins</h3>
         
-        {isLoading ? (
+        {isLoadingUserData ? (
           <div className="flex justify-center items-center h-28">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>
@@ -54,15 +108,15 @@ const StatsCard: React.FC<StatsCardProps> = ({
         ) : (
           <div className="flex flex-col items-center relative z-10">
             <div className="relative">
-              <div className={`w-24 h-24 rounded-full ${checkinCount > 0 ? 'bg-emerald-100 dark:bg-emerald-900/20' : 'bg-gray-100 dark:bg-gray-800/30'} flex items-center justify-center border border-emerald-200 dark:border-emerald-700/30 shadow-inner`}>
-                <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-300">{checkinCount}</span>
-                {checkinCount > 0 && (
+              <div className={`w-24 h-24 rounded-full ${userCheckinCount > 0 ? 'bg-emerald-100 dark:bg-emerald-900/20' : 'bg-gray-100 dark:bg-gray-800/30'} flex items-center justify-center border border-emerald-200 dark:border-emerald-700/30 shadow-inner`}>
+                <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-300">{userCheckinCount}</span>
+                {userCheckinCount > 0 && (
                   <div className="absolute inset-0 rounded-full animate-pulse opacity-30" style={{ 
                     background: 'radial-gradient(circle at center, #10b981 0%, transparent 70%)'
                   }}></div>
                 )}
               </div>
-              {checkinCount > 10 && (
+              {userCheckinCount > 10 && (
                 <div className="absolute -top-1 -right-1 w-8 h-8 bg-white dark:bg-black/80 rounded-full flex items-center justify-center shadow-md border-2 border-emerald-500">
                   <span className="text-white font-bold text-xs">🔥</span>
                 </div>
@@ -96,7 +150,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </h3>
         
-        {isLoading || (isLoadingGlobalCount && globalCheckinCount === 0) ? (
+        {isLoadingGlobalCount && globalCheckinCount === 0 ? (
           <div className="flex justify-center items-center h-28">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 rounded-full border-2 border-emerald-500/30 animate-pulse"></div>

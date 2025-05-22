@@ -241,7 +241,7 @@ export default function ProfilePage() {
   const hasReferrer = userData?.referrer ? true : false
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black/90 tea-leaf-pattern text-gray-800 dark:text-emerald-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-black/90  text-gray-800 dark:text-emerald-50">
       <main className=" pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Network alert */}
         {walletChainId && walletChainId !== TEA_SEPOLIA_CHAIN_ID && (

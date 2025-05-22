@@ -22,6 +22,7 @@ import {
 } from "react-icons/fa"
 import ConnectWalletButton from "./ConnectWalletButton"
 import { getUserReferralStats, checkUsername } from "@/utils/badgeWeb3"
+import ActivitySidebar from "./ActivitySidebar"
 import SettingsModal from "./SettingsModal"
 import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
@@ -410,6 +411,15 @@ const Navbar: React.FC<NavbarProps> = ({
                           </div>
                         </button>
 
+                        {/* On-chain Activity */}
+                        <button
+                          onClick={handleOpenActivitySidebar}
+                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        >
+                          <FaHistory className="text-emerald-500" size={14} />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">On-chain activity</span>
+                        </button>
+
                         {/* Settings */}
                         <button
                           onClick={handleOpenSettings}
@@ -572,6 +582,17 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
+                  {/* Activity */}
+                  <button
+                    onClick={handleOpenActivitySidebar}
+                    className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaHistory className="h-5 w-5" />
+                      <span className="font-medium">On-chain Activity</span>
+                    </div>
+                  </button>
+
                   {/* Settings */}
                   <button
                     onClick={handleOpenSettings}
@@ -589,6 +610,8 @@ const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
+      {/* Activity Sidebar */}
+      {showActivitySidebar && address && <ActivitySidebar address={address} onClose={handleCloseActivitySidebar} />}
 
       {/* Settings Modal */}
       {showSettingsModal && <SettingsModal onClose={handleCloseSettings} />}

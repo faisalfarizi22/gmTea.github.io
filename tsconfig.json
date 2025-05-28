@@ -1,13 +1,17 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": false, 
-    "outDir": "./dist", 
+    "noEmit": false,
+    "outDir": "./dist",
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "node",
@@ -17,22 +21,50 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/components/*": ["./src/components/*"],
-      "@/styles/*": ["./src/styles/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/abis/*": ["./abis/*"]
-    }
-  },
-  "ts-node": { 
-    "compilerOptions": {
-      "module": "commonjs", 
-      "target": "es2017"  
+      "@/*": [
+        "./src/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/styles/*": [
+        "./src/styles/*"
+      ],
+      "@/utils/*": [
+        "./src/utils/*"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/abis/*": [
+        "./abis/*"
+      ]
     },
-    "transpileOnly": true, 
-    "files": true          
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "next.config.js", "src/scripts/testMint.js", "src/scripts/setupDatabase.js", "src/scripts/runIndexer.js"],
-  "exclude": ["node_modules"]
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs",
+      "target": "es2017"
+    },
+    "transpileOnly": true,
+    "files": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "next.config.js",
+    "src/scripts/runIndexer.js",
+    "src/scripts/setupDatabase.js",
+    "src/scripts/testMint.js",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

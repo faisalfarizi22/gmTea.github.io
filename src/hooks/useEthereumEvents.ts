@@ -15,21 +15,21 @@ interface EthereumEventMap {
  */
 export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
   const callbacksRef = useRef(eventCallbacks);
-  
+
   // Update ref when callbacks change
   useEffect(() => {
     callbacksRef.current = eventCallbacks;
   }, [eventCallbacks]);
-  
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const ethereum = (window as any).ethereum;
     if (!ethereum) {
       console.warn('No Ethereum provider found. Events will not be registered.');
       return;
     }
-    
+
     // Create stable event handlers that reference the latest callbacks
     const handlers = {
       accountsChanged: (accounts: string[]) => {
@@ -53,12 +53,12 @@ export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
         callbacksRef.current.message?.(message);
       },
     };
-    
+
     // Register all event handlers
     Object.entries(handlers).forEach(([event, handler]) => {
       ethereum.on(event, handler);
     });
-    
+
     // Cleanup function
     return () => {
       Object.entries(handlers).forEach(([event, handler]) => {
@@ -67,3 +67,5 @@ export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
     };
   }, []);
 }
+
+export default useEthereumEvents;

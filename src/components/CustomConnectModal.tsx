@@ -1,8 +1,9 @@
 // components/CustomConnectModal.tsx
 import React, { useState } from 'react';
-import { FaTimes } from 'react-icons/fa';
-import { motion } from 'framer-motion';
-import { createWallet } from "thirdweb/wallets";
+import { FaTimes, FaGoogle, FaEnvelope, FaPhone, FaDiscord, FaSun, FaMoon, FaWallet } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
+import { motion, AnimatePresence } from 'framer-motion';
+import { createWallet, inAppWallet } from "thirdweb/wallets";
 import { client } from "../client";
 
 declare global {
@@ -10,6 +11,91 @@ declare global {
     ethereum?: any;
   }
 }
+
+interface ThemeToggleProps {
+  className?: string;
+  onThemeChange?: (theme: 'light' | 'dark') => void;
+  forceTheme?: 'light' | 'dark' | null;
+}
+
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ 
+  className = '',
+  onThemeChange,
+  forceTheme = null
+}) => {
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return forceTheme 
+        ? forceTheme === 'dark'
+        : savedTheme === 'dark' || (!savedTheme && prefersDark);
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
+
+  React.useEffect(() => {
+    if (forceTheme !== null) {
+      const newDarkMode = forceTheme === 'dark';
+      if (isDarkMode !== newDarkMode) {
+        setIsDarkMode(newDarkMode);
+        document.documentElement.classList.toggle('dark', newDarkMode);
+      }
+    }
+  }, [forceTheme, isDarkMode]);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    
+    document.documentElement.classList.toggle('dark', newTheme);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    }
+    
+    if (onThemeChange) {
+      onThemeChange(newTheme ? 'dark' : 'light');
+    }
+  };
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className={`relative p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm ${className}`}
+      title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      <div className="relative w-5 h-5">
+        <FaSun
+          className={`absolute inset-0 w-5 h-5 text-yellow-500 transition-all duration-300 ${
+            isDarkMode 
+              ? 'opacity-0 rotate-90 scale-75' 
+              : 'opacity-100 rotate-0 scale-100'
+          }`}
+        />
+        
+        <FaMoon
+          className={`absolute inset-0 w-5 h-5 text-gray-600 dark:text-gray-300 transition-all duration-300 ${
+            isDarkMode 
+              ? 'opacity-100 rotate-0 scale-100' 
+              : 'opacity-0 -rotate-90 scale-75'
+          }`}
+        />
+      </div>
+      
+      <div className={`absolute inset-0 rounded-lg transition-all duration-300 ${
+        isDarkMode 
+          ? 'bg-blue-500/10 shadow-inner' 
+          : 'bg-yellow-500/10'
+      }`} />
+    </button>
+  );
+};
 
 interface CustomConnectModalProps {
   isOpen: boolean;
@@ -24,90 +110,147 @@ const CustomConnectModal: React.FC<CustomConnectModalProps> = ({
 }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedWalletType, setSelectedWalletType] = useState<string | null>(null);
+  const [showWalletOptions, setShowWalletOptions] = useState(false);
   
-  const wallets = [
+  // Social Auth Options - Row 1 (Icons only)
+  const socialIconsRow = [
+    {
+      id: "google",
+      name: "Google",
+      icon: <FaGoogle className="text-[#4285f4] dark:text-[#4285f4]" />
+    },
+    {
+      id: "x",
+      name: "X",
+      icon: <FaXTwitter className="text-gray-800 dark:text-gray-200" />
+    },
+    {
+      id: "discord",
+      name: "Discord",
+      icon: <FaDiscord className="text-[#5865f2]" />
+    },
+    {
+      id: "farcaster",
+      name: "Farcaster",
+      icon: (
+        <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 9.74s9-4.19 9-9.74V7l-10-5z"/>
+        </svg>
+      )
+    }
+  ];
+
+  // Other Auth Options
+  const otherAuthOptions = [
+    {
+      id: "email",
+      name: "Continue with Email",
+      icon: <FaEnvelope className="text-cyan-500" />
+    },
+    {
+      id: "phone",
+      name: "Continue with Phone",
+      icon: <FaPhone className="text-emerald-500" />
+    },
+    {
+      id: "passkey",
+      name: "Continue with Passkey",
+      icon: (
+        <svg className="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M6 10v2a6 6 0 1 0 12 0v-2a6 6 0 1 0-12 0zM12 4a2 2 0 0 1 2 2v4a2 2 0 1 1-4 0V6a2 2 0 0 1 2-2z"/>
+        </svg>
+      )
+    }
+  ];
+
+  // External Wallets
+  const externalWallets = [
     {
       id: "metamask",
       name: "MetaMask",
-      description: "Connect to your MetaMask Wallet",
-      iconSvg: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 507.83 470.86" className="w-8 h-8">
-          <polygon className="fill-[#e2761b] stroke-[#e2761b]" points="482.09 0.5 284.32 147.38 320.9 60.72 482.09 0.5"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="25.54 0.5 221.72 148.77 186.93 60.72 25.54 0.5"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="410.93 340.97 358.26 421.67 470.96 452.67 503.36 342.76 410.93 340.97"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="4.67 342.76 36.87 452.67 149.57 421.67 96.9 340.97 4.67 342.76"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="143.21 204.62 111.8 252.13 223.7 257.1 219.73 136.85 143.21 204.62"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="364.42 204.62 286.91 135.46 284.32 257.1 396.03 252.13 364.42 204.62"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="149.57 421.67 216.75 388.87 158.71 343.55 149.57 421.67"/>
-          <polygon className="fill-[#e4761b] stroke-[#e4761b]" points="290.88 388.87 358.26 421.67 348.92 343.55 290.88 388.87"/>
-          <polygon className="fill-[#d7c1b3] stroke-[#d7c1b3]" points="358.26 421.67 290.88 388.87 296.25 432.8 295.65 451.28 358.26 421.67"/>
-          <polygon className="fill-[#d7c1b3] stroke-[#d7c1b3]" points="149.57 421.67 212.18 451.28 211.78 432.8 216.75 388.87 149.57 421.67"/>
-          <polygon className="fill-[#233447] stroke-[#233447]" points="213.17 314.54 157.12 298.04 196.67 279.95 213.17 314.54"/>
-          <polygon className="fill-[#233447] stroke-[#233447]" points="294.46 314.54 310.96 279.95 350.71 298.04 294.46 314.54"/>
-          <polygon className="fill-[#cd6116] stroke-[#cd6116]" points="149.57 421.67 159.11 340.97 96.9 342.76 149.57 421.67"/>
-          <polygon className="fill-[#cd6116] stroke-[#cd6116]" points="348.72 340.97 358.26 421.67 410.93 342.76 348.72 340.97"/>
-          <polygon className="fill-[#cd6116] stroke-[#cd6116]" points="396.03 252.13 284.32 257.1 294.66 314.54 311.16 279.95 350.91 298.04 396.03 252.13"/>
-          <polygon className="fill-[#cd6116] stroke-[#cd6116]" points="157.12 298.04 196.87 279.95 213.17 314.54 223.7 257.1 111.8 252.13 157.12 298.04"/>
-          <polygon className="fill-[#e4751f] stroke-[#e4751f]" points="111.8 252.13 158.71 343.55 157.12 298.04 111.8 252.13"/>
-          <polygon className="fill-[#e4751f] stroke-[#e4751f]" points="350.91 298.04 348.92 343.55 396.03 252.13 350.91 298.04"/>
-          <polygon className="fill-[#e4751f] stroke-[#e4751f]" points="223.7 257.1 213.17 314.54 226.29 382.31 229.27 293.07 223.7 257.1"/>
-          <polygon className="fill-[#e4751f] stroke-[#e4751f]" points="284.32 257.1 278.96 292.87 281.34 382.31 294.66 314.54 284.32 257.1"/>
-          <polygon className="fill-[#f6851b] stroke-[#f6851b]" points="294.66 314.54 281.34 382.31 290.88 388.87 348.92 343.55 350.91 298.04 294.66 314.54"/>
-          <polygon className="fill-[#f6851b] stroke-[#f6851b]" points="157.12 298.04 158.71 343.55 216.75 388.87 226.29 382.31 213.17 314.54 157.12 298.04"/>
-          <polygon className="fill-[#c0ad9e] stroke-[#c0ad9e]" points="295.65 451.28 296.25 432.8 291.28 428.42 216.35 428.42 211.78 432.8 212.18 451.28 149.57 421.67 171.43 439.55 215.75 470.36 291.88 470.36 336.4 439.55 358.26 421.67 295.65 451.28"/>
-          <polygon className="fill-[#161616] stroke-[#161616]" points="290.88 388.87 281.34 382.31 226.29 382.31 216.75 388.87 211.78 432.8 216.35 428.42 291.28 428.42 296.25 432.8 290.88 388.87"/>
-          <polygon className="fill-[#763d16] stroke-[#763d16]" points="490.44 156.92 507.33 75.83 482.09 0.5 290.88 142.41 364.42 204.62 468.37 235.03 491.43 208.2 481.49 201.05 497.39 186.54 485.07 177 500.97 164.87 490.44 156.92"/>
-          <polygon className="fill-[#763d16] stroke-[#763d16]" points="0.5 75.83 17.39 156.92 6.66 164.87 22.56 177 10.44 186.54 26.34 201.05 16.4 208.2 39.26 235.03 143.21 204.62 216.75 142.41 25.54 0.5 0.5 75.83"/>
-          <polygon className="fill-[#f6851b] stroke-[#f6851b]" points="468.37 235.03 364.42 204.62 396.03 252.13 348.92 343.55 410.93 342.76 503.36 342.76 468.37 235.03"/>
-          <polygon className="fill-[#f6851b] stroke-[#f6851b]" points="143.21 204.62 39.26 235.03 4.67 342.76 96.9 342.76 158.71 343.55 111.8 252.13 143.21 204.62"/>
-          <polygon className="fill-[#f6851b] stroke-[#f6851b]" points="284.32 257.1 290.88 142.41 321.1 60.72 186.93 60.72 216.75 142.41 223.7 257.1 226.09 293.27 226.29 382.31 281.34 382.31 281.74 293.27 284.32 257.1"/>
-        </svg>
-      ),
+      icon: "🦊",
       wallet: createWallet("io.metamask")
     },
     {
-      id: "coinbase",
-      name: "Coinbase Wallet",
-      description: "Connect to your Coinbase Wallet",
-      iconSvg: (
-        <svg width="32" height="32" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="1024" height="1024" fill="#0052FF"/>
-          <path fillRule="evenodd" clipRule="evenodd" d="M152 512C152 710.823 313.177 872 512 872C710.823 872 872 710.823 872 512C872 313.177 710.823 152 512 152C313.177 152 152 313.177 152 512ZM420 396C406.745 396 396 406.745 396 420V604C396 617.255 406.745 628 420 628H604C617.255 628 628 617.255 628 604V420C628 406.745 617.255 396 604 396H420Z" fill="white"/>
-        </svg>
-      ),
-      wallet: createWallet("com.coinbase.wallet")
+      id: "okx",
+      name: "OKX",
+      icon: "⚫",
+      wallet: createWallet("com.okex.wallet")
     },
     {
-      id: "okx",
-      name: "OKX Wallet",
-      description: "Connect to your OKX Wallet",
-      iconSvg: (
-        <svg height="32" viewBox="0 -.00141495 157.427 44.18641495" width="100" xmlns="http://www.w3.org/2000/svg" className="scale-[1.2]">
-          <path d="m46.17 0h-45.12c-.28 0-.547.103-.744.288a.951.951 0 0 0 -.306.694v42.22c0 .26.11.51.307.694s.464.288.742.288h45.121c.279 0 .545-.104.743-.288a.952.952 0 0 0 .307-.694v-42.22c0-.26-.11-.51-.307-.694a1.088 1.088 0 0 0 -.743-.288zm-14.69 28.474c0 .26-.11.51-.308.694a1.087 1.087 0 0 1 -.741.288h-13.642c-.278 0-.545-.104-.742-.288a.951.951 0 0 1 -.307-.694v-12.764c0-.26.11-.51.307-.694.197-.185.464-.288.742-.288h13.642c.278 0 .545.103.741.288a.95.95 0 0 1 .308.694zm109.15-13.744h-13.642c-.58 0-1.05.44-1.05.982v12.764c0 .542.47.982 1.05.982h13.641c.58 0 1.05-.44 1.05-.982v-12.764c0-.543-.47-.982-1.05-.982zm-15.737-14.73h-13.641c-.58 0-1.05.44-1.05.983v12.764c0 .542.47.982 1.05.982h13.64c.58 0 1.05-.44 1.05-.982v-12.764c0-.543-.47-.982-1.05-.982zm31.485 0h-13.642c-.579 0-1.049.44-1.049.983v12.764c0 .542.47.982 1.05.982h13.64c.58 0 1.05-.44 1.05-.982v-12.764c0-.543-.47-.982-1.05-.982zm-31.485 29.457h-13.641c-.58 0-1.05.44-1.05.982v12.765c0 .542.47.981 1.05.981h13.64c.58 0 1.05-.44 1.05-.981v-12.765c0-.542-.47-.982-1.05-.982zm31.485 0h-13.642c-.579 0-1.049.44-1.049.982v12.765c0 .542.47.981 1.05.981h13.64c.58 0 1.05-.44 1.05-.981v-12.765c0-.542-.47-.982-1.05-.982zm-55.114-29.457h-13.64c-.58 0-1.05.44-1.05.983v12.764c0 .542.47.982 1.05.982h13.64c.58 0 1.05-.44 1.05-.982v-12.764c0-.543-.47-.982-1.05-.982zm0 29.457h-13.64c-.58 0-1.05.44-1.05.982v12.765c0 .542.47.981 1.05.981h13.64c.58 0 1.05-.44 1.05-.981v-12.765c0-.542-.47-.982-1.05-.982zm-14.694-13.758c0-.26-.112-.51-.308-.695a1.087 1.087 0 0 0 -.742-.287h-14.691v-13.735c0-.26-.11-.51-.307-.694a1.087 1.087 0 0 0 -.742-.288h-13.641c-.279 0-.546.103-.743.288a.951.951 0 0 0 -.307.694v42.198c0 .26.11.51.307.694s.464.288.743.288h13.64c.279 0 .546-.104.743-.288s.307-.434.307-.694v-13.735h14.69c.279 0 .546-.104.743-.288a.952.952 0 0 0 .307-.694z"/>
-        </svg>
-      ),
-      wallet: createWallet("com.okex.wallet")
+      id: "bitget",
+      name: "Bitget",
+      icon: "🔵",
+      wallet: createWallet("com.bitget.web3")
+    },
+    {
+      id: "binance",
+      name: "Binance",
+      icon: "🟡",
+      wallet: createWallet("com.binance.wallet")
+    },
+    {
+      id: "ronin",
+      name: "Ronin",
+      icon: "⚔️",
+      wallet: createWallet("com.roninchain.wallet")
     }
   ];
+
+  // Create inApp wallet instance
+  const inAppWalletInstance = inAppWallet({
+    auth: {
+      options: [
+        "google",
+        "email",
+        "passkey", 
+        "phone",
+        "discord",
+        "farcaster",
+        "x",
+      ],
+    },
+  });
   
-  const handleConnectClick = async (walletType: string) => {
+  const handleConnectWalletClick = () => {
+    setShowWalletOptions(true);
+  };
+
+  const handleInAppAuthClick = async (authType: string) => {
+    try {
+      setIsConnecting(true);
+      setSelectedWalletType(`inapp-${authType}`);
+      
+      await inAppWalletInstance.connect({ 
+        client,
+        strategy: authType as any
+      });
+      
+      await connectWallet();
+      onClose();
+    } catch (error) {
+      console.error('Error connecting with in-app wallet:', error);
+    } finally {
+      setIsConnecting(false);
+      setSelectedWalletType(null);
+    }
+  };
+  
+  const handleExternalWalletClick = async (walletType: string) => {
     try {
       setIsConnecting(true);
       setSelectedWalletType(walletType);
       
-      const selectedWallet = wallets.find(w => w.id === walletType);
+      const selectedWallet = externalWallets.find(w => w.id === walletType);
       if (!selectedWallet) return;
       
-      // For MetaMask and other injected wallets, use window.ethereum directly
       if (walletType === "metamask" && window.ethereum) {
         try {
-          // Force confirmation by requesting permissions
           await window.ethereum.request({
             method: 'wallet_requestPermissions',
             params: [{ eth_accounts: {} }],
           });
           
-          // Then get accounts
           const accounts = await window.ethereum.request({ 
             method: 'eth_requestAccounts' 
           });
@@ -117,17 +260,11 @@ const CustomConnectModal: React.FC<CustomConnectModalProps> = ({
           }
         } catch (error) {
           console.error("Error using direct ethereum request:", error);
-          // Fallback to thirdweb connect method
         }
       }
       
-      // Connect with thirdweb (standard, without custom options that are not supported)
       await selectedWallet.wallet.connect({ client });
-      
-      // After the user confirms in the wallet, update app state
       await connectWallet();
-      
-      // Close modal
       onClose();
     } catch (error) {
       console.error('Error connecting wallet:', error);
@@ -136,87 +273,239 @@ const CustomConnectModal: React.FC<CustomConnectModalProps> = ({
       setSelectedWalletType(null);
     }
   };
+
+  const handleBack = () => {
+    setShowWalletOptions(false);
+  };
   
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <AnimatePresence>
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        transition={{ type: "spring", damping: 15 }}
-        className="bg-white dark:bg-gray-900/90 backdrop-blur-md rounded-2xl border border-emerald-500/20 p-6 max-w-md w-full shadow-2xl shadow-emerald-500/10"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
+        onClick={onClose}
       >
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex flex-col">
-            <h2 className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-              Connect Wallet
-            </h2>
-            <div className="h-1 w-16 bg-emerald-500 rounded-full mt-1"></div>
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0, rotateX: 15 }}
+          animate={{ scale: 1, opacity: 1, rotateX: 0 }}
+          exit={{ scale: 0.8, opacity: 0, rotateX: 15 }}
+          transition={{ type: "spring", damping: 20, stiffness: 300 }}
+          className="relative bg-white dark:bg-gradient-to-br dark:from-slate-900/95 dark:via-gray-900/95 dark:to-slate-800/95 backdrop-blur-2xl rounded-3xl border border-gray-200 dark:border-cyan-500/20 shadow-2xl shadow-gray-500/10 dark:shadow-cyan-500/5 w-full max-w-sm max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Animated Background Elements (Dark Mode Only) */}
+          <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-transparent dark:from-cyan-500/5 dark:via-transparent dark:to-emerald-500/5"></div>
+          <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-transparent to-transparent dark:from-cyan-400/10 dark:to-transparent rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tl from-transparent to-transparent dark:from-emerald-400/10 dark:to-transparent rounded-full blur-2xl"></div>
+          
+          {/* Header */}
+          <div className="relative flex items-center justify-between p-6 pb-4">
+            <div className="flex items-center gap-3">
+              {showWalletOptions && (
+                <motion.button
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  onClick={handleBack}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700/50 hover:bg-gray-200 dark:hover:bg-slate-700/60 transition-all duration-200"
+                >
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </motion.button>
+              )}
+              <div>
+                <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-cyan-300 dark:to-emerald-300 bg-clip-text text-transparent">
+                  {showWalletOptions ? "Select Wallet" : "Connect"}
+                </h2>
+                <div className="h-0.5 w-12 bg-gradient-to-r from-gray-400 to-gray-600 dark:from-cyan-400 dark:to-emerald-400 rounded-full mt-1"></div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={onClose}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700/50 hover:bg-red-50 dark:hover:bg-red-500/20 hover:border-red-200 dark:hover:border-red-500/30 text-gray-600 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-300 transition-all duration-200"
+              >
+                <FaTimes className="text-sm" />
+              </button>
+            </div>
           </div>
           
-          <button 
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <FaTimes className="text-lg" />
-          </button>
-        </div>
-        
-        <p className="mb-6 text-gray-600 dark:text-gray-400 text-sm">
-          Connect your crypto wallet to interact with GM Tea and join the Tea Sepolia community
-        </p>
-        
-        <div className="space-y-3">
-          {wallets.map((wallet) => (
-            <motion.button
-              key={wallet.id}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={isConnecting}
-              onClick={() => handleConnectClick(wallet.id)}
-              className="w-full flex items-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600/30 transition-all duration-300"
-            >
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white dark:bg-gray-800 mr-4 p-2 shadow-sm">
-                {wallet.iconSvg}
-              </div>
-              
-              <div className="text-left flex-1">
-                <span className="font-medium text-emerald-800 dark:text-emerald-300 block">{wallet.name}</span>
-                <span className="text-xs text-gray-600 dark:text-gray-400">{wallet.description}</span>
-              </div>
-              
-              {isConnecting && wallet.id === selectedWalletType ? (
-                <div className="ml-2 p-1 rounded-full bg-emerald-100 dark:bg-emerald-800/50">
-                  <svg className="animate-spin h-5 w-5 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </div>
+          {/* Content */}
+          <div className="relative px-6 pb-6">
+            <AnimatePresence mode="wait">
+              {showWalletOptions ? (
+                // Wallet Options
+                <motion.div
+                  key="wallets"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-3"
+                >
+                  {externalWallets.map((wallet, index) => (
+                    <motion.button
+                      key={wallet.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ scale: 1.02, y: -1 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isConnecting}
+                      onClick={() => handleExternalWalletClick(wallet.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/40 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50 hover:bg-gray-100 dark:hover:bg-slate-700/40 transition-all duration-200 group"
+                    >
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700/60">
+                        {isConnecting && wallet.id === selectedWalletType ? (
+                          <svg className="animate-spin h-5 w-5 text-blue-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <span className="text-lg">{wallet.icon}</span>
+                        )}
+                      </div>
+                      
+                      <span className="flex-1 text-left font-medium text-gray-800 dark:text-gray-200 text-sm">{wallet.name}</span>
+                      
+                      <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </motion.button>
+                  ))}
+                </motion.div>
               ) : (
-                <div className="ml-2 p-1 rounded-full bg-emerald-100 dark:bg-emerald-800/50 text-emerald-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </div>
+                // Main Sign In Options
+                <motion.div
+                  key="main"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  {/* Row 1: Social Icons */}
+                  <div className="grid grid-cols-4 gap-3">
+                    {socialIconsRow.map((social, index) => (
+                      <motion.button
+                        key={social.id}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        disabled={isConnecting}
+                        onClick={() => handleInAppAuthClick(social.id)}
+                        className="aspect-square rounded-2xl bg-gray-50 dark:bg-slate-800/40 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50 hover:bg-gray-100 dark:hover:bg-slate-700/40 transition-all duration-200 flex items-center justify-center group"
+                      >
+                        {isConnecting && `inapp-${social.id}` === selectedWalletType ? (
+                          <svg className="animate-spin h-5 w-5 text-blue-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          social.icon
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Other Auth Options */}
+                  <div className="space-y-2">
+                    {otherAuthOptions.map((auth, index) => (
+                      <motion.button
+                        key={auth.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: (index + 4) * 0.1 }}
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        disabled={isConnecting}
+                        onClick={() => handleInAppAuthClick(auth.id)}
+                        className="w-full flex items-center gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/40 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50 hover:bg-gray-100 dark:hover:bg-slate-700/40 transition-all duration-200 group"
+                      >
+                        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700/50 group-hover:bg-gray-50 dark:group-hover:bg-slate-700/60">
+                          {auth.icon}
+                        </div>
+                        
+                        <span className="flex-1 text-left font-medium text-gray-800 dark:text-gray-200 text-sm">{auth.name}</span>
+                        
+                        {isConnecting && `inapp-${auth.id}` === selectedWalletType ? (
+                          <div className="w-5 h-5">
+                            <svg className="animate-spin h-5 w-5 text-blue-500 dark:text-cyan-400" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          </div>
+                        ) : (
+                          <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3 my-6">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent"></div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700/30 rounded-full">or</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-slate-600 to-transparent"></div>
+                  </div>
+
+                  {/* Connect Wallet Option */}
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleConnectWalletClick}
+                    className="w-full group relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-50 to-emerald-50 dark:from-cyan-500/10 dark:via-emerald-500/10 dark:to-cyan-500/10 border border-emerald-200 dark:border-cyan-500/20 hover:border-blue-300 dark:hover:border-cyan-400/30 p-4 transition-all duration-300"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 dark:from-cyan-500/0 dark:via-cyan-500/5 dark:to-cyan-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative flex items-center gap-3">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-blue-100 dark:from-cyan-500/20 dark:to-emerald-500/20 border border-blue-200 dark:border-cyan-500/30">
+                        <FaWallet className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="font-semibold text-emerald-800 dark:text-emerald-300 text-sm">Connect a Wallet</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Use your crypto wallet</div>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-cyan-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </motion.button>
+                </motion.div>
               )}
-            </motion.button>
-          ))}
-        </div>
-        
-        <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-center space-x-2 mb-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+            </AnimatePresence>
+
+            {/* Footer */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="mt-6 pt-4 border-t border-gray-200 dark:border-slate-700/30"
+            >
+              <div className="flex items-center justify-center gap-1 mb-2">
+                <div className="w-1 h-1 rounded-full bg-blue-400 dark:bg-cyan-400"></div>
+                <div className="w-1 h-1 rounded-full bg-purple-400 dark:bg-emerald-400"></div>
+                <div className="w-1 h-1 rounded-full bg-blue-400 dark:bg-cyan-400"></div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                Secure connection via Web3 standards
+              </p>
+            </motion.div>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            By connecting your wallet, you agree to our Terms of Service and Privacy Policy
-          </p>
-        </div>
+        </motion.div>
       </motion.div>
-    </div>
+    </AnimatePresence>
   );
 };
 

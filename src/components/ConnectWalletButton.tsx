@@ -1,4 +1,3 @@
-// components/ConnectWalletButton.tsx
 import React, { useState } from 'react';
 import { FaWallet } from 'react-icons/fa';
 import { motion } from 'framer-motion';
@@ -23,7 +22,7 @@ const ConnectWalletButton: React.FC<ConnectWalletButtonProps> = ({
         }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setIsModalOpen(true)}
-        className="w-auto px-6 py-3 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-all duration-200 shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center"
+        className="w-auto px-6 py-2 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition-all duration-200 shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center"
       >
         <FaWallet className="inline-block mr-2" /> Connect Wallet
       </motion.button>

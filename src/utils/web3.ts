@@ -1,10 +1,14 @@
 import { ethers } from "ethers";
 import GMOnchainABI from "../abis/GMOnchainABI.json";
-import { CONTRACT_ADDRESS, TEA_SEPOLIA_CHAIN, TEA_SEPOLIA_CHAIN_ID } from "./constants";
-import { getUserLeaderboardRank } from "./leaderboradUtils";
-
-// Add the deployment block constant
-const DEPLOY_BLOCK = 1155300;
+import { 
+  SUPPORTED_CHAINS, 
+  getChainConfig, 
+  getContractAddress,
+  isChainSupported,
+  TEA_SEPOLIA_CHAIN_ID,
+  DEPLOY_BLOCK,
+  CHECKIN_FEE
+} from "./constants";
 
 /**
  * Checks if code is running in browser environment
@@ -22,7 +26,7 @@ export const getProvider = () => {
   const ethereum = (window as any).ethereum;
   if (!ethereum) return null;
   
-  return new ethers.providers.Web3Provider(ethereum, "any"); // "any" is important here
+  return new ethers.providers.Web3Provider(ethereum, "any");
 };
 
 /**
@@ -43,7 +47,6 @@ export const connectWallet = async () => {
     }
     
     const provider = new ethers.providers.Web3Provider(ethereum, "any");
-    
     const signer = provider.getSigner();
     const address = accounts[0]; 
     
@@ -58,23 +61,37 @@ export const connectWallet = async () => {
 };
 
 /**
- * Switch to Tea Sepolia network
+ * Switch to a specific chain
+ * @param chainId Target chain ID
  */
-export const switchToTeaSepolia = async () => {
+export const switchToChain = async (chainId: number) => {
   try {
     const ethereum = (window as any).ethereum;
     if (!ethereum) throw new Error("No Ethereum provider found");
     
+    const chainConfig = getChainConfig(chainId);
+    if (!chainConfig) throw new Error(`Unsupported chain ID: ${chainId}`);
+    
+    // Buat objek baru dengan hanya properti standar EIP-3085
+    const standardChainConfig = {
+      chainId: chainConfig.chainId,
+      chainName: chainConfig.chainName,
+      nativeCurrency: chainConfig.nativeCurrency,
+      rpcUrls: chainConfig.rpcUrls,
+      blockExplorerUrls: chainConfig.blockExplorerUrls
+    };
+    
     try {
       await ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: TEA_SEPOLIA_CHAIN.chainId }],
+        params: [{ chainId: chainConfig.chainId }],
       });
     } catch (switchError: any) {
       if (switchError.code === 4902) {
+        // Chain not added yet, add it
         await ethereum.request({
           method: "wallet_addEthereumChain",
-          params: [TEA_SEPOLIA_CHAIN],
+          params: [standardChainConfig], // Gunakan config yang sudah difilter
         });
       } else {
         throw switchError;
@@ -89,12 +106,52 @@ export const switchToTeaSepolia = async () => {
 };
 
 /**
- * Get contract instance
+ * Switch to Tea Sepolia network (legacy function for backward compatibility)
+ */
+export const switchToTeaSepolia = async () => {
+  return switchToChain(TEA_SEPOLIA_CHAIN_ID);
+};
+
+/**
+ * Get contract instance for specific chain
  * @param signerOrProvider Signer or Provider to use with contract
+ * @param chainId Chain ID to get contract for
  * @returns Contract instance
  */
-export const getContract = (signerOrProvider: ethers.Signer | ethers.providers.Provider) => {
-  return new ethers.Contract(CONTRACT_ADDRESS, GMOnchainABI, signerOrProvider);
+export const getContract = (
+  signerOrProvider: ethers.Signer | ethers.providers.Provider, 
+  chainId?: number
+) => {
+  let contractAddress;
+  
+  if (chainId) {
+    contractAddress = getContractAddress(chainId);
+  } else {
+    // Try to get chainId from provider
+    if ('provider' in signerOrProvider && signerOrProvider.provider) {
+      // For signers, get the provider's network
+      const provider = signerOrProvider.provider as ethers.providers.Provider;
+      provider.getNetwork().then(network => {
+        contractAddress = getContractAddress(network.chainId);
+      }).catch(() => {
+        contractAddress = getContractAddress(TEA_SEPOLIA_CHAIN_ID); // fallback
+      });
+    } else {
+      contractAddress = getContractAddress(TEA_SEPOLIA_CHAIN_ID); // fallback
+    }
+  }
+  
+  contractAddress = contractAddress || getContractAddress(TEA_SEPOLIA_CHAIN_ID);
+  
+  return new ethers.Contract(contractAddress, GMOnchainABI, signerOrProvider);
+};
+
+/**
+ * Helper function for delaying execution
+ * @param ms Milliseconds to delay
+ */
+export const delay = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
 };
 
 /**
@@ -134,9 +191,9 @@ export const formatAddress = (address: string): string => {
 };
 
 /**
- * Format Ethereum address to shorter version
+ * Format Ethereum address to full version
  * @param address Full Ethereum address
- * @returns Shortened address with format "0x1234...5678"
+ * @returns Full address
  */
 export const fullAddress = (address: string): string => {
   if (!address || address.length < 10) return address;
@@ -201,8 +258,25 @@ export const getWalletBalance = async (address: string): Promise<string> => {
 };
 
 /**
- * Check if network is Tea Sepolia Testnet
- * @returns Promise<boolean> True if on correct network
+ * Check if current network is supported
+ * @returns Promise<boolean> True if on supported network
+ */
+export const isSupportedNetwork = async (): Promise<boolean> => {
+  try {
+    const provider = getProvider();
+    if (!provider) return false;
+    
+    const network = await provider.getNetwork();
+    return isChainSupported(network.chainId);
+  } catch (error) {
+    console.error("Error checking network:", error);
+    return false;
+  }
+};
+
+/**
+ * Check if network is Tea Sepolia Testnet (legacy function)
+ * @returns Promise<boolean> True if on Tea Sepolia network
  */
 export const isTeaSepoliaNetwork = async (): Promise<boolean> => {
   try {
@@ -218,8 +292,25 @@ export const isTeaSepoliaNetwork = async (): Promise<boolean> => {
 };
 
 /**
- * Get total global checkins directly from blockchain using the exact DEPLOY_BLOCK
- * @param contract The GMOnchain contract
+ * Get current chain ID
+ * @returns Promise<number | null> Current chain ID or null if not available
+ */
+export const getCurrentChainId = async (): Promise<number | null> => {
+  try {
+    const provider = getProvider();
+    if (!provider) return null;
+    
+    const network = await provider.getNetwork();
+    return network.chainId;
+  } catch (error) {
+    console.error("Error getting chain ID:", error);
+    return null;
+  }
+};
+
+/**
+ * Get total global checkins directly from blockchain
+ * @param contract The contract instance
  * @returns Promise<number> Total global check-ins
  */
 export const getTotalCheckins = async (contract: ethers.Contract): Promise<number> => {
@@ -227,7 +318,8 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
     const provider = contract.provider;
     if (!provider) return 0;
     
-    const eventSignature = ethers.utils.id("CheckinCompleted(address,uint256,string,uint256)");
+    // Use the new event signature from the updated contract
+    const eventSignature = ethers.utils.id("BeaconActivated(address,uint256,uint256,uint256,uint256,uint256)");
     
     const currentBlock = await provider.getBlockNumber();
     console.log(`Scanning from block ${DEPLOY_BLOCK} to ${currentBlock}`);
@@ -274,17 +366,20 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
         }
       }
     }
+    
     if (totalCount === 0) {
       try {
-        const recentGMs = await contract.getRecentGMs();
-        if (recentGMs && recentGMs.length > 0) {
-          console.log(`No events found, using recentGMs length as minimum: ${recentGMs.length}`);
-          return recentGMs.length;
+        // Try to get system metrics if available
+        const systemMetrics = await contract.getSystemMetrics();
+        if (systemMetrics && systemMetrics.totalCrystalCount) {
+          console.log(`No events found, using totalCrystalCount: ${systemMetrics.totalCrystalCount}`);
+          return parseInt(systemMetrics.totalCrystalCount.toString());
         }
-      } catch (recentError) {
-        console.warn("Error getting recent GMs:", recentError);
+      } catch (systemError) {
+        console.warn("Error getting system metrics:", systemError);
       }
     }
+    
     return totalCount;
   } catch (error) {
     console.error("Error in getTotalCheckins:", error);
@@ -293,82 +388,42 @@ export const getTotalCheckins = async (contract: ethers.Contract): Promise<numbe
 };
 
 /**
- * Get user rank and stats data for profile display
- * @param contract The GMOnchain contract
- * @param address User's wallet address
- * @returns Promise with rank and points data
+ * Perform checkin (activateBeacon) on the contract
+ * @param contract Contract instance
+ * @param chainId Current chain ID
+ * @returns Promise<ethers.ContractTransaction>
  */
-export const getUserRankData = async (contract: ethers.Contract, address: string) => {
+export const performCheckin = async (
+  contract: ethers.Contract, 
+  chainId: number
+): Promise<ethers.ContractTransaction> => {
   try {
-    // Get user's check-in count directly from contract
-    let checkinCount;
+    const chainConfig = getChainConfig(chainId);
+    if (!chainConfig) {
+      throw new Error(`Unsupported chain: ${chainId}`);
+    }
+    
+    // Get the current fee from the contract
+    let currentTax;
     try {
-      checkinCount = await contract.getCheckinCount(address);
-    } catch (e) {
-      try {
-        // Fallback to direct mapping access if the function fails
-        const userData = await contract.userCheckins(address);
-        checkinCount = userData.checkinCount || ethers.BigNumber.from(0);
-      } catch (mappingError) {
-        // If all attempts fail, default to zero
-        checkinCount = ethers.BigNumber.from(0);
-      }
+      const systemMetrics = await contract.getSystemMetrics();
+      currentTax = systemMetrics.currentTax;
+    } catch (metricsError) {
+      console.error("Error getting system metrics:", metricsError);
+      // Fallback ke nilai default jika getSystemMetrics gagal
+      currentTax = ethers.utils.parseEther(CHECKIN_FEE);
     }
     
-    // Convert to number for calculations
-    const count = ethers.BigNumber.isBigNumber(checkinCount) 
-      ? checkinCount.toNumber() 
-      : Number(checkinCount);
+    // Call activateBeacon with the required fee
+    const tx = await contract.activateBeacon({
+      value: currentTax
+    });
     
-    // Get user's rank from leaderboard
-    let userRank = 0;
-    try {
-      const rank = await getUserLeaderboardRank(contract, address);
-      userRank = rank !== null ? rank : 0;
-    } catch (error) {
-      console.warn("Error getting user leaderboard rank:", error);
-      
-      // Fallback: calculate approx rank based on check-in count
-      if (count > 0) {
-        // If we can't get the true rank, estimate based on check-in count
-        // This is just a placeholder until proper rank can be determined
-        const estimatedRank = Math.max(1, Math.floor(100 / (count + 1)));
-        userRank = estimatedRank;
-      }
-    }
-    
-    // Calculate points - 10 points per check-in plus bonuses
-    // This should match your application's point calculation logic
-    let points = count * 10;
-    
-    // Add bonus points based on check-in milestones
-    if (count >= 50) points += 500;
-    else if (count >= 25) points += 250;
-    else if (count >= 10) points += 100;
-    else if (count >= 5) points += 50;
-    
-    // Also add bonus based on rank if available
-    if (userRank > 0 && userRank <= 10) {
-      // Top 10 bonus
-      points += 1000 - ((userRank - 1) * 100);
-    } else if (userRank > 10 && userRank <= 50) {
-      // Top 50 bonus
-      points += 100;
-    }
-    
-    // Return data in consistent format
-    return {
-      rank: ethers.BigNumber.from(userRank),
-      points: ethers.BigNumber.from(points),
-      checkinCount: ethers.BigNumber.from(count)
-    };
+    return tx;
   } catch (error) {
-    console.error("Error getting user rank data:", error);
-    // Return default values in case of error
-    return {
-      rank: ethers.BigNumber.from(0),
-      points: ethers.BigNumber.from(0),
-      checkinCount: ethers.BigNumber.from(0)
-    };
+    console.error("Error performing checkin:", error);
+    throw error;
   }
 };
+
+export { isChainSupported, getChainConfig };

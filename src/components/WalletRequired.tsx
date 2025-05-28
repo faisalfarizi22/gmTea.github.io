@@ -24,7 +24,7 @@ const WalletRequired: React.FC<WalletRequiredProps> = ({
   }
 
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center">
+    <div className="min-h-[90vh] flex flex-col items-center justify-center">
       <div className="card max-w-md mx-auto p-10 text-center space-y-6">
         <div className="relative w-24 h-24 mx-auto">
           <div className="absolute inset-0 bg-emerald-500 rounded-full blur-xl opacity-20 animate-pulse"></div>

@@ -1,27 +1,185 @@
-export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x50bB6FB9F17eE3d43e825Fb7BCfF0A40523F7991";
-export const USERNAME_REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_GMTEAUSERNAME_ADDRESS || "0x938446e658E18765926C30E9e29B560bC9B3c120";
-export const REFERRAL_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEAREFERRAL_ADDRESS || "0xfd8d136239FBd9abfd907EF7f7845E60CeB8bf4a";
-export const BADGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEABADGE_ADDRESS || "0xF76C16061F1133d47159F1Ea683D05cDC24e5d9d";
-export const MESSAGE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GMTEACHAT_ADDRESS
+// Chain IDs
 export const TEA_SEPOLIA_CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_TEA_SEPOLIA_CHAIN_ID || "10218", 10);
-export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public";
-export const TEA_SEPOLIA_CHAIN = {
-  chainId: `0x${TEA_SEPOLIA_CHAIN_ID.toString(16)}`,
-  chainName: "Tea Sepolia Testnet",
-  nativeCurrency: {
-    name: "Tea",
-    symbol: "TEA",
-    decimals: 18,
+export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const SONEIUM_TESTNET_CHAIN_ID = 1946;
+export const INK_TESTNET_CHAIN_ID = 763373;
+export const OP_SEPOLIA_CHAIN_ID = 11155420;
+export const ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
+export const MONAD_TESTNET_CHAIN_ID = 10143;
+export const MEGAETH_TESTNET_CHAIN_ID = 6342;
+export const UNICHAIN_SEPOLIA_CHAIN_ID = 1301;
+export const ABSTRACT_TESTNET_CHAIN_ID = 11124;
+export const LISK_SEPOLIA_CHAIN_ID = 4202;
+export const HUMANITY_TESTNET_CHAIN_ID = 1942999413;
+export const CHAINBASE_TESTNET_CHAIN_ID = 8453;
+
+// Chain Configurations
+export const SUPPORTED_CHAINS = {
+  [TEA_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${TEA_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "Tea Sepolia",
+    nativeCurrency: {
+      name: "Tea",
+      symbol: "TEA",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public"],
+    blockExplorerUrls: [process.env.NEXT_PUBLIC_TEA_BLOCK_EXPLORER || "https://sepolia.tea.xyz"],
+    contractAddress: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xaF8471a2968a30a63Cdced851cDA2B7ce9e5dB90",
+    logo: "🍵",
+    status: "Ready!"
   },
-  rpcUrls: [TEA_SEPOLIA_RPC_URL],
-  blockExplorerUrls: [process.env.NEXT_PUBLIC_TEA_BLOCK_EXPLORER || "https://sepolia.tea.xyz"],
+  [BASE_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${BASE_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "Base Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org"],
+    blockExplorerUrls: ["https://sepolia.basescan.org"],
+    contractAddress: process.env.BASE_SEPOLIA_CONTRACT_ADDRESS || "0xA55F30904bC3404AF50F652eAC686651E3dD9DF8",
+    logo: "🔵",
+    status: "Ready!"
+  },
+  [SONEIUM_TESTNET_CHAIN_ID]: {
+    chainId: `0x${SONEIUM_TESTNET_CHAIN_ID.toString(16)}`,
+    chainName: "Soneium Testnet",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.SONEIUM_TESTNET_RPC_URL || "https://rpc.minato.soneium.org"],
+    blockExplorerUrls: ["https://explorer-testnet.soneium.org"],
+    contractAddress: process.env.SONEIUM_TESTNET_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "🟣",
+    status: "Ready!"
+  },
+  [INK_TESTNET_CHAIN_ID]: {
+    chainId: `0x${INK_TESTNET_CHAIN_ID.toString(16)}`,
+    chainName: "Ink Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.INK_TESTNET_RPC_URL || "https://rpc-gel-sepolia.inkonchain.com"],
+    blockExplorerUrls: ["https://explorer-sepolia.inkonchain.com"],
+    contractAddress: process.env.INK_TESTNET_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "🖤",
+    status: "Ready!"
+  },
+  [OP_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${OP_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "OP Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.OP_SEPOLIA_RPC_URL || "https://sepolia.optimism.io"],
+    blockExplorerUrls: ["https://sepolia-optimism.etherscan.io"],
+    contractAddress: process.env.OP_SEPOLIA_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "🔴",
+    status: "Ready!"
+  },
+  [ARBITRUM_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${ARBITRUM_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "Arbitrum Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc"],
+    blockExplorerUrls: ["https://sepolia.arbiscan.io"],
+    contractAddress: process.env.ARBITRUM_SEPOLIA_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "🟦",
+    status: "Ready!"
+  },
+  [MONAD_TESTNET_CHAIN_ID]: {
+    chainId: `0x${MONAD_TESTNET_CHAIN_ID.toString(16)}`,
+    chainName: "Monad Testnet",
+    nativeCurrency: {
+      name: "Monad",
+      symbol: "MON",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz"],
+    blockExplorerUrls: ["https://testnet-explorer.monad.xyz"],
+    contractAddress: process.env.MONAD_TESTNET_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "🟢",
+    status: "Ready!"
+  },
+  [MEGAETH_TESTNET_CHAIN_ID]: {
+    chainId: `0x${MEGAETH_TESTNET_CHAIN_ID.toString(16)}`,
+    chainName: "MegaETH Testnet",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.MEGAETH_TESTNET_RPC_URL || "https://carrot.megaeth.com/rpc"],
+    blockExplorerUrls: ["https://explorer.megaeth.com"],
+    contractAddress: process.env.MEGAETH_TESTNET_CONTRACT_ADDRESS || "0x36E52b17856ABa9A9a330fAad6DcC6D8514D76D7",
+    logo: "⚡",
+    status: "Ready!"
+  },
+  [UNICHAIN_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${UNICHAIN_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "Unichain Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.UNICHAIN_SEPOLIA_RPC_URL || "https://sepolia.unichain.org"],
+    blockExplorerUrls: ["https://sepolia.uniscan.xyz"],
+    contractAddress: process.env.UNICHAIN_SEPOLIA_CONTRACT_ADDRESS || "0x922E8F1D06d2401f7BDcf81673e13A150Ea5690d",
+    logo: "🦄",
+    status: "Ready!"
+  },
+  [ABSTRACT_TESTNET_CHAIN_ID]: {
+    chainId: `0x${ABSTRACT_TESTNET_CHAIN_ID.toString(16)}`,
+    chainName: "Abstract Testnet",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.ABSTRACT_TESTNET_RPC_URL || "https://api.testnet.abs.xyz"],
+    blockExplorerUrls: ["https://explorer.testnet.abs.xyz"],
+    contractAddress: process.env.ABSTRACT_TESTNET_CONTRACT_ADDRESS || "0x660C371DBb36e63c6201575c63de676066093Cd9",
+    logo: "🟨",
+    status: "Ready!"
+  },
+  [LISK_SEPOLIA_CHAIN_ID]: {
+    chainId: `0x${LISK_SEPOLIA_CHAIN_ID.toString(16)}`,
+    chainName: "Lisk Sepolia",
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
+    rpcUrls: [process.env.LISK_SEPOLIA_RPC_URL || "https://rpc.sepolia-api.lisk.com"],
+    blockExplorerUrls: ["https://sepolia-blockscout.lisk.com"],
+    contractAddress: process.env.LISK_SEPOLIA_CONTRACT_ADDRESS || "0xD3118812285A9848b0382A228C56958bee58D8B8",
+    logo: "🔷",
+    status: "Ready!"
+  }
 };
+
+// Legacy exports for backward compatibility
+export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xaF8471a2968a30a63Cdced851cDA2B7ce9e5dB90";
+export const TEA_SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_TEA_SEPOLIA_RPC_URL || "https://tea-sepolia.g.alchemy.com/public";
+export const TEA_SEPOLIA_CHAIN = SUPPORTED_CHAINS[TEA_SEPOLIA_CHAIN_ID];
 
 export const CHECKIN_FEE = process.env.NEXT_PUBLIC_CHECKIN_FEE || "0.01";
 
 export const DAY_IN_MS = 86400000;
 
-// Add deployment block for event fetching in the leaderboard
 export const DEPLOY_BLOCK = parseInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK || "1155300", 10);
 
 export const LOADING_STATES = {
@@ -31,75 +189,20 @@ export const LOADING_STATES = {
   ERROR: "error",
 };
 
-export const DEFAULT_MESSAGES = [
-  "GM to all Tea enthusiasts! ☕",
-  "Starting the day with a fresh cup of Tea! 🍵",
-  "GM from the Tea network! 🌿",
-  "Tea time and GM vibes! ✨",
-  "Brewing success on the blockchain today! 🚀",
-  "GM! May your transactions be as smooth as tea! 🍃",
-  "Rise and shine on the Tea network! ☀️",
-  "GM world! Tea-rrific day ahead! 🌱",
-  "Steep, sip, and say GM! 🫖",
-  "Morning brew and blockchain too! GM! 🌄"
-];
-
-export const TEA_GREETINGS = [
-  "Tea-rrific morning to everyone!",
-  "Steeped in blockchain goodness today!",
-  "Brewing up some on-chain magic!",
-  "A cup of GM to start the day right!",
-  "Fresh leaves, fresh blocks, fresh day!",
-  "GM! Let's spill the tea on blockchain today!",
-  "High tea and high spirits on the network!",
-  "Tea-ming with excitement for another blockchain day!",
-  "Matcha energy for the blockchain today!",
-  "Chamomile calm and blockchain charm!"
-];
-
-export const COLORS = {
-  teaLight: "#e6f4ea",
-  teaMedium: "#4e8a40",
-  teaDark: "#2e5327",
-  teaDeep: "#1e4020",
-  glowColor: "rgba(78, 138, 64, 0.3)"
+// Helper functions
+export const getChainConfig = (chainId: number) => {
+  return SUPPORTED_CHAINS[chainId] || null;
 };
 
-// Badge tier information
-export const BADGE_TIERS = {
-  COMMON: {
-    id: 0,
-    name: "Common",
-    color: "#6b7280", // Gray
-    price: "1"
-  },
-  UNCOMMON: {
-    id: 1,
-    name: "Uncommon",
-    color: "#10b981", // Emerald
-    price: "5"
-  },
-  RARE: {
-    id: 2,
-    name: "Rare",
-    color: "#3b82f6", // Blue
-    price: "12"
-  },
-  EPIC: {
-    id: 3,
-    name: "Epic",
-    color: "#8b5cf6", // Purple
-    price: "18"
-  },
-  LEGENDARY: {
-    id: 4,
-    name: "Legendary",
-    color: "#f59e0b", // Amber/Gold
-    price: "24"
-  }
+export const isChainSupported = (chainId: number): boolean => {
+  return chainId in SUPPORTED_CHAINS;
 };
 
-export const getRandomTeaGreeting = () => {
-  const randomIndex = Math.floor(Math.random() * TEA_GREETINGS.length);
-  return TEA_GREETINGS[randomIndex];
+export const getSupportedChainIds = (): number[] => {
+  return Object.keys(SUPPORTED_CHAINS).map(Number);
+};
+
+export const getContractAddress = (chainId: number): string => {
+  const chain = getChainConfig(chainId);
+  return chain?.contractAddress || CONTRACT_ADDRESS;
 };

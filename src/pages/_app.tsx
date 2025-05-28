@@ -1,34 +1,39 @@
 "use client"
 import type { AppProps } from "next/app"
 import Head from "next/head"
-import Script from "next/script" // Tambahkan import ini
+import Script from "next/script"
 import "@/styles/globals.css"
 import { ThirdwebProvider } from "thirdweb/react"
 import { useRouter } from "next/router"
 import Footer from "@/components/Footer"
 import WalletRequired from "@/components/WalletRequired"
 import { useWalletState } from "@/hooks/useWalletState"
-import { useScrollFunctions } from "@/hooks/useScrollFunctions"
-import ConnectionStatusProvider from "@/components/ConnectionStatusProvider"
+import Navbar from "@/components/Navbar"
+import { getChainConfig } from "@/utils/constants" // Import getChainConfig
 
 function GMApp({ Component, pageProps }: AppProps) {
   const router = useRouter()
   const { web3State, connectWallet, disconnectWallet, switchNetwork } = useWalletState()
-  const { scrollToLeaderboard, scrollToMintSection } = useScrollFunctions()
-
-  const { address, isConnected, isLoading: isWalletConnecting } = web3State
-
+  const { address, isConnected, isLoading: isWalletConnecting, chainId } = web3State
+  
   const adaptedConnectWallet = async (): Promise<void> => {
     await connectWallet()
   }
-
+  
+  // Calculate network info for Navbar
+  const currentNetwork = chainId ? getChainConfig(chainId) : null
+  const networkInfo = currentNetwork ? {
+    name: currentNetwork.chainName,
+    logo: currentNetwork.logo
+  } : null
+  
   // Determine if the current route should be wrapped with WalletRequired
   const shouldRequireWallet = !router.pathname.includes("/auth") && !router.pathname.includes("/landing")
-
+  
   return (
     <>
       <Head>
-        <title>GMTEA - Blockchain Interactions</title>
+        <title>MultiChainGM - Blockchain Interactions</title>
         <meta name="description" content="Daily GM check-ins on the Tea Sepolia Testnet" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -39,7 +44,7 @@ function GMApp({ Component, pageProps }: AppProps) {
           rel="stylesheet"
         />
       </Head>
-
+      
       {/* Google Analytics */}
       <Script
         strategy="afterInteractive"
@@ -57,27 +62,32 @@ function GMApp({ Component, pageProps }: AppProps) {
           `,
         }}
       />
-
-      <ConnectionStatusProvider>
-        <ThirdwebProvider>
-          
-          <main>
-            {shouldRequireWallet ? (
-              <WalletRequired
-                isConnected={isConnected}
-                connectWallet={adaptedConnectWallet}
-                isConnecting={isWalletConnecting}
-              >
-                <Component {...pageProps} />
-              </WalletRequired>
-            ) : (
+     
+      <ThirdwebProvider>
+        {/* Navbar - Added here so it's present on all pages */}
+        <Navbar 
+          address={address}
+          connectWallet={adaptedConnectWallet}
+          disconnectWallet={disconnectWallet}
+          isConnecting={isWalletConnecting}
+          networkInfo={networkInfo}
+        />
+        
+        <main>
+          <WalletRequired
+              isConnected={isConnected}
+              connectWallet={adaptedConnectWallet}
+              isConnecting={isWalletConnecting}
+            >
+          {shouldRequireWallet ? (
               <Component {...pageProps} />
-            )}
-          </main>
-
-          <Footer scrollToLeaderboard={scrollToLeaderboard} scrollToMintSection={scrollToMintSection} />
-        </ThirdwebProvider>
-      </ConnectionStatusProvider>
+            
+          ) : (
+            <Component {...pageProps} />
+          )}
+          </WalletRequired>
+        </main>
+      </ThirdwebProvider>
     </>
   )
 }

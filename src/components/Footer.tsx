@@ -19,10 +19,6 @@ import { IoIosStats } from "react-icons/io";
 import { TfiStatsUp } from "react-icons/tfi";
 import { 
   CONTRACT_ADDRESS, 
-  USERNAME_REGISTRY_ADDRESS, 
-  REFERRAL_CONTRACT_ADDRESS, 
-  BADGE_CONTRACT_ADDRESS, 
-  MESSAGE_CONTRACT_ADDRESS,
   TEA_SEPOLIA_CHAIN
 } from '@/utils/constants';
 
@@ -211,30 +207,7 @@ const Footer: React.FC<FooterProps> = ({
       icon: <FaLeaf />,
       address: CONTRACT_ADDRESS,
     },
-    {
-      id: 'username',
-      name: 'Username Registry',
-      icon: <FaUsers />,
-      address: USERNAME_REGISTRY_ADDRESS,
-    },
-    {
-      id: 'referral',
-      name: 'Referral System',
-      icon: <FaRocket />,
-      address: REFERRAL_CONTRACT_ADDRESS,
-    },
-    {
-      id: 'badge',
-      name: 'Badge NFT',
-      icon: <FaFlask />,
-      address: BADGE_CONTRACT_ADDRESS,
-    },
-    {
-      id: 'message',
-      name: 'Message System',
-      icon: <FaEnvelope />,
-      address: MESSAGE_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000",
-    }
+   
   ];
 
   return (

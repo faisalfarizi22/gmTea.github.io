@@ -2,11 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import { FaVolumeUp, FaVolumeMute, FaMusic } from 'react-icons/fa';
 
-// Music file paths - in a real app, you would store these files in the public folder
-// and reference them with the correct paths
-const DEFAULT_MUSIC = '/music/dashboard-ambient.mp3';   // Default music for dashboard, mint, and leaderboard
-const PROFILE_MUSIC = '/music/profile-ambient.mp3';     // Specific music only for profile tab
 
+const DEFAULT_MUSIC = '/music/dashboard-ambient.mp3';   
+const PROFILE_MUSIC = '/music/profile-ambient.mp3';     
 interface AudioPlayerProps {
   initialVolume?: number;
 }

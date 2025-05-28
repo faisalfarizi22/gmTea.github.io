@@ -175,6 +175,11 @@ const Navbar: React.FC<NavbarProps> = ({
     setMobileMenuOpen(false)
   }
 
+  const handleMultiChainGMClick = () => {
+    window.open("https://app.multichaingm.com/", "_blank", "noopener,noreferrer")
+    setMobileMenuOpen(false)
+  }
+
   const handleReferralNavigation = () => {
     setIsDropdownOpen(false);
     setMobileMenuOpen(false);
@@ -301,6 +306,13 @@ const Navbar: React.FC<NavbarProps> = ({
                   className="relative text-sm font-medium px-1 py-2 transition-colors text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
                 >
                   Faucet
+                </button>
+
+                <button
+                  onClick={handleMultiChainGMClick}
+                  className="relative text-sm font-bold bg-gradient-to-r from-cyan-700 to-emerald-300 text-transparent bg-clip-text hover:scale-105 px-1 py-2 dark:bg-gradient-to-r from-cyan-700 to-emerald-300 text-transparent bg-clip-text dark:hover:scale-105"
+                >
+                  MultiChainGM
                 </button>
               </div>
             )}
@@ -489,6 +501,17 @@ const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={handleMultiChainGMClick}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaLeaf className="h-5 w-5" />
+                      <span className="font-medium bg-gradient-to-r from-cyan-700 to-emerald-300 text-transparent bg-clip-text">MultiChainGM</span>
+                    </div>
+                  </button>
+
+
                   <button
                     onClick={() => handleNav("dashboard")}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${

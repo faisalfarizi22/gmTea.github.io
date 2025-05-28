@@ -5,110 +5,13 @@
       "type": "constructor"
     },
     {
-      "inputs": [],
-      "name": "AlreadyActivatedToday",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "CircuitActive",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "CircuitInactive",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "DuplicateValue",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InsufficientBalance",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InvalidAddress",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InvalidAmount",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "InvalidTimeRange",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "sent",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "required",
-          "type": "uint256"
-        }
-      ],
-      "name": "InvalidTribute",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "TransferFailed",
-      "type": "error"
-    },
-    {
-      "inputs": [],
-      "name": "UnauthorizedAccess",
-      "type": "error"
-    },
-    {
       "anonymous": false,
       "inputs": [
         {
           "indexed": true,
           "internalType": "address",
-          "name": "token",
+          "name": "user",
           "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "destination",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "AssetRecovered",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "sequence",
-          "type": "uint256"
         },
         {
           "indexed": false,
@@ -118,206 +21,55 @@
         },
         {
           "indexed": false,
-          "internalType": "uint256",
-          "name": "tribute",
-          "type": "uint256"
+          "internalType": "string",
+          "name": "message",
+          "type": "string"
         },
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "dayIndex",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "streak",
+          "name": "count",
           "type": "uint256"
         }
       ],
-      "name": "BeaconActivated",
+      "name": "CheckinCompleted",
       "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "CircuitEngaged",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "CircuitReleased",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "bool",
-          "name": "status",
-          "type": "bool"
-        }
-      ],
-      "name": "EmergencyToggled",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previous",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "current",
-          "type": "address"
-        }
-      ],
-      "name": "KeeperTransition",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "dayIndex",
-          "type": "uint256"
-        }
-      ],
-      "name": "NewNavigatorJoined",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "operator",
-          "type": "address"
-        }
-      ],
-      "name": "NodeDestroyed",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "streakCount",
-          "type": "uint256"
-        }
-      ],
-      "name": "StreakMilestone",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "oldTax",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newTax",
-          "type": "uint256"
-        }
-      ],
-      "name": "TaxAdjusted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "destination",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "VaultDrained",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "oldVault",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newVault",
-          "type": "address"
-        }
-      ],
-      "name": "VaultRedirected",
-      "type": "event"
-    },
-    {
-      "stateMutability": "payable",
-      "type": "fallback"
     },
     {
       "inputs": [],
-      "name": "abandonKeeperRole",
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      "name": "CHECKIN_FEE",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
       "inputs": [],
-      "name": "activateBeacon",
+      "name": "MAX_RECENT_GMS",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "checkIn",
       "outputs": [],
       "stateMutability": "payable",
       "type": "function"
@@ -325,776 +77,183 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getCheckinCount",
+      "outputs": [
+        {
           "internalType": "uint256",
-          "name": "newTax",
+          "name": "",
           "type": "uint256"
         }
       ],
-      "name": "adjustChannelTax",
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getRecentGMs",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "user",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct GMOnchain.GMMessage[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "start",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "limit",
+          "type": "uint256"
+        }
+      ],
+      "name": "getRecentGMsPaginated",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "user",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "timestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "message",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct GMOnchain.GMMessage[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "recentGMs",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "timeUntilNextCheckin",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "userCheckins",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "lastCheckinTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "checkinCount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "withdraw",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        }
-      ],
-      "name": "canActivateToday",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "channelTax",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "circuitBreaker",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "contractDeployDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "crystalBalance",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyBeaconCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyTaxCollected",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "destroyNode",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "drainVault",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "emergencyMode",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "engageCircuitBreaker",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getCurrentDayIndex",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "dayIndex",
-          "type": "uint256"
-        }
-      ],
-      "name": "getDailyStatistics",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "beaconCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "taxCollected",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "isToday",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "isValidDay",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "startDay",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endDay",
-          "type": "uint256"
-        }
-      ],
-      "name": "getDailyStatisticsBatch",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "beaconCounts",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "taxAmounts",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "dayIndexes",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address[]",
-          "name": "navigators",
-          "type": "address[]"
-        }
-      ],
-      "name": "getNavigatorBatch",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "lastBeacons",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "crystalCounts",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "bool[]",
-          "name": "canActivateList",
-          "type": "bool[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "currentStreaks",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "startDay",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "endDay",
-          "type": "uint256"
-        }
-      ],
-      "name": "getNavigatorHistory",
-      "outputs": [
-        {
-          "internalType": "bool[]",
-          "name": "dailyActivity",
-          "type": "bool[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "dayIndexes",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "navigator",
-          "type": "address"
-        }
-      ],
-      "name": "getNavigatorMetrics",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "lastBeacon",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "crystalCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "nextResetTime",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "canActivate",
-          "type": "bool"
-        },
-        {
-          "internalType": "uint256",
-          "name": "currentStreak",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "maxStreak",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "firstBeaconDay",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalDaysActive",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address[]",
-          "name": "navigators",
-          "type": "address[]"
-        }
-      ],
-      "name": "getNavigatorRanking",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "crystalCounts",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "currentStreaks",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "maxStreaks",
-          "type": "uint256[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "rankings",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getNextResetTime",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getSystemMetrics",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "isCircuitActive",
-          "type": "bool"
-        },
-        {
-          "internalType": "bool",
-          "name": "isEmergencyActive",
-          "type": "bool"
-        },
-        {
-          "internalType": "address",
-          "name": "currentKeeper",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "currentVault",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "currentTax",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "vaultBalance",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalCrystalCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalNavigatorCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "currentDayIndex",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "contractAge",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getTopPerformanceMetrics",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "maxDailyBeaconsCount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "maxDailyBeaconsOnDay",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalTaxCollectedAmount",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "averageDailyBeacons",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "activeDaysCount",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "lastBeaconDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "maxDailyBeacons",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "maxDailyBeaconsDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "navigatorDailyStatus",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "navigatorFirstBeacon",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "navigatorLastActiveDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "navigatorMaxStreak",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "navigatorStreakCount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "tokenContract",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "recoverAsset",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newVault",
-          "type": "address"
-        }
-      ],
-      "name": "redirectVault",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "releaseCircuitBreaker",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "toggleEmergencyProtocol",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalCrystals",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalNavigators",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "totalTaxCollected",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newKeeper",
-          "type": "address"
-        }
-      ],
-      "name": "transferKeeperRole",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "treasuryVault",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "vaultKeeper",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "stateMutability": "payable",
-      "type": "receive"
     }
   ]

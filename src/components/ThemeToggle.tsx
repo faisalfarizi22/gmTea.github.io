@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaSun, FaMoon } from 'react-icons/fa';
 
 interface ThemeToggleProps {
@@ -12,81 +12,78 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
   onThemeChange,
   forceTheme = null
 }) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  // Initialize theme on component mount
+  // On component mount, check for user's preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    const shouldBeDark = forceTheme 
-      ? forceTheme === 'dark'
-      : savedTheme === 'dark' || (!savedTheme && prefersDark);
+    const initialDarkMode = savedTheme 
+      ? savedTheme === 'dark' 
+      : prefersDark;
     
-    setIsDarkMode(shouldBeDark);
-    document.documentElement.classList.toggle('dark', shouldBeDark);
-  }, [forceTheme]);
+    setDarkMode(initialDarkMode);
+    
+    // Apply the theme
+    if (initialDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
 
   // Handle forced theme changes from parent
   useEffect(() => {
     if (forceTheme !== null) {
       const newDarkMode = forceTheme === 'dark';
-      if (isDarkMode !== newDarkMode) {
-        setIsDarkMode(newDarkMode);
-        document.documentElement.classList.toggle('dark', newDarkMode);
+      if (darkMode !== newDarkMode) {
+        setDarkMode(newDarkMode);
+        
+        // Apply the theme
+        if (newDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
     }
-  }, [forceTheme, isDarkMode]);
+  }, [forceTheme, darkMode]);
 
+  // Toggle theme function
   const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
     
-    // Update DOM class
-    document.documentElement.classList.toggle('dark', newTheme);
-    
-    // Save preference
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    if (darkMode) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    }
     
     // Notify parent component if callback provided
     if (onThemeChange) {
-      onThemeChange(newTheme ? 'dark' : 'light');
+      onThemeChange(newDarkMode ? 'dark' : 'light');
     }
   };
 
   return (
     <button
       onClick={toggleTheme}
-      className={`relative p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 shadow-sm ${className}`}
-      title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      className={`p-2 rounded-lg transition-colors duration-200 ${
+        darkMode 
+          ? 'bg-gray-800 hover:bg-gray-700' 
+          : 'bg-emerald-100 hover:bg-emerald-200'
+      } ${className}`}
+      aria-label="Toggle dark mode"
     >
-      <div className="relative w-5 h-5">
-        {/* Sun Icon */}
-        <FaSun
-          className={`absolute inset-0 w-5 h-5 text-yellow-500 transition-all duration-300 ${
-            isDarkMode 
-              ? 'opacity-0 rotate-90 scale-75' 
-              : 'opacity-100 rotate-0 scale-100'
-          }`}
-        />
-        
-        {/* Moon Icon */}
-        <FaMoon
-          className={`absolute inset-0 w-5 h-5 text-gray-600 dark:text-gray-300 transition-all duration-300 ${
-            isDarkMode 
-              ? 'opacity-100 rotate-0 scale-100' 
-              : 'opacity-0 -rotate-90 scale-75'
-          }`}
-        />
-      </div>
-      
-      {/* Subtle glow effect */}
-      <div className={`absolute inset-0 rounded-lg transition-all duration-300 ${
-        isDarkMode 
-          ? 'bg-blue-500/10 shadow-inner' 
-          : 'bg-yellow-500/10'
-      }`} />
+      {darkMode ? (
+        <FaSun className="h-5 w-5 text-yellow-400" />
+      ) : (
+        <FaMoon className="h-5 w-5 text-emerald-700" />
+      )}
     </button>
   );
 };

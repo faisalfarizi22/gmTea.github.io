@@ -10,14 +10,25 @@ import {
   FaChevronDown,
   FaBars,
   FaTimes,
+  FaUser,
+  FaMedal,
+  FaCog,
+  FaHistory,
+  FaGift,
+  FaIdCard,
   FaCopy,
+  FaTrophy,
+  FaHome,
+  FaTint,
 } from "react-icons/fa"
 import ConnectWalletButton from "./ConnectWalletButton"
-
-interface NetworkInfo {
-  name: string;
-  logo: string;
-}
+import { getUserReferralStats, checkUsername } from "@/utils/badgeWeb3"
+import ActivitySidebar from "./ActivitySidebar"
+import SettingsModal from "./SettingsModal"
+import ColoredUsername from "@/components/user/ColoredUsername"
+import AvatarWithFrame from "@/components/user/AvatarWithFrame"
+import { getUserHighestTier } from "@/utils/badgeWeb3"
+import { getTierName, getUsernameColor } from "@/utils/socialBenefitsUtils"
 
 interface NavbarProps {
   address: string | null
@@ -26,7 +37,6 @@ interface NavbarProps {
   isConnecting: boolean
   scrollToLeaderboard?: () => void
   scrollToMintSection?: () => void
-  networkInfo?: NetworkInfo | null
 }
 
 const getAvatarUrl = (address: string): string => `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`
@@ -38,15 +48,52 @@ const Navbar: React.FC<NavbarProps> = ({
   isConnecting,
   scrollToLeaderboard,
   scrollToMintSection,
-  networkInfo = null
 }) => {
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [showActivitySidebar, setShowActivitySidebar] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showTooltip, setShowTooltip] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+  const [referralStats, setReferralStats] = useState({
+    totalReferrals: 0,
+    pendingRewardsAmount: "0",
+    claimedRewardsAmount: "0",
+  })
   const dropdownRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [isLoadingUserData, setIsLoadingUserData] = useState(false)
+  const [highestTier, setHighestTier] = useState<number>(-1)
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!address) return
+
+      setIsLoadingUserData(true)
+      try {
+        const usernameResult = await checkUsername(address)
+        setUsername(usernameResult)
+
+        const highestTierResult = await getUserHighestTier(address)
+        setHighestTier(highestTierResult)
+
+        const stats = await getUserReferralStats(address)
+        if (stats) {
+          setReferralStats(stats)
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error)
+      } finally {
+        setIsLoadingUserData(false)
+      }
+    }
+
+    loadUserData()
+  }, [address])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -100,6 +147,66 @@ const Navbar: React.FC<NavbarProps> = ({
     setHoverTimeout(timeout as unknown as NodeJS.Timeout)
   }
 
+  const pendingRewardAmount = Number.parseFloat(referralStats.pendingRewardsAmount)
+
+  const handleNav = (menu: string) => {
+    setActiveMenu(menu)
+    setMobileMenuOpen(false)
+
+    if (menu === "dashboard") {
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "dashboard" } }))
+    } else if (menu === "leaderboard") {
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "leaderboard" } }))
+      if (scrollToLeaderboard) {
+        scrollToLeaderboard()
+      }
+    } else if (menu === "profile") {
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "profile" } }))
+    } else if (menu === "mint") {
+      window.dispatchEvent(new CustomEvent("navigate", { detail: { tab: "mint" } }))
+      if (scrollToMintSection) {
+        scrollToMintSection()
+      }
+    }
+  }
+
+  const handleFaucetClick = () => {
+    window.open("https://faucet-sepolia.tea.xyz/", "_blank", "noopener,noreferrer")
+    setMobileMenuOpen(false)
+  }
+
+  const handleReferralNavigation = () => {
+    setIsDropdownOpen(false);
+    setMobileMenuOpen(false);
+
+    window.dispatchEvent(new CustomEvent("navigate", { 
+      detail: { 
+        tab: "profile", 
+        subtab: "referrals" 
+      } 
+    }));
+  }
+
+  const handleOpenActivitySidebar = () => {
+    setShowActivitySidebar(true)
+    setIsDropdownOpen(false)
+    document.body.style.overflow = "hidden"
+  }
+
+  const handleCloseActivitySidebar = () => {
+    setShowActivitySidebar(false)
+    document.body.style.overflow = ""
+  }
+
+  const handleOpenSettings = () => {
+    setShowSettingsModal(true)
+    setIsDropdownOpen(false)
+  }
+
+  const handleCloseSettings = () => {
+    setShowSettingsModal(false)
+  }
+
   const copyAddressToClipboard = () => {
     if (address) {
       navigator.clipboard.writeText(address)
@@ -108,6 +215,19 @@ const Navbar: React.FC<NavbarProps> = ({
     }
   }
 
+  useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        setActiveMenu(event.detail.tab)
+      }
+    }
+
+    window.addEventListener("navigate", handleNavigate as EventListener)
+    return () => {
+      window.removeEventListener("navigate", handleNavigate as EventListener)
+    }
+  }, [])
+
   return (
     <>
       <nav
@@ -115,28 +235,78 @@ const Navbar: React.FC<NavbarProps> = ({
           scrolled ? "bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-md" : "bg-transparent"
         }`}
       >
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-20">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 md:h-20">
             <div className="flex items-center">
-              <div className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleNav("dashboard")}>
                 <div className="relative">
                   <FaLeaf className="h-6 w-6 md:h-8 md:w-8 text-emerald-500" />
                   <div className="absolute inset-0 bg-emerald-500 rounded-full blur-md opacity-30 animate-pulse"></div>
                 </div>
-                <span className="ml-2 text-lg md:text-xl font-bold bg-gradient-to-r from-cyan-700 to-emerald-300 text-transparent bg-clip-text dark:text-emerald-300 tracking-tight">
-                  MultiChainGM
+                <span className="ml-2 text-lg md:text-xl font-bold text-emerald-700 dark:text-emerald-300 tracking-tight">
+                  GM <span className="text-emerald-500">TEA</span>
+                  <span className="absolute top-5 md:top-6 ml-1 text-gray-500 dark:text-gray-300 text-xs font-medium bg-emerald-100/50 dark:bg-emerald-50/10 px-1 py-0.5 rounded-md align-middle shadow-sm">
+                    Testnet
+                  </span>
                 </span>
               </div>
             </div>
 
+            {address && (
+              <div className="hidden md:flex items-center justify-center space-x-10">
+                <button
+                  onClick={() => handleNav("dashboard")}
+                  className={`relative text-sm font-medium px-1 py-2 transition-colors ${
+                    activeMenu === "dashboard"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
+                  }`}
+                >
+                  Dashboard
+                  {activeMenu === "dashboard" && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleNav("mint")}
+                  className={`relative text-sm font-medium px-1 py-2 transition-colors ${
+                    activeMenu === "mint"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
+                  }`}
+                >
+                  Mint
+                  {activeMenu === "mint" && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleNav("leaderboard")}
+                  className={`relative text-sm font-medium px-1 py-2 transition-colors ${
+                    activeMenu === "leaderboard"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
+                  }`}
+                >
+                  Leaderboard
+                  {activeMenu === "leaderboard" && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 rounded-full"></span>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleFaucetClick}
+                  className="relative text-sm font-medium px-1 py-2 transition-colors text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400"
+                >
+                  Faucet
+                </button>
+              </div>
+            )}
+
             <div className="hidden md:flex items-center gap-4">
               <ThemeToggle />
-              {networkInfo && (
-                <div className="flex items-center px-3 py-1.5 rounded-full bg-gray-100/80 dark:bg-gray-800/80 text-sm text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 shadow-inner backdrop-blur-sm">
-                  <div className="mr-2 text-lg">{networkInfo.logo || '🔗'}</div>
-                  <span>{networkInfo.name || 'Unknown Network'}</span>
-                </div>
-              )}
 
               {!address ? (
                 <ConnectWalletButton connectWallet={connectWallet} />
@@ -149,17 +319,19 @@ const Navbar: React.FC<NavbarProps> = ({
                 >
                   <button className="flex items-center gap-2 bg-white dark:bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border border-gray-200 dark:border-emerald-500/20 shadow-sm">
                     <div className="h-5 w-5 rounded-full overflow-hidden flex-shrink-0">
-                      {address && (
-                        <img 
-                          src={getAvatarUrl(address)} 
-                          alt="Avatar" 
-                          className="h-full w-full"
-                        />
-                      )}
+                      <AvatarWithFrame
+                        avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
+                        badgeTier={highestTier}
+                        size="xs"
+                      />
                     </div>
-                    <span className="text-sm font-medium text-gray-800 dark:text-emerald-300">
-                      {formatAddress(address)}
-                    </span>
+                    {username ? (
+                      <ColoredUsername username={username} badgeTier={highestTier} className="text-sm" />
+                    ) : (
+                      <span className="text-sm font-medium text-gray-800 dark:text-emerald-300">
+                        {formatAddress(address)}
+                      </span>
+                    )}
                     <FaChevronDown
                       className={`h-3 w-3 text-emerald-500 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
                     />
@@ -170,15 +342,18 @@ const Navbar: React.FC<NavbarProps> = ({
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-emerald-500/20 bg-gray-50 dark:bg-emerald-900/10">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full overflow-hidden">
-                            {address && (
-                              <img 
-                                src={getAvatarUrl(address)} 
-                                alt="Avatar" 
-                                className="h-full w-full"
-                              />
-                            )}
+                            <AvatarWithFrame
+                              avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
+                              badgeTier={highestTier}
+                              size="sm"
+                            />
                           </div>
                           <div>
+                            {username && (
+                              <div className="text-sm font-semibold">
+                                <ColoredUsername username={username} badgeTier={highestTier} />
+                              </div>
+                            )}
                             <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center">
                               {formatAddress(address)}
                               <button
@@ -194,6 +369,40 @@ const Navbar: React.FC<NavbarProps> = ({
 
                       <div className="py-1">
                         <button
+                          onClick={() => handleNav("profile")}
+                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        >
+                          <FaIdCard className="text-emerald-500" size={14} />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Profile page</span>
+                        </button>
+
+                        <button 
+                          onClick={handleReferralNavigation}
+                          className="px-4 py-3 w-full flex justify-between items-center hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <FaGift className="text-emerald-500" size={14} />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Referral Rewards</span>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={handleOpenActivitySidebar}
+                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        >
+                          <FaHistory className="text-emerald-500" size={14} />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">On-chain activity</span>
+                        </button>
+
+                        <button
+                          onClick={handleOpenSettings}
+                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left"
+                        >
+                          <FaCog className="text-emerald-500" size={14} />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Settings</span>
+                        </button>
+
+                        <button
                           onClick={disconnectWallet}
                           className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors text-left"
                         >
@@ -208,13 +417,6 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             <div className="flex md:hidden items-center space-x-3">
-              {networkInfo && (
-                <div className="flex items-center px-2 py-1 rounded-full bg-gray-100/80 dark:bg-gray-800/80 text-xs text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 shadow-inner backdrop-blur-sm">
-                  <div className="mr-1 text-sm">{networkInfo.logo || '🔗'}</div>
-                  <span>{networkInfo.name}</span>
-                </div>
-              )}
-              
               <ThemeToggle />
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -250,17 +452,33 @@ const Navbar: React.FC<NavbarProps> = ({
                 <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/30 px-4 py-3 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full overflow-hidden">
-                      {address && (
-                        <img 
-                          src={getAvatarUrl(address)} 
-                          alt="Avatar" 
-                          className="h-full w-full"
-                        />
-                      )}
+                      <AvatarWithFrame
+                        avatarUrl={getAvatarUrl(address) || "/placeholder.svg"}
+                        badgeTier={highestTier}
+                        size="xs"
+                      />
                     </div>
-                    <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                      {formatAddress(address)}
-                    </span>
+                    {username ? (
+                      <ColoredUsername username={username} badgeTier={highestTier} className="text-sm" />
+                    ) : (
+                      <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                        {formatAddress(address)}
+                      </span>
+                    )}
+
+                    {highestTier >= 0 && (
+                      <span
+                        className="ml-1 text-xs px-1.5 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: getUsernameColor(highestTier)
+                            ? `${getUsernameColor(highestTier)}20`
+                            : undefined,
+                          color: getUsernameColor(highestTier) || undefined,
+                        }}
+                      >
+                        {getTierName(highestTier)}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={disconnectWallet}
@@ -269,11 +487,103 @@ const Navbar: React.FC<NavbarProps> = ({
                     <FaSignOutAlt className="h-4 w-4" />
                   </button>
                 </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => handleNav("dashboard")}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                      activeMenu === "dashboard"
+                        ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaHome className="h-5 w-5" />
+                      <span className="font-medium">Dashboard</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNav("mint")}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                      activeMenu === "mint"
+                        ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaMedal className="h-5 w-5" />
+                      <span className="font-medium">Mint Badges</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNav("leaderboard")}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                      activeMenu === "leaderboard"
+                        ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaTrophy className="h-5 w-5" />
+                      <span className="font-medium">Leaderboard</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleFaucetClick}
+                    className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaTint className="h-5 w-5" />
+                      <span className="font-medium">Faucet</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleNav("profile")}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                      activeMenu === "profile"
+                        ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaUser className="h-5 w-5" />
+                      <span className="font-medium">Profile</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleOpenActivitySidebar}
+                    className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaHistory className="h-5 w-5" />
+                      <span className="font-medium">On-chain Activity</span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleOpenSettings}
+                    className="flex items-center space-x-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FaCog className="h-5 w-5" />
+                      <span className="font-medium">Settings</span>
+                    </div>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {showActivitySidebar && address && <ActivitySidebar address={address} onClose={handleCloseActivitySidebar} />}
+
+      {showSettingsModal && <SettingsModal onClose={handleCloseSettings} />}
 
       {showCopyToast && (
         <div className="fixed bottom-4 right-4 z-50 animate-fade-in-up">

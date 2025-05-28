@@ -1,230 +1,802 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useWalletState } from '@/hooks/useWalletState';
-import FixedMultiChainCheckinGrid from '@/components/MultiChainCheckinGrid';
-import Notification from '@/components/Notification';
-import { 
-  FaInfoCircle, 
-  FaGlobe,
-  FaFlask,
-  FaLayerGroup
-} from 'react-icons/fa';
-import { getTotalCheckins } from '@/utils/web3';
-import { LOADING_STATES, getChainConfig } from '@/utils/constants';
-import { motion } from 'framer-motion';
-import AudioPlayer from '@/components/AudioPlayer';
+"use client"
 
-// Type definitions
-type NetworkTabType = 'all' | 'mainnet' | 'testnet';
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react"
+import { ethers, BigNumber } from "ethers"
+import { motion, AnimatePresence } from "framer-motion"
+import StatsCard from "@/components/StatsCard"
+import CountdownTimer from "@/components/CountdownTimer"
+import CheckinButton from "@/components/CheckinButton"
+import GMMessageList from "@/components/GMMessageList"
+import { useEthereumEvents } from "@/hooks/useEthereumEvents"
+import type { GMMessage, Web3State, CheckinStats } from "@/types"
+import { getUserHighestTier, getUserBadges } from "@/utils/badgeWeb3"
+import { connectWallet, getProvider, getContract, switchToTeaSepolia, getTotalCheckins } from "@/utils/web3"
+import { CHECKIN_FEE, TEA_SEPOLIA_CHAIN_ID } from "@/utils/constants"
+import {
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaInfoCircle,
+  FaTimes,
+  FaNetworkWired,
+  FaTrophy,
+  FaGem,
+  FaUser,
+} from "react-icons/fa"
+import AudioPlayer from "@/components/AudioPlayer"
+import useUserDataCombined from "@/hooks/useUserData"
+import Navbar from "@/components/Navbar"
 
-// SVG Patterns for animation
-const BlobPatternBottomLeft: React.FC = () => (
-  <div className="fixed bottom-0 left-0 w-64 h-64 -mb-32 -ml-32 opacity-10 dark:opacity-5 pointer-events-none z-0">
-    <motion.svg 
-      viewBox="0 0 200 200"
-      xmlns="http://www.w3.org/2000/svg"
-      initial={{ scale: 0.8, rotate: 0 }}
-      animate={{ 
-        scale: [0.8, 1.1, 0.8], 
-        rotate: [0, 10, 0] 
-      }}
-      transition={{ 
-        duration: 20, 
-        repeat: Infinity, 
-        ease: "easeInOut" 
-      }}
-    >
-      <path fill="#10b981" d="M44.5,-76.3C56.9,-69.1,65.8,-55.3,71.3,-41.1C76.8,-26.9,78.9,-12.1,76.5,1.4C74.1,14.9,67.1,27.2,58.1,37.8C49.1,48.4,38.2,57.2,25.8,63.5C13.5,69.8,-0.3,73.5,-14.2,71.5C-28.1,69.5,-42.1,61.8,-52.9,50.8C-63.8,39.9,-71.4,25.7,-75.6,9.7C-79.8,-6.3,-80.5,-24.1,-73.6,-38.4C-66.6,-52.6,-52,-63.4,-37.2,-69.7C-22.4,-76,-11.2,-78,2.9,-82.6C17,-87.2,32.1,-83.5,44.5,-76.3Z" transform="translate(100 100)" />
-    </motion.svg>
-  </div>
-);
+const LazyBadgeMintSection = lazy(() => import("@/components/BadgeMintSection"))
+const LazyLeaderboard = lazy(() => import("@/components/Leaderboard"))
+const LazyPointsLeaderboard = lazy(() => import("@/components/LeaderboardPoints"))
+const LazyProfileSection = lazy(() => import("@/components/profile/ProfilePage"))
 
-const SquigglyPatternTopRight: React.FC = () => (
-  <div className="fixed top-0 right-0 w-96 h-96 -mt-16 -mr-16 opacity-10 dark:opacity-5 pointer-events-none z-0 overflow-hidden">
-    <motion.svg 
-      viewBox="0 0 200 200" 
-      xmlns="http://www.w3.org/2000/svg"
-      initial={{ scale: 0.9, rotate: -10, y: -20 }}
-      animate={{ 
-        scale: [0.9, 1.2, 0.9], 
-        rotate: [-10, 5, -10],
-        y: [-20, 10, -20] 
-      }}
-      transition={{ 
-        duration: 25, 
-        repeat: Infinity, 
-        ease: "easeInOut",
-        times: [0, 0.5, 1]
-      }}
-    >
-      <path fill="#06b6d4" d="M31.9,-52.2C45.3,-45.7,62.3,-43.2,70.8,-33.5C79.2,-23.8,79.1,-6.9,75.3,8.5C71.5,23.9,64.1,37.9,53.3,47.8C42.4,57.8,28.2,63.7,13.2,68.3C-1.7,72.9,-17.4,76.1,-28.9,70.8C-40.4,65.6,-47.7,51.9,-54,38.6C-60.4,25.3,-65.8,12.7,-67.6,-1.1C-69.5,-14.8,-67.7,-29.7,-59.7,-40C-51.7,-50.2,-37.4,-56,-24.9,-62.2C-12.5,-68.4,-1.2,-75.1,7.4,-72.3C16,-69.5,18.6,-58.8,31.9,-52.2Z" transform="translate(100 100)" />
-    </motion.svg>
-  </div>
-);
+interface Notification {
+  id: string
+  message: string
+  type: "success" | "error" | "info" | "warning"
+}
 
-const CheckinPageIntegration: React.FC = () => {
-  // State management
-  const { 
-    web3State, 
-    connectWallet: rawConnectWallet, 
-    disconnectWallet, 
-    switchNetwork, 
-    isOnSupportedNetwork,
-    getCurrentChainInfo 
-  } = useWalletState();
-  
-  // Wrap connectWallet to return void instead of boolean
-  const connectWallet = useCallback(async (): Promise<void> => {
-    await rawConnectWallet();
-    // Return type is void
-  }, [rawConnectWallet]);
-  
-  const [totalGlobalCheckins, setTotalGlobalCheckins] = useState<number>(0);
-  const [userTotalCheckins, setUserTotalCheckins] = useState<number>(0);
-  const [loadingState, setLoadingState] = useState<string>(LOADING_STATES.IDLE);
-  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
-  const [lastCheckinChainId, setLastCheckinChainId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [showCheckinTutorial, setShowCheckinTutorial] = useState<boolean>(false);
-  
-  // New states for notifications and tabs
-  const [showSuccessNotification, setShowSuccessNotification] = useState<boolean>(false);
-  const [showErrorNotification, setShowErrorNotification] = useState<boolean>(false);
-  const [networkTab, setNetworkTab] = useState<NetworkTabType>('testnet');
+interface UserBadge {
+  tokenId: number
+  tier: number
+  mintedAt: number
+  transactionHash?: string
+}
 
-  // Fetch total checkins data
+type TabType = "dashboard" | "mint" | "leaderboard" | "profile"
+
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard")
+  const [loadedTabs, setLoadedTabs] = useState<TabType[]>(["dashboard"])
+  const [previousTab, setPreviousTab] = useState<TabType | null>(null); 
+  const mintSectionRef = useRef<HTMLDivElement>(null)
+  const leaderboardRef = useRef<HTMLDivElement>(null)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  const [web3State, setWeb3State] = useState<Web3State>({
+    isConnected: false,
+    address: null,
+    provider: null,
+    signer: null,
+    contract: null,
+    isLoading: false,
+    error: null,
+    chainId: null,
+  })
+
+  const [checkinStats, setCheckinStats] = useState<CheckinStats>({
+    userCheckinCount: 0,
+    timeUntilNextCheckin: 0,
+  })
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [messages, setMessages] = useState<GMMessage[]>([])
+  const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false)
+  const [isCheckinLoading, setIsCheckinLoading] = useState<boolean>(false)
+  const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false)
+  const [globalCheckinCount, setGlobalCheckinCount] = useState<number>(0)
+  const [isLoadingGlobalCount, setIsLoadingGlobalCount] = useState<boolean>(false)
+  const [userBadges, setUserBadges] = useState<UserBadge[]>([])
+  const { userData } = useUserDataCombined(web3State.address) 
+  const [leaderboardType, setLeaderboardType] = useState<"checkin" | "points">("checkin")
+  const [isForumOpen, setIsForumOpen] = useState(false)
+
+  const changeTab = (tab: TabType) => {
+    setPreviousTab(activeTab); 
+    setActiveTab(tab);
+
+    if (!loadedTabs.includes(tab)) {
+      setLoadedTabs((prev) => [...prev, tab]);
+    }
+    
+    window.dispatchEvent(
+      new CustomEvent('tabChanged', { 
+        detail: { 
+          tab: tab 
+        } 
+      })
+    );
+  }
+
+  const scrollToMintSection = useCallback(() => {
+    changeTab("mint")
+  }, [activeTab]) 
+
+  const scrollToLeaderboard = useCallback(() => {
+    changeTab("leaderboard")
+  }, [activeTab])
+
+  const scrollToProfile = useCallback(() => {
+    changeTab("profile")
+  }, [activeTab]) 
   useEffect(() => {
-    const fetchTotalCheckins = async (): Promise<void> => {
-      if (!web3State.isConnected || !web3State.contract) return;
-      
+    const savedPreference = localStorage.getItem("leaderboardPreference") || "checkin"
+    setLeaderboardType(savedPreference as "checkin" | "points")
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem("leaderboardPreference", leaderboardType)
+  }, [leaderboardType])
+
+  useEffect(() => {
+    const loadBadgeData = async () => {
+      if (web3State.address) {
+        try {
+          const badges = await getUserBadges(web3State.address)
+          setUserBadges(badges)
+          console.log("Loaded user badges in Home:", badges)
+        } catch (error) {
+          console.error("Error loading user badges in Home:", error)
+          setUserBadges([])
+        }
+      }
+    }
+
+    if (web3State.isConnected && web3State.address) {
+      loadBadgeData()
+    } else {
+      setUserBadges([]) 
+    }
+  }, [web3State.isConnected, web3State.address])
+
+  const addNotification = (message: string, type: "success" | "error" | "info" | "warning") => {
+    const id = Math.random().toString(36).substring(2, 9)
+    setNotifications((prev) => [...prev, { id, message, type }])
+
+    setTimeout(() => {
+      removeNotification(id)
+    }, 5000)
+  }
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }
+
+  const loadUserData = useCallback(async (address: string, contract: ethers.Contract) => {
+    try {
+      let count: number | BigNumber = 0
       try {
-        setLoadingState(LOADING_STATES.LOADING);
-        
-        // Get global checkin count
-        const totalCount = await getTotalCheckins(web3State.contract);
-        setTotalGlobalCheckins(totalCount);
-        
-        // Get user total checkins
-        if (web3State.address) {
+        count = await contract.getCheckinCount(address)
+      } catch (e) {
+        console.warn("Error calling getCheckinCount with address", e)
+        try {
+          const userDataVal = await contract.userCheckins(address)
+          if (userDataVal && userDataVal.checkinCount) {
+            count = userDataVal.checkinCount
+          }
+        } catch (mappingError) {
+          console.warn("Error accessing userCheckins mapping for count", mappingError)
+          count = 0
+        }
+      }
+
+      let timeRemaining: number | BigNumber = 0
+      try {
+        timeRemaining = await contract.timeUntilNextCheckin(address)
+      } catch (e) {
+        console.warn("Error calling timeUntilNextCheckin", e)
+        try {
+          const userDataVal = await contract.userCheckins(address)
+          if (userDataVal && userDataVal.lastCheckinTime) {
+            const lastCheckinTime = BigNumber.isBigNumber(userDataVal.lastCheckinTime)
+              ? userDataVal.lastCheckinTime.toNumber()
+              : Number(userDataVal.lastCheckinTime)
+
+            if (lastCheckinTime > 0) {
+              const nextCheckinTime = lastCheckinTime + 24 * 60 * 60
+              const currentTime = Math.floor(Date.now() / 1000)
+              if (currentTime < nextCheckinTime) {
+                timeRemaining = nextCheckinTime - currentTime
+              } else {
+                timeRemaining = 0
+              }
+            } else {
+              timeRemaining = 0
+            }
+          }
+        } catch (mappingError) {
+          console.warn("Error calculating timeRemaining from mapping", mappingError)
+          timeRemaining = 0
+        }
+      }
+
+      setCheckinStats({
+        userCheckinCount: BigNumber.isBigNumber(count) ? count.toNumber() : Number(count),
+        timeUntilNextCheckin: BigNumber.isBigNumber(timeRemaining) ? timeRemaining.toNumber() : Number(timeRemaining),
+      })
+    } catch (error) {
+      console.error("Error loading user data:", error)
+      setCheckinStats({
+        userCheckinCount: 0,
+        timeUntilNextCheckin: 0,
+      })
+    }
+  }, [])
+
+  const loadRecentMessages = useCallback(
+    async (contract: ethers.Contract) => {
+      try {
+        setIsLoadingMessages(true)
+        const cachedMessages = localStorage.getItem("gmtea_recentMessages")
+        let parsedMessages: GMMessage[] = []
+        let cacheValid = false
+
+        if (cachedMessages) {
           try {
-            const metrics = await web3State.contract.getNavigatorMetrics(web3State.address);
-            setUserTotalCheckins(metrics.crystalCount.toNumber());
-          } catch (error) {
-            console.error("Error getting user metrics:", error);
+            const parsed = JSON.parse(cachedMessages)
+            if (parsed.timestamp && Date.now() - parsed.timestamp < 10 * 60 * 1000) { 
+              parsedMessages = parsed.data
+              cacheValid = true
+              setMessages(parsedMessages)
+            }
+          } catch (e) {
+            console.warn("Error parsing cached messages:", e)
           }
         }
         
-        setLoadingState(LOADING_STATES.SUCCESS);
+        if (!cacheValid) setIsLoadingMessages(true); 
+
+        const messagesPromise = contract.getRecentGMs()
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Loading messages timeout")), 15000),
+        )
+
+        try {
+          const recentGMs = await Promise.race([messagesPromise, timeoutPromise]) as any[]; 
+          if (Array.isArray(recentGMs)) {
+            const formattedMessages = recentGMs.map((msg) => ({
+              user: msg.user,
+              timestamp: BigNumber.isBigNumber(msg.timestamp) ? msg.timestamp.toNumber() : Number(msg.timestamp || 0),
+              message: msg.message || "GM!",
+            })).sort((a,b) => b.timestamp - a.timestamp); 
+            setMessages(formattedMessages)
+            localStorage.setItem(
+              "gmtea_recentMessages",
+              JSON.stringify({ data: formattedMessages, timestamp: Date.now() }),
+            )
+          } else {
+            console.error("Invalid messages format received:", recentGMs);
+            if (!cacheValid) setMessages([]); 
+          }
+        } catch (error) {
+          console.error("Error loading fresh recent messages:", error)
+          if (!cacheValid) { 
+             if (web3State.isConnected) { 
+                setMessages([
+                    { user: "0x123...", timestamp: Math.floor(Date.now() / 1000) - 3600, message: "GM from the Tea community! 🍵 (fallback)" },
+                    { user: "0x098...", timestamp: Math.floor(Date.now() / 1000) - 7200, message: "Starting the day with a fresh cup of Tea! ☕ (fallback)" },
+                ]);
+             } else {
+                setMessages([]);
+             }
+          }
+        }
       } catch (error) {
-        console.error("Error fetching total checkins:", error);
-        setLoadingState(LOADING_STATES.ERROR);
+        console.error("Outer error in loadRecentMessages:", error)
+        setMessages([]) 
+      } finally {
+        setIsLoadingMessages(false)
       }
-    };
+    },
+    [web3State.isConnected], 
+  )
 
-    fetchTotalCheckins();
-  }, [web3State.isConnected, web3State.contract, web3State.address]);
+  
+  const loadGlobalCount = useCallback(async () => {
+    if (!web3State.contract) return
 
-  // Handle checkin success
-  const handleCheckinSuccess = useCallback((chainId: number, txHash: string): void => {
-    setLastTxHash(txHash);
-    setLastCheckinChainId(chainId);
-    setUserTotalCheckins(prev => prev + 1);
-    setTotalGlobalCheckins(prev => prev + 1);
-    setShowSuccessNotification(true);
-  }, []);
+    try {
+      setIsLoadingGlobalCount(true)
+      const count = await getTotalCheckins(web3State.contract)
+      if (count > 0) { 
+        setGlobalCheckinCount(count)
+      }
+    } catch (error) {
+      console.error("Error loading global check-in count:", error)
+    } finally {
+      setIsLoadingGlobalCount(false)
+    }
+  }, [web3State.contract])
 
-  // Handle error
-  const handleError = useCallback((errorMessage: string): void => {
-    setError(errorMessage);
-    setShowErrorNotification(true);
-  }, []);
+  const handleConnectWallet = useCallback(async () => {
+    if (web3State.isLoading) return
+    setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }))
+    try {
+      const result = await connectWallet() 
+      if (!result || !result.address || !result.signer || !result.provider || !result.chainId) {
+        throw new Error("Failed to connect: Essential properties missing")
+      }
+      const { signer, address, chainId, provider } = result;
+      const contract = getContract(signer)
+      setWeb3State({
+        isConnected: true, address, provider, signer, contract,
+        isLoading: false, error: null, chainId,
+      })
+      localStorage.setItem("walletConnected", "true")
+      localStorage.setItem("walletAddress", address)
+
+      if (chainId === TEA_SEPOLIA_CHAIN_ID) {
+        setShowNetworkAlert(false)
+        await Promise.all([loadUserData(address, contract), loadRecentMessages(contract)])
+      } else {
+        setShowNetworkAlert(true)
+      }
+    } catch (error: any) {
+      console.error("Error connecting wallet:", error)
+      setWeb3State((prev) => ({
+        ...prev, isConnected: false, isLoading: false,
+        error: error.message || "Failed to connect wallet",
+      }))
+      localStorage.removeItem("walletConnected")
+      localStorage.removeItem("walletAddress")
+    }
+  }, [web3State.isLoading, loadUserData, loadRecentMessages])
+
+  const handleDisconnectWallet = useCallback(() => {
+    setWeb3State({
+      isConnected: false, address: null, provider: null, signer: null, contract: null,
+      isLoading: false, error: null, chainId: null,
+    })
+    setCheckinStats({ userCheckinCount: 0, timeUntilNextCheckin: 0, })
+    setMessages([])
+    setShowNetworkAlert(false)
+    setUserBadges([]) 
+    localStorage.removeItem("walletConnected")
+    localStorage.removeItem("walletAddress")
+    console.log("Wallet disconnected")
+  }, [])
+
+  const handleCheckin = async (message: string) => {
+    if (!web3State.contract || !web3State.signer || !web3State.address) {
+        addNotification("Please connect your wallet first.", "warning");
+        return;
+    }
+    setIsCheckinLoading(true)
+    try {
+      const contractWithSigner = web3State.contract.connect(web3State.signer); 
+      const fee = ethers.utils.parseEther(CHECKIN_FEE);
+      let gasLimit;
+      try {
+        gasLimit = await contractWithSigner.estimateGas.checkIn(message, { value: fee });
+      } catch (gasError: any) {
+        console.error("Gas estimation failed:", gasError);
+        addNotification(gasError.reason || "Gas estimation failed. Try again.", "error");
+        setIsCheckinLoading(false);
+        return;
+      }
+      
+      const bufferedGasLimit = gasLimit.mul(120).div(100); 
+      addNotification("Sending your GM to the blockchain...", "info")
+      const tx = await contractWithSigner.checkIn(message, {
+        value: fee,
+        gasLimit: bufferedGasLimit,
+      })
+      console.log("Transaction sent:", tx.hash)
+      addNotification("Transaction sent! Waiting for confirmation...", "info")
+      await tx.wait()
+      console.log("Transaction confirmed")
+      addNotification("GM successfully posted! ☀️ Have a tea-riffic day!", "success")
+      await Promise.all([
+          loadUserData(web3State.address, web3State.contract), 
+          loadRecentMessages(web3State.contract),
+          loadGlobalCount() 
+      ]);
+
+    } catch (error: any) {
+      console.error("Error checking in:", error)
+      let errorMessage = "Failed to check in."
+      if (error.code === 4001) { 
+        errorMessage = "Transaction rejected by user."
+      } else if (error.reason) {
+        errorMessage = error.reason;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      addNotification(errorMessage, "error")
+    } finally {
+      setIsCheckinLoading(false)
+    }
+  }
+
+  const handleSwitchNetwork = useCallback(async () => {
+    setWeb3State((prev) => ({ ...prev, isLoading: true }))
+    try {
+      await switchToTeaSepolia() 
+      setShowNetworkAlert(false); 
+      await handleConnectWallet(); 
+    } catch (error) {
+      console.error("Error switching network:", error)
+      addNotification("Failed to switch network. Please do it manually in your wallet.", "error");
+      setWeb3State((prev) => ({ ...prev, isLoading: false }))
+    }
+  }, [handleConnectWallet])
+
+  useEffect(() => {
+    console.log("Home Web3State:", web3State);
+  }, [web3State])
+
+  useEffect(() => {
+    const checkPreviousConnection = async () => {
+      if (localStorage.getItem("walletConnected") === "true" && !web3State.isConnected && !web3State.isLoading) {
+        console.log("Attempting to reconnect previous wallet session...");
+        await handleConnectWallet();
+      }
+    }
+
+    const timer = setTimeout(checkPreviousConnection, 500); 
+    return () => clearTimeout(timer);
+  }, [handleConnectWallet, web3State.isConnected, web3State.isLoading]) 
+
+  useEffect(() => {
+    if (web3State.isConnected && web3State.signer && !web3State.contract) {
+      try {
+        const contractInstance = getContract(web3State.signer)
+        setWeb3State((prev) => ({ ...prev, contract: contractInstance, }))
+      } catch (error) {
+        console.error("Error re-initializing contract in Home:", error)
+      }
+    }
+  }, [web3State.isConnected, web3State.signer, web3State.contract])
+
+
+  useEthereumEvents({
+    accountsChanged: async (accounts) => {
+      console.log("Home: accountsChanged", accounts);
+      if (accounts.length === 0) {
+        handleDisconnectWallet()
+      } else if (web3State.address && accounts[0].toLowerCase() !== web3State.address.toLowerCase()) {
+        console.log("Account switched, reconnecting...");
+        await handleConnectWallet(); 
+      } else if (!web3State.address && accounts.length > 0) {
+        console.log("New account detected, connecting...");
+        await handleConnectWallet();
+      }
+    },
+    chainChanged: (chainIdHex) => {
+      console.log("Home: chainChanged to", chainIdHex, ". Reloading for consistency.");
+      window.location.reload(); 
+    },
+    disconnect: () => {
+      console.log("Home: disconnect event from provider");
+      handleDisconnectWallet()
+    },
+  })
+
+ 
+  useEffect(() => {
+    if (web3State.isConnected && web3State.address && web3State.contract) {
+      console.log("Setting up initial data load and refresh intervals in Home")
+      const loadAllInitialData = async () => {
+        await Promise.all([
+          loadUserData(web3State.address as string, web3State.contract as ethers.Contract),
+          loadRecentMessages(web3State.contract as ethers.Contract),
+          loadGlobalCount()
+        ]);
+      }
+      loadAllInitialData();
+
+      const userDataInterval = setInterval(() => {
+        if (web3State.address && web3State.contract) {
+          loadUserData(web3State.address, web3State.contract)
+          loadRecentMessages(web3State.contract)
+        }
+      }, 60000) 
+
+      const globalCountInterval = setInterval(() => {
+        if (web3State.contract) { 
+            loadGlobalCount()
+        }
+      }, 5 * 60 * 1000); 
+
+      return () => {
+        clearInterval(userDataInterval)
+        clearInterval(globalCountInterval)
+      }
+    }
+  }, [web3State.isConnected, web3State.address, web3State.contract, loadUserData, loadRecentMessages, loadGlobalCount])
+
+
+  useEffect(() => {
+    const handleNavigate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        changeTab(event.detail.tab as TabType)
+      }
+    }
+    window.addEventListener("navigate", handleNavigate as EventListener)
+    return () => {
+      window.removeEventListener("navigate", handleNavigate as EventListener)
+    }
+  }, [activeTab]) 
+
+  const tabVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? '100%' : '-100%',
+      opacity: 0,
+      rotate: direction > 0 ? 5 : -5,
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1,
+      rotate: 0,
+      transition: {
+        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        opacity: { duration: 0.45, ease: "easeOut" },
+        rotate: { duration: 0.5, ease: "easeOut" },
+      },
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? '100%' : '-100%',
+      opacity: 0,
+      rotate: direction < 0 ? -5 : 5,
+      transition: {
+        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        opacity: { duration: 0.35, ease: "easeIn" },
+        rotate: { duration: 0.4, ease: "easeIn" },
+      },
+    }),
+  };
+
+  const getDirection = (current: TabType, previous: TabType | null): number => {
+    if (!previous || previous === current) return 1; 
+    const tabOrder: TabType[] = ["dashboard", "mint", "leaderboard", "profile"];
+    const currentIndex = tabOrder.indexOf(current);
+    const previousIndex = tabOrder.indexOf(previous);
+    if (currentIndex === -1 || previousIndex === -1) return 1; 
+    return currentIndex > previousIndex ? 1 : -1;
+  };
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-cyan-50/70 dark:from-emerald-800 dark:via-gray-900 dark:to-black relative overflow-hidden">
-      <BlobPatternBottomLeft />
-      <SquigglyPatternTopRight />
-      <AudioPlayer />
-      
-      {/* Success Notification */}
-      <Notification
-        isOpen={showSuccessNotification}
-        onClose={() => setShowSuccessNotification(false)}
-        type="success"
-        title="GM Sent Successfully!"
-        message="Your daily GM has been recorded on the blockchain. Keep coming back daily to increase your crystal balance."
-        txHash={lastTxHash}
-        chainId={lastCheckinChainId}
+    <div className="min-h-screen tea-leaf-pattern">
+      <Navbar
+        address={web3State.address}
+        connectWallet={handleConnectWallet}
+        disconnectWallet={handleDisconnectWallet}
+        isConnecting={web3State.isLoading}
+        scrollToLeaderboard={scrollToLeaderboard}
+        scrollToMintSection={scrollToMintSection}
       />
-      
-      {/* Error Notification */}
-      <Notification
-        isOpen={showErrorNotification}
-        onClose={() => setShowErrorNotification(false)}
-        type="error"
-        title="Operation Failed"
-        message={error || "An unknown error occurred. Please try again."}
-      />
-      
-      {/* Main Content */}
-      <div className="pt-32 max-w-7xl mx-auto px-4 py-6 relative z-10">
-        <div className="flex justify-center mb-8">
-          <div className="flex bg-white dark:bg-gray-800/80 px-2 py-1 rounded-full backdrop-blur-sm shadow-md">
-            <button
-              onClick={() => setNetworkTab('all')}
-              className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all duration-300 ${
-                networkTab === 'all' 
-                  ? 'bg-emerald-100/70 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm transform scale-105' 
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/30 dark:hover:bg-gray-700/30'
-              }`}
-            >
+
+      <main className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {showNetworkAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-6 rounded-xl overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-yellow-500/90 to-amber-500/90 backdrop-blur-md p-4 border-l-4 border-yellow-600 shadow-xl">
               <div className="flex items-center">
-                <FaLayerGroup className="mr-2 h-4 w-4" />
-                All
+                <div className="flex-shrink-0">
+                  <FaNetworkWired className="h-5 w-5 text-white" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm text-white">
+                    Please switch to the Tea Sepolia Testnet to continue using this application.
+                  </p>
+                </div>
+                <div>
+                  <button
+                    onClick={handleSwitchNetwork}
+                    disabled={web3State.isLoading}
+                    className="px-4 py-1.5 rounded-lg bg-white text-yellow-700 text-sm font-medium hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-all shadow-md"
+                  >
+                    {web3State.isLoading ? "Switching..." : "Switch Network"}
+                  </button>
+                </div>
               </div>
-            </button>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="relative overflow-visible"> 
+          <AnimatePresence initial={false} mode="wait" custom={getDirection(activeTab, previousTab)}>
+            {activeTab === "dashboard" && (
+              <motion.div
+                key="dashboard"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-5 space-y-6">
+                     <StatsCard 
+                        address={web3State.address}
+                        timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
+                      />
+                    <CountdownTimer
+                      initialSeconds={checkinStats.timeUntilNextCheckin}
+                      onComplete={() => {
+                        if (web3State.address && web3State.contract) {
+                          loadUserData(web3State.address, web3State.contract)
+                        }
+                      }}
+                    />
+                    <CheckinButton
+                      canCheckin={checkinStats.timeUntilNextCheckin <= 0 && web3State.isConnected}
+                      onCheckin={handleCheckin}
+                      isLoading={isCheckinLoading}
+                    />
+                  </div>
+                  <div className="lg:col-span-7">
+                    <GMMessageList
+                      messages={messages}
+                      isLoading={isLoadingMessages}
+                      onRefresh={() => web3State.contract && loadRecentMessages(web3State.contract)}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === "mint" && loadedTabs.includes("mint") && (
+              <motion.div
+                key="mint"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={mintSectionRef} className="badge-mint-section" data-section="badge-mint">
+                 <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Badge Minting...</div>}>
+                      <LazyBadgeMintSection
+                        address={web3State.address || ""}
+                        signer={web3State.signer}
+                        badges={userBadges}
+                        onMintComplete={async () => {
+                          if (web3State.contract && web3State.address) {
+                            loadGlobalCount();
+                            await loadUserData(web3State.address, web3State.contract);
+                            const updatedBadges = await getUserBadges(web3State.address);
+                            setUserBadges(updatedBadges);
+                            window.dispatchEvent(new CustomEvent("badgeUpdate", { detail: { badges: updatedBadges }}));
+                            await loadRecentMessages(web3State.contract);
+                          }
+                        }}
+                      />
+                    </Suspense>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === "leaderboard" && loadedTabs.includes("leaderboard") && (
+              <motion.div
+                key="leaderboard"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={leaderboardRef} className="" id="leaderboard-section" data-section="leaderboard">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="inline-flex rounded-lg border border-emerald-200 dark:border-emerald-700 bg-white dark:bg-black/70 backdrop-blur-md shadow-sm p-1">
+                      <button
+                        onClick={() => setLeaderboardType("checkin")}
+                        className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
+                          leaderboardType === "checkin" ? "bg-emerald-500 text-white shadow-md" : "text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-700"
+                        }`}
+                      > <FaCheckCircle className="mr-1.5 h-3.5 w-3.5 inline-block" /> Check-ins </button>
+                      <button
+                        onClick={() => setLeaderboardType("points")}
+                        className={`px-4 py-2 text-sm rounded-md transition-all duration-200 ${
+                          leaderboardType === "points" ? "bg-emerald-500 text-white shadow-md" : "text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-gray-700"
+                        }`}
+                      > <FaGem className="mr-1.5 h-3.5 w-3.5 inline-block" /> Points </button>
+                    </div>
+                  </div>
+                  <div className="relative overflow-visible">
+                    <AnimatePresence mode="wait">
+                       <motion.div
+                          key={leaderboardType}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          {leaderboardType === "checkin" ? (
+                            <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Check-in Leaderboard...</div>}>
+                              <LazyLeaderboard currentUserAddress={web3State.address} />
+                            </Suspense>
+                          ) : (
+                            <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Points Leaderboard...</div>}>
+                              <LazyPointsLeaderboard currentUserAddress={web3State.address} contract={web3State.contract} />
+                            </Suspense>
+                          )}
+                       </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             
-            <button
-              onClick={() => setNetworkTab('mainnet')}
-              className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all duration-300 ${
-                networkTab === 'mainnet' 
-                  ? 'bg-emerald-100/70 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm transform scale-105' 
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/30 dark:hover:bg-gray-700/30'
-              }`}
-            >
-              <div className="flex items-center">
-                <FaGlobe className="mr-2 h-4 w-4" />
-                Mainnet
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setNetworkTab('testnet')}
-              className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all duration-300 ${
-                networkTab === 'testnet' 
-                  ? 'bg-emerald-100/70 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm transform scale-105' 
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/30 dark:hover:bg-gray-700/30'
-              }`}
-            >
-              <div className="flex items-center">
-                <FaFlask className="mr-2 h-4 w-4" />
-                Testnet
-              </div>
-            </button>
-          </div>
+            {activeTab === "profile" && loadedTabs.includes("profile") && (
+               <motion.div
+                key="profile"
+                custom={getDirection(activeTab, previousTab)}
+                variants={tabVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="w-full" 
+              >
+                <div ref={profileRef} className="mt-4 pt-4" id="profile-section" data-section="profile">
+                  <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Profile...</div>}>
+                    <LazyProfileSection /> 
+                  </Suspense>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        
-        {/* Main Checkin Grid */}
-        <FixedMultiChainCheckinGrid
-          isConnected={web3State.isConnected}
-          currentChainId={web3State.chainId}
-          address={web3State.address}
-          signer={web3State.signer}
-          provider={web3State.provider}
-          onCheckinSuccess={handleCheckinSuccess}
-          networkType={networkTab}
-        />
+       
+
+        <AudioPlayer initialVolume={0.3} />
+      </main>
+
+      {/* Notification container */}
+      <div className="fixed bottom-4 right-4 z-50 w-full max-w-md space-y-3 flex flex-col items-end">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`w-full rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${
+              notification.type === "success"
+                ? "bg-emerald-50 dark:bg-emerald-900/30 border-l-4 border-emerald-500"
+                : notification.type === "error"
+                  ? "bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500"
+                  : notification.type === "info"
+                    ? "bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500"
+                    : "bg-orange-50 dark:bg-orange-900/30 border-l-4 border-orange-500"
+            }`}
+          >
+            <div className="p-4 flex">
+              <div className="flex-shrink-0">
+                {notification.type === "success" && <FaCheckCircle className="h-5 w-5 text-emerald-500" />}
+                {notification.type === "error" && <FaExclamationCircle className="h-5 w-5 text-red-500" />}
+                {notification.type === "info" && <FaInfoCircle className="h-5 w-5 text-blue-500" />}
+                {notification.type === "warning" && <FaExclamationCircle className="h-5 w-5 text-orange-500" />}
+              </div>
+              <div className="ml-3 flex-1"> 
+                <p
+                  className={`text-sm font-medium ${
+                    notification.type === "success"
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : notification.type === "error"
+                        ? "text-red-700 dark:text-red-300"
+                        : notification.type === "info"
+                          ? "text-blue-700 dark:text-blue-300"
+                          : "text-orange-700 dark:text-orange-300"
+                  }`}
+                >
+                  {notification.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeNotification(notification.id)}
+                className="ml-4 inline-flex text-gray-400 focus:outline-none focus:text-gray-500 rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <FaTimes className="h-4 w-4" />
+              </button>
+            </div>
+            
+            {/* Progress bar */}
+            <div className={`h-1 ${
+                notification.type === "success" ? "bg-emerald-500 dark:bg-emerald-600" :
+                notification.type === "error" ? "bg-red-500 dark:bg-red-600" :
+                notification.type === "info" ? "bg-blue-500 dark:bg-blue-600" :
+                "bg-orange-500 dark:bg-orange-600"
+            } animate-[progress_5s_linear_forwards]`}></div>
+          </div>
+        ))}
       </div>
     </div>
-  );
-};
-
-export default CheckinPageIntegration;
+  )
+}

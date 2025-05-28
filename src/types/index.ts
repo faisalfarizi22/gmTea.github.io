@@ -1,90 +1,58 @@
-import { ethers } from "ethers";
+export interface GMMessage {
+  user: string;
+  timestamp: number;
+  message: string;
+}
 
-// Web3 State Interface
+export interface UserCheckin {
+  lastCheckinTime: number;
+  checkinCount: number;
+}
+
 export interface Web3State {
   isConnected: boolean;
   address: string | null;
-  provider: ethers.providers.Web3Provider | null;
-  signer: ethers.Signer | null;
-  contract: ethers.Contract | null;
+  provider: any;
+  signer: any;
+  contract: any;
   isLoading: boolean;
   error: string | null;
   chainId: number | null;
 }
 
-// Checkin Stats Interface
 export interface CheckinStats {
+  userCheckinCount: number;
   timeUntilNextCheckin: number;
-  lastCheckinTime?: number;
-  totalCheckins?: number;
-  canCheckin?: boolean;
 }
 
-// Chain Configuration Interface
-export interface ChainConfig {
-  chainId: string;
-  chainName: string;
-  nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-  rpcUrls: string[];
-  blockExplorerUrls: string[];
-  contractAddress: string;
-  logo: string;
-  status: string;
+// Profile related types
+export interface ProfileProps {
+  address: string | null;
+  checkinCount: number;
+  leaderboardRank: number;
+  leaderboardPoints: number;
+  isLoading?: boolean;
 }
 
-// Navigation Event Interface
-export interface NavigationEvent {
-  tab: string;
-  subtab?: string;
-}
-
-// Audio Player State Interface
-export interface AudioState {
-  isPlaying: boolean;
-  volume: number;
-  isMuted: boolean;
-  currentTrack: number;
-  isVisible: boolean;
-}
-
-// Ambient Sound Configuration
-export interface AmbientSound {
+export interface Achievement {
+  id: string;
   name: string;
   description: string;
+  isUnlocked: boolean;
+  progress?: number;
+  total?: number;
   icon: string;
-  frequency: number;
-  type: OscillatorType;
 }
 
-// Theme Type
-export type Theme = 'light' | 'dark';
-
-// Notification Interface
-export interface Notification {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  duration?: number;
-}
-
-// Contract Transaction Response
-export interface ContractTransactionResponse {
-  hash: string;
-  wait: () => Promise<ethers.providers.TransactionReceipt>;
-}
-
-// Navigator Metrics from Smart Contract
-export interface NavigatorMetrics {
-  lastBeacon: ethers.BigNumber;
-  crystalCount: ethers.BigNumber;
-  nextResetTime: ethers.BigNumber;
-  canActivate: boolean;
-  currentStreak: ethers.BigNumber;
-  maxStreak: ethers.BigNumber;
-  firstBeaconDay: ethers.BigNumber;
-  totalDaysActive: ethers.BigNumber;
+export interface UserProfile {
+  address: string;
+  username: string;
+  checkinCount: number;
+  leaderboardRank: number;
+  leaderboardPoints: number;
+  referralCount: number;
+  tier: string;
+  level: number;
+  achievements: Achievement[];
+  lastCheckin?: number;
 }

@@ -44,65 +44,51 @@ const Footer: React.FC<FooterProps> = ({
     setExpandedSection(expandedSection === id ? null : id);
   };
 
-  // Handle navigation
   const handleNav = (menu: string) => {
     if (menu === "dashboard") {
-      // If already on home page, scroll to top smoothly
       if (router.pathname === "/") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
-        // Navigate to home page and then scroll to top
         router.push("/").then(() => {
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
       }
     } else if (menu === "leaderboard") {
-      // Navigate to home if not there, then scroll to leaderboard
       if (router.pathname !== "/") {
         router.push("/").then(() => {
           if (scrollToLeaderboard) {
             setTimeout(() => {
               scrollToLeaderboard();
-            }, 500); // Increased timeout for better reliability
+            }, 500);
           } else {
-            // Fallback ke implementasi lokal jika prop tidak tersedia
             setTimeout(() => {
               scrollToLeaderboardSection();
             }, 500);
           }
         });
       } else if (scrollToLeaderboard) {
-        // If already on home page, scroll directly to leaderboard
         scrollToLeaderboard();
       } else {
-        // Fallback ke implementasi lokal jika prop tidak tersedia
         scrollToLeaderboardSection();
       }
     } else if (menu === "profile") {
-      // Navigate to profile page
       router.push("/profile");
     } else if (menu === "mint") {
-      // If on home page, scroll to mint section with smooth behavior
       if (router.pathname === "/") {
-        // Use the scrollToMintSection function as the primary method
         if (scrollToMintSection) {
           scrollToMintSection();
         } else {
-          // Fallback to direct element selection if function not available
           scrollToBadgeSection();
         }
       } else {
-        // Navigate to home page then scroll to mint section
         router.push("/").then(() => {
-          // Use a longer timeout to ensure the page is fully loaded
           setTimeout(() => {
             if (scrollToMintSection) {
               scrollToMintSection();
             } else {
-              // Fallback to direct element selection
               scrollToBadgeSection();
             }
-          }, 600); // Increased timeout for more reliable scrolling after navigation
+          }, 600);
         });
       }
     }
@@ -132,7 +118,7 @@ const Footer: React.FC<FooterProps> = ({
     }
 
     if (badgeSection) {
-      const navbarHeight = 80; // Approximate height of navbar
+      const navbarHeight = 80;
       const badgeSectionPosition = badgeSection.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
       
       window.scrollTo({
@@ -193,7 +179,7 @@ const Footer: React.FC<FooterProps> = ({
     }
   
     if (leaderboardSection) {
-      const navbarHeight = 80; // Approximate height of navbar
+      const navbarHeight = 80;
       const leaderboardPosition = leaderboardSection.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
       
       window.scrollTo({
@@ -203,7 +189,6 @@ const Footer: React.FC<FooterProps> = ({
     }
   };
 
-  // Contract information for Tea Protocol
   const contracts = [
     {
       id: 'main',
@@ -239,20 +224,16 @@ const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer className="relative bg-gradient-to-b from-emerald-900/90 to-black overflow-hidden py-16">
-      {/* Background elements */}
       <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-repeat opacity-5 pointer-events-none"></div>
       
-      {/* Glowing elements */}
       <div className="absolute top-20 right-20 w-64 h-64 rounded-full bg-emerald-500/20 blur-xl animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-40 left-20 w-80 h-80 rounded-full bg-emerald-600/10 blur-xl animate-pulse pointer-events-none"></div>
       
-      {/* Footer top border */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"></div>
       <div className="absolute top-1 left-0 w-full h-px bg-emerald-400/20"></div>
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 text-white/90">
-          {/* Logo and main info section - Column 1 */}
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -305,7 +286,6 @@ const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
           
-          {/* Resources - Column 2 */}
           <div className="lg:ml-auto">
             <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
               Resources
@@ -350,7 +330,6 @@ const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
           
-          {/* Tea Protocol Contracts - Column 3 */}
           <div>
             <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
               Tea Protocol Contracts
@@ -427,7 +406,6 @@ const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
           
-          {/* Community Stats - Column 4 (moved from being nested) */}
           <div>
             <h4 className="text-emerald-400 font-semibold mb-6 relative inline-block">
               Community Stats
@@ -457,14 +435,10 @@ const Footer: React.FC<FooterProps> = ({
           </div>
         </div>
         
-        {/* Footer Bottom Section */}
         <div className="mt-16 relative">
-          {/* Futuristic glowing separator with moving light effect */}
           <div className="flex-1 relative h-px w-full mb-8">
-            {/* Base gradient line */}
             <div className="h-px bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-70"></div>
             
-            {/* Moving light effect - persis seperti contoh */}
             <div 
               className="absolute top-0 h-px w-20 animate-gradient-x" 
               style={{
@@ -475,9 +449,7 @@ const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
           
-          {/* Footer content grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center py-4">
-            {/* Left - Logo and social */}
             <div className="flex flex-col items-center md:items-start space-y-3">
               <div className="flex items-center space-x-2">
                 <div className="relative">
@@ -490,20 +462,17 @@ const Footer: React.FC<FooterProps> = ({
               </div>
             </div>
             
-            {/* Middle - Copyright with animated accent */}
             <div className="flex flex-col items-center">
               <div className="relative">
                 <div className="text-gray-400 text-sm">© 2025 GM TEA. All rights reserved.</div>
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-px bg-emerald-400 animate-pulse-width"></div>
               </div>
               
-              {/* Testnet badge */}
               <div className="mt-2 px-2 py-0.5 rounded-full bg-emerald-900/30 border border-emerald-700/20 text-emerald-400 text-xs font-medium">
                 Tea Protocol Testnet
               </div>
             </div>
             
-            {/* Right - links with hover effects */}
             <div className="flex justify-center md:justify-end gap-6">
               <div className="text-gray-400 hover:text-emerald-300 text-sm transition-colors cursor-pointer relative group">
                 Terms

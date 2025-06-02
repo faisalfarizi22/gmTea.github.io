@@ -1,4 +1,3 @@
-// hooks/useWalletState.ts
 import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { 
@@ -32,20 +31,17 @@ export function useWalletState() {
     chainId: null,
   });
 
-  // Cek koneksi wallet pada awal load
   useEffect(() => {
     const checkConnection = async () => {
       const wasConnected = localStorage.getItem("walletConnected") === "true";
       const storedAddress = localStorage.getItem("walletAddress");
       
       if (wasConnected && storedAddress) {
-        // Check if wallet is still connected
         const isStillConnected = await checkWalletConnected();
         
         if (isStillConnected) {
           handleConnectWallet();
         } else {
-          // Clean up localStorage if wallet is not connected anymore
           localStorage.removeItem("walletConnected");
           localStorage.removeItem("walletAddress");
         }
@@ -62,12 +58,10 @@ export function useWalletState() {
       console.log("Connecting wallet...");
       setWeb3State((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // Reset any blockchain errors
       if (typeof resetBlockchainErrorState === 'function') {
         resetBlockchainErrorState();
       }
 
-      // Use the existing connectWallet function from utils/web3.ts
       const result = await connectWallet();
 
       if (!result || !result.address) {
@@ -77,7 +71,6 @@ export function useWalletState() {
       const { signer, address, chainId, provider } = result;
       const contract = getContract(signer);
 
-      // Update state
       setWeb3State({
         isConnected: true,
         address,
@@ -89,7 +82,6 @@ export function useWalletState() {
         chainId,
       });
 
-      // Store connection info in localStorage
       localStorage.setItem("walletConnected", "true");
       localStorage.setItem("walletAddress", address);
 
@@ -105,7 +97,6 @@ export function useWalletState() {
         error: error.message || "Failed to connect wallet",
       }));
 
-      // Clear any stored connection data
       localStorage.removeItem("walletConnected");
       localStorage.removeItem("walletAddress");
       return false;
@@ -113,7 +104,6 @@ export function useWalletState() {
   }, [web3State.isLoading]);
 
   const handleDisconnectWallet = useCallback(() => {
-    // Reset web3 state
     setWeb3State({
       isConnected: false,
       address: null,
@@ -125,7 +115,6 @@ export function useWalletState() {
       chainId: null,
     });
 
-    // Clear local storage
     localStorage.removeItem("walletConnected");
     localStorage.removeItem("walletAddress");
 
@@ -136,10 +125,8 @@ export function useWalletState() {
     try {
       setWeb3State((prev) => ({ ...prev, isLoading: true }));
       
-      // Use the existing switchToTeaSepolia function
       await switchToTeaSepolia();
       
-      // Reconnect wallet after network switch
       await handleConnectWallet();
       
       return true;

@@ -1,4 +1,3 @@
-// components/user/AvatarWithFrame.tsx
 import React from "react";
 import { getAvatarFrame } from "@/utils/socialBenefitsUtils";
 
@@ -15,7 +14,6 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
   size = "md",
   className = ""
 }) => {
-  // Gunakan try-catch untuk menangani error
   try {
     const avatarFrame = getAvatarFrame(badgeTier);
     
@@ -28,7 +26,6 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
     
     return (
       <div className={`relative ${className}`}>
-        {/* Avatar image */}
         <div className="rounded-full overflow-hidden w-full h-full">
           <img 
             src={avatarUrl}
@@ -37,7 +34,6 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
           />
         </div>
         
-        {/* Frame overlay - only shown for Rare tier and above */}
         {avatarFrame && (
           <div className={`absolute inset-0 pointer-events-none ${avatarFrame.isAnimated ? "animate-none" : ""}`}>
             <img 
@@ -45,7 +41,6 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
               alt="Avatar frame" 
               className="w-100px h-100px"
               onError={(e) => {
-                // Jika gambar frame gagal dimuat, sembunyikan elemen
                 e.currentTarget.style.display = 'none';
               }}
             />
@@ -55,7 +50,6 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
     );
   } catch (error) {
     console.error("Error rendering AvatarWithFrame:", error);
-    // Fallback rendering jika terjadi error
     return (
       <div className={`relative ${className}`}>
         <div className="rounded-full overflow-hidden w-full h-full">

@@ -23,11 +23,9 @@ import { getUserSocialBenefits } from "@/utils/socialBenefitsUtils"
 import type { UserSocialBenefits } from "@/types/user"
 import { useWalletState } from "@/hooks/useWalletState"
 
-// Type for the active tab
 type ActiveTab = "overview" | "badges" | "achievements" | "referrals" | "benefits"
 
 export default function ProfilePage() {
-  // Get current account using ThirdWeb
   const { web3State, connectWallet, disconnectWallet, switchNetwork } = useWalletState()
 
   const { address, signer, provider, isConnected, isLoading: isWalletConnecting, chainId: walletChainId } = web3State
@@ -36,7 +34,6 @@ export default function ProfilePage() {
     await connectWallet()
   }
 
-  // UI state
   const [showNetworkAlert, setShowNetworkAlert] = useState<boolean>(false)
   const [showUsernameModal, setShowUsernameModal] = useState<boolean>(false)
   const [showPointsBreakdown, setShowPointsBreakdown] = useState<boolean>(false)
@@ -52,10 +49,8 @@ export default function ProfilePage() {
     profileBackground: null,
   })
 
-  // Get notifications hook
   const { notifications, addNotification, removeNotification } = useNotifications()
 
-  // Use userData from database
   const {
     userData,
     badges,
@@ -66,7 +61,6 @@ export default function ProfilePage() {
     refetch: refreshUserData,
   } = useUserDataCombined(address)
 
-  // Connect wallet function
   const handleConnectWallet = useCallback(async () => {
     try {
       await connectWallet()
@@ -76,21 +70,17 @@ export default function ProfilePage() {
     }
   }, [connectWallet, addNotification])
 
-  // Disconnect wallet function
   const handleDisconnectWallet = useCallback(() => {
-    // Reset UI state
     setShowNetworkAlert(false)
     setShowUsernameModal(false)
     setShowPointsBreakdown(false)
 
-    // Clear local storage
     localStorage.removeItem("walletConnected")
     localStorage.removeItem("walletAddress")
 
     console.log("Wallet disconnected")
   }, [])
 
-  // Switch network function
   const handleSwitchNetwork = useCallback(async () => {
     try {
       setIsConnecting(true)
@@ -98,7 +88,6 @@ export default function ProfilePage() {
       await switchToTeaSepolia()
       setShowNetworkAlert(false)
 
-      // Reconnect with correct network
       await handleConnectWallet()
     } catch (error) {
       console.error("Error switching network:", error)
@@ -110,9 +99,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const handleNavigate = (event: CustomEvent) => {
       if (event.detail && event.detail.tab) {
-        // If navigating to the profile page
         if (event.detail.tab === "profile") {
-          // If a specific subtab is specified
           if (event.detail.subtab) {
             setActiveTab(event.detail.subtab as ActiveTab);
           }
@@ -126,7 +113,6 @@ export default function ProfilePage() {
     };
   }, []);
 
-  // Attempt to reconnect wallet on page load
   useEffect(() => {
     const checkPreviousConnection = async () => {
       try {
@@ -159,7 +145,6 @@ export default function ProfilePage() {
     return () => clearTimeout(timer)
   }, [handleConnectWallet, address, isConnecting])
 
-  // Use Ethereum Events hook
   useEthereumEvents({
     accountsChanged: (accounts) => {
       if (accounts.length === 0) {
@@ -176,7 +161,6 @@ export default function ProfilePage() {
     },
   })
 
-  // Debug log for signer in ProfilePage
   useEffect(() => {
     console.log("ProfilePage - signer status:", !!signer)
 
@@ -192,11 +176,9 @@ export default function ProfilePage() {
     }
   }, [signer])
 
-  // Set up refresh interval for user data
   useEffect(() => {
     if (!address) return
 
-    // Set up refresh interval - update every 2 minutes
     const refreshInterval = setInterval(() => {
       if (address && !isLoadingUserData) {
         refreshUserData()
@@ -206,23 +188,18 @@ export default function ProfilePage() {
     return () => clearInterval(refreshInterval)
   }, [address, refreshUserData, isLoadingUserData])
 
-  // Update social benefits when highest tier changes
   useEffect(() => {
     if (userData) {
       setSocialBenefits(getUserSocialBenefits(userData.highestBadgeTier))
     }
   }, [userData])
 
-  // Handle username registration completion
   const handleRegistrationComplete = async () => {
-    // Refresh user data to update username status
     refreshUserData()
 
-    // Hide username modal
     setShowUsernameModal(false)
   }
 
-  // Copy address to clipboard
   const copyAddressToClipboard = () => {
     if (address) {
       navigator.clipboard.writeText(address)
@@ -230,20 +207,16 @@ export default function ProfilePage() {
     }
   }
 
-  // Handle referral rewards claim completion
   const handleRewardsClaimComplete = () => {
-    // Refresh user data after claiming rewards
     refreshUserData()
     addNotification("Rewards claimed successfully!", "success")
   }
 
-  // Check if user has a referrer
   const hasReferrer = userData?.referrer ? true : false
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black/90  text-gray-800 dark:text-emerald-50">
       <main className=" pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Network alert */}
         {walletChainId && walletChainId !== TEA_SEPOLIA_CHAIN_ID && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -273,7 +246,6 @@ export default function ProfilePage() {
           </motion.div>
         )}
 
-        {/* Main Profile Content */}
         {!address || isLoadingUserData ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="relative w-20 h-20">
@@ -298,7 +270,6 @@ export default function ProfilePage() {
             transition={{ duration: 0.5 }}
             className="space-y-8"
           >
-            {/* Profile Header */}
             <ProfileHeader
               address={address}
               username={userData?.username || null}
@@ -309,7 +280,6 @@ export default function ProfilePage() {
               copyAddressToClipboard={copyAddressToClipboard}
             />
 
-            {/* Tab navigation */}
             <div className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl overflow-hidden border border-gray-200 dark:border-emerald-500/20 shadow-lg">
               <ProfileTabs
                 activeTab={activeTab}
@@ -320,7 +290,6 @@ export default function ProfilePage() {
               />
 
               <div className="p-6">
-                {/* Tab content */}
                 {activeTab === "overview" && address && (
                   <OverviewTab
                     address={address}
@@ -330,7 +299,7 @@ export default function ProfilePage() {
                     userBadges={badges}
                     setShowPointsBreakdown={setShowPointsBreakdown}
                     setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
-                    activeBenefits={[]} // Can be computed based on tier
+                    activeBenefits={[]}
                   />
                 )}
 
@@ -367,7 +336,6 @@ export default function ProfilePage() {
           </motion.div>
         )}
 
-        {/* Username Registration Modal */}
         {showUsernameModal && address && (
           <UsernameModal
             address={address}
@@ -377,7 +345,6 @@ export default function ProfilePage() {
             onRegistrationComplete={handleRegistrationComplete}
           />
         )}
-        {/* Points Breakdown Modal */}
         {showPointsBreakdown && address && userData && (
           <PointsBreakdownModal
             onClose={() => setShowPointsBreakdown(false)}
@@ -390,10 +357,8 @@ export default function ProfilePage() {
 
       </main>
 
-      {/* Notifications */}
       <ProfileNotifications notifications={notifications} removeNotification={removeNotification} />
 
-      {/* Custom animation styles */}
       <style jsx global>{`
         @keyframes float {
           0% { transform: translateY(0px); }
@@ -427,7 +392,6 @@ export default function ProfilePage() {
           scrollbar-width: none;
         }
         
-        /* CSS for modal blur fix */
         @supports (transform: translateZ(0)) {
           .modal-container {
             transform: translateZ(0);

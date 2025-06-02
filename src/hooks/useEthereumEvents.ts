@@ -10,13 +10,9 @@ interface EthereumEventMap {
   message: (message: { type: string; data: unknown }) => void;
 }
 
-/**
- * Hook to properly handle Ethereum provider events
- */
 export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
   const callbacksRef = useRef(eventCallbacks);
   
-  // Update ref when callbacks change
   useEffect(() => {
     callbacksRef.current = eventCallbacks;
   }, [eventCallbacks]);
@@ -30,7 +26,6 @@ export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
       return;
     }
     
-    // Create stable event handlers that reference the latest callbacks
     const handlers = {
       accountsChanged: (accounts: string[]) => {
         console.log('accountsChanged event:', accounts);
@@ -54,12 +49,10 @@ export function useEthereumEvents(eventCallbacks: Partial<EthereumEventMap>) {
       },
     };
     
-    // Register all event handlers
     Object.entries(handlers).forEach(([event, handler]) => {
       ethereum.on(event, handler);
     });
     
-    // Cleanup function
     return () => {
       Object.entries(handlers).forEach(([event, handler]) => {
         ethereum.removeListener(event, handler);

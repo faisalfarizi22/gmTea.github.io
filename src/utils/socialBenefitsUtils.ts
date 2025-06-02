@@ -1,14 +1,8 @@
-// utils/socialBenefitsUtils.ts
 import { UserSocialBenefits } from "@/types/user";
 import { BADGE_TIERS } from "./constants";
 
-// Definisikan cache memori sederhana
 const memoryCache: Record<string, {data: any, timestamp: number}> = {};
-const CACHE_TTL = 5 * 60 * 1000; // 5 menit
-
-/**
- * Fungsi cache sederhana
- */
+const CACHE_TTL = 5 * 60 * 1000; 
 export const cacheData = (key: string, data: any) => {
   memoryCache[key] = {
     data,
@@ -16,9 +10,6 @@ export const cacheData = (key: string, data: any) => {
   };
 };
 
-/**
- * Mendapatkan data dari cache
- */
 export const getCachedData = (key: string): any | null => {
   const cachedItem = memoryCache[key];
   if (!cachedItem) return null;
@@ -31,13 +22,9 @@ export const getCachedData = (key: string): any | null => {
   return cachedItem.data;
 };
 
-/**
- * Get username color based on user's badge tier
- * Menangani error dengan mengembalikan nilai default
- */
 export const getUsernameColor = (badgeTier: number): string | null => {
   try {
-    if (badgeTier < 1) return null; // Common tier tidak memiliki username berwarna
+    if (badgeTier < 1) return null; 
     
     const tierKey = Object.keys(BADGE_TIERS).find(
       (key) => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === badgeTier
@@ -51,20 +38,15 @@ export const getUsernameColor = (badgeTier: number): string | null => {
   }
 };
 
-/**
- * Get avatar frame path based on user's badge tier
- * Menangani error dengan mengembalikan nilai default
- */
 export const getAvatarFrame = (badgeTier: number): { url: string, isAnimated: boolean } | null => {
   try {
-    if (badgeTier < 2) return null; // Rare tier dan di atasnya yang memiliki frame
+    if (badgeTier < 2) return null; 
     
-    // Pastikan badge tier maksimal 4 (Legendary)
     const safeTier = Math.min(badgeTier, 4);
     
     return {
       url: `/assets/frames/tier-${safeTier}.png`,
-      isAnimated: safeTier >= 3 // Epic dan Legendary memiliki animasi
+      isAnimated: safeTier >= 3 
     };
   } catch (error) {
     console.error("Error getting avatar frame:", error);
@@ -72,16 +54,12 @@ export const getAvatarFrame = (badgeTier: number): { url: string, isAnimated: bo
   }
 };
 
-/**
- * Get chat privileges based on user's badge tier
- * Menangani error dengan mengembalikan nilai default
- */
 export const getChatPrivileges = (badgeTier: number) => {
   try {
     return {
-      customEmotes: badgeTier >= 2, // Rare and above
-      coloredText: badgeTier >= 3,  // Epic and above
-      messageEffects: badgeTier >= 4 // Legendary only
+      customEmotes: badgeTier >= 2, 
+      coloredText: badgeTier >= 3,  
+      messageEffects: badgeTier >= 4 
     };
   } catch (error) {
     console.error("Error getting chat privileges:", error);
@@ -93,10 +71,6 @@ export const getChatPrivileges = (badgeTier: number) => {
   }
 };
 
-/**
- * Get all social benefits for a user based on their highest badge tier
- * Menangani error dengan mengembalikan nilai default
- */
 export const getUserSocialBenefits = (badgeTier: number): UserSocialBenefits => {
   try {
     const avatarFrame = getAvatarFrame(badgeTier);
@@ -125,10 +99,6 @@ export const getUserSocialBenefits = (badgeTier: number): UserSocialBenefits => 
   }
 };
 
-/**
- * Get tier name for display
- * Menangani error dengan mengembalikan nilai default
- */
 export const getTierName = (tier: number): string => {
   try {
     switch (tier) {
@@ -145,18 +115,12 @@ export const getTierName = (tier: number): string => {
   }
 };
 
-/**
- * Process message text to replace emote codes with emojis
- * Only works if user has customEmotes privilege
- * Menangani error dengan mengembalikan pesan asli
- */
 export const processMessageEmotes = (message: string, badgeTier: number): string => {
   try {
     const chatPrivileges = getChatPrivileges(badgeTier);
     
     if (!chatPrivileges.customEmotes) return message;
     
-    // Map of emote codes to emojis
     const emotes: Record<string, string> = {
       'tea': '🍵',
       'leaf': '🍃',
@@ -170,25 +134,18 @@ export const processMessageEmotes = (message: string, badgeTier: number): string
       'smile': '😊'
     };
     
-    // Replace :code: with corresponding emoji
     return message.replace(/:([\w-]+):/g, (match, code) => {
       return emotes[code] || match;
     });
   } catch (error) {
     console.error("Error processing message emotes:", error);
-    return message; // Return original message if any error
+    return message; 
   }
 };
 
-/**
- * Get profile background path based on user's badge tier
- */
 export const getProfileBackground = (badgeTier: number): string | null => {
     try {
-      // Background hanya tersedia untuk tier 3 (Epic) dan 4 (Legendary)
       if (badgeTier < 3) return null;
-      
-      // Pastikan badge tier maksimal 4 (Legendary)
       const safeTier = Math.min(badgeTier, 4);
       
       return `/assets/backgrounds/Tier-${safeTier}.png`;

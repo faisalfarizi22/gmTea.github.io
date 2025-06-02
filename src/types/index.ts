@@ -25,7 +25,6 @@ export interface CheckinStats {
   timeUntilNextCheckin: number;
 }
 
-// Profile related types
 export interface ProfileProps {
   address: string | null;
   checkinCount: number;

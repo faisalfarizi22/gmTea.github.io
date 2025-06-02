@@ -1,4 +1,3 @@
-// components/WalletRequired.tsx
 import React, { useState } from 'react';
 import { FaWallet, FaLeaf } from 'react-icons/fa';
 import { motion } from 'framer-motion';
@@ -66,7 +65,6 @@ const WalletRequired: React.FC<WalletRequiredProps> = ({
         </div>
       </div>
       
-      {/* Animated background shapes */}
       <div className="absolute -z-10 left-1/4 top-1/4 w-64 h-64 bg-emerald-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
       <div className="absolute -z-10 right-1/4 bottom-1/4 w-64 h-64 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
       <div className="absolute -z-10 left-1/3 bottom-1/3 w-64 h-64 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>

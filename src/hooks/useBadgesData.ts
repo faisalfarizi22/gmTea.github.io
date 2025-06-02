@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCurrentAddress } from './useDBData';
 
-// Interface for badge data
 interface Badge {
   tokenId: number;
   owner: string;
@@ -12,7 +11,6 @@ interface Badge {
   referrer?: string | null;
 }
 
-// Interface for badge API response
 interface BadgeResponse {
   badges: Badge[];
   stats: {
@@ -22,9 +20,6 @@ interface BadgeResponse {
   };
 }
 
-/**
- * Hook to fetch user badges data from the database API
- */
 export function useUserBadges(address: string | null = null) {
   const [data, setData] = useState<BadgeResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -85,9 +80,6 @@ export function useUserBadges(address: string | null = null) {
   };
 }
 
-/**
- * Hook to fetch username by address
- */
 export function useUsername(address: string | null = null) {
   const [username, setUsername] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -129,10 +121,6 @@ export function useUsername(address: string | null = null) {
   };
 }
 
-/**
- * Hook to get badge tier and username data for multiple addresses at once
- * This is optimized for the hybrid GMMessageList to fetch badge data for multiple users efficiently
- */
 export function useMultipleUserBadgeData(addresses: string[]) {
   const [badgeData, setBadgeData] = useState<Record<string, { 
     highestTier: number, 
@@ -145,14 +133,12 @@ export function useMultipleUserBadgeData(addresses: string[]) {
   useEffect(() => {
     if (!addresses.length) return;
 
-    // Only fetch for addresses we don't already have
     const addressesToFetch = addresses.filter(addr => !badgeData[addr]);
     if (!addressesToFetch.length) return;
 
     const fetchBadgeData = async () => {
       setIsLoading(true);
       
-      // Process in batches of 5 to avoid overwhelming the API
       const batchSize = 5;
       const newBadgeData = { ...badgeData };
       
@@ -161,14 +147,12 @@ export function useMultipleUserBadgeData(addresses: string[]) {
         
         await Promise.all(batch.map(async (address) => {
           try {
-            // Fetch badge tier
             const badgeResponse = await fetch(`/api/badges/${address}`);
             if (!badgeResponse.ok) {
               throw new Error(`Badge API error: ${badgeResponse.status}`);
             }
             const badgeResult = await badgeResponse.json();
             
-            // Fetch username
             const usernameResponse = await fetch(`/api/usernames/by-address/${address}`);
             let username = null;
             if (usernameResponse.ok) {
@@ -176,7 +160,6 @@ export function useMultipleUserBadgeData(addresses: string[]) {
               username = usernameResult.username;
             }
             
-            // Store data
             newBadgeData[address] = {
               highestTier: badgeResult.stats.highestTier,
               username,
@@ -184,7 +167,6 @@ export function useMultipleUserBadgeData(addresses: string[]) {
             };
           } catch (error) {
             console.error(`Error fetching data for ${address}:`, error);
-            // Add default data
             newBadgeData[address] = {
               highestTier: -1,
               username: null,
@@ -193,7 +175,6 @@ export function useMultipleUserBadgeData(addresses: string[]) {
           }
         }));
         
-        // Small delay between batches to avoid rate limiting
         if (i + batchSize < addressesToFetch.length) {
           await new Promise(resolve => setTimeout(resolve, 300));
         }
@@ -211,15 +192,12 @@ export function useMultipleUserBadgeData(addresses: string[]) {
     isLoading,
     error,
     refetch: async () => {
-      // Reset data for all addresses to force refetch
       const addressesToRefetch = [...addresses];
       setBadgeData({});
       setIsLoading(true);
       
-      // Wait a brief moment to ensure state updates
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Process in batches
       const batchSize = 5;
       const newBadgeData: Record<string, { 
         highestTier: number, 
@@ -232,14 +210,12 @@ export function useMultipleUserBadgeData(addresses: string[]) {
         
         await Promise.all(batch.map(async (address) => {
           try {
-            // Fetch badge tier
             const badgeResponse = await fetch(`/api/badges/${address}`);
             if (!badgeResponse.ok) {
               throw new Error(`Badge API error: ${badgeResponse.status}`);
             }
             const badgeResult = await badgeResponse.json();
             
-            // Fetch username
             const usernameResponse = await fetch(`/api/usernames/by-address/${address}`);
             let username = null;
             if (usernameResponse.ok) {
@@ -247,7 +223,6 @@ export function useMultipleUserBadgeData(addresses: string[]) {
               username = usernameResult.username;
             }
             
-            // Store data
             newBadgeData[address] = {
               highestTier: badgeResult.stats.highestTier,
               username,
@@ -255,7 +230,6 @@ export function useMultipleUserBadgeData(addresses: string[]) {
             };
           } catch (error) {
             console.error(`Error refetching data for ${address}:`, error);
-            // Add default data
             newBadgeData[address] = {
               highestTier: -1,
               username: null,

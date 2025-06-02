@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
 import { FaUser, FaClipboard, FaUsers, FaChevronRight } from "react-icons/fa"
-import ReferralRewards from "@/components/ReferralRewards" // Import the ReferralRewards component
+import ReferralRewards from "@/components/ReferralRewards" 
 import { ethers } from "ethers"
 
 interface ReferralsTabProps {
@@ -21,7 +21,6 @@ export default function ReferralsTab({
   showUsernameModal,
   onRewardsClaimComplete
 }: ReferralsTabProps) {
-  // If no username, show username setup prompt
   if (!username) {
     return (
       <motion.div
@@ -62,7 +61,6 @@ export default function ReferralsTab({
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
-      {/* Use the ReferralRewards component */}
       {address && signer && (
         <ReferralRewards
           address={address}
@@ -71,7 +69,6 @@ export default function ReferralsTab({
         />
       )}
 
-      {/* Additional explanation or features can be added here */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

@@ -25,7 +25,7 @@ interface CheckInHistoryItem {
   message?: string;
   blockNumber?: number;
   boost?: number;
-  tierAtCheckin?: number; // Add the tier at check-in field
+  tierAtCheckin?: number; 
 }
 
 export default function PointsBreakdownModal({
@@ -39,7 +39,6 @@ export default function PointsBreakdownModal({
   const [totalPoints, setTotalPoints] = useState<number>(0)
   const [checkInHistory, setCheckInHistory] = useState<CheckInHistoryItem[]>([])
   
-  // Fetch checkin data and points data from API
   const { data: checkinsData, isLoading: checkinsLoading } = useDBData<{
     checkins: CheckInHistoryItem[];
     stats: { total: number };
@@ -50,17 +49,14 @@ export default function PointsBreakdownModal({
     breakdown: { source: string; points: number; }[];
   }>(`/api/points/${address}`);
   
-  // Process data when fetched
   useEffect(() => {
     if (!checkinsLoading && !pointsLoading) {
       console.log("Data from API:", { checkinsData, pointsData });
       
-      // Set total points from API or calculate if not available
       if (pointsData && pointsData.total !== undefined) {
         setTotalPoints(pointsData.total);
         console.log("Setting total points from API:", pointsData.total);
       } else {
-        // Calculate total if not provided by API
         const baseCheckinPoints = checkinCount * 10;
         const calculatedAchievementPoints = calculateAchievementPoints();
         const calculatedBadgePoints = highestTier >= 0 ? [20, 30, 50, 70, 100][highestTier] : 0;
@@ -74,9 +70,7 @@ export default function PointsBreakdownModal({
         });
       }
       
-      // Set check-in history
       if (checkinsData && checkinsData.checkins) {
-        // Sort by check-in number, newest first
         const sortedCheckins = [...checkinsData.checkins]
           .sort((a, b) => b.checkinNumber - a.checkinNumber);
           
@@ -90,7 +84,6 @@ export default function PointsBreakdownModal({
     }
   }, [checkinsData, pointsData, checkinsLoading, pointsLoading, checkinCount, highestTier]);
   
-  // Helper to format timestamp
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp)
     return {
@@ -98,14 +91,12 @@ export default function PointsBreakdownModal({
     }
   }
   
-  // Helper to get tier color
   const getTierColor = (tier: number): string => {
-    if (tier < 0) return "#6b7280" // Gray for no tier
+    if (tier < 0) return "#6b7280" 
     const tierColors = ["#10B981", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B"]
     return tierColors[tier]
   }
   
-  // Compute achievement points
   const calculateAchievementPoints = (): number => {
     let points = 0
     if (checkinCount >= 1) points += 50
@@ -115,17 +106,16 @@ export default function PointsBreakdownModal({
     return points
   }
   
-  // Helper to determine tier from boost if tierAtCheckin not available
   const getTierFromBoost = (boost: number | undefined): number => {
     if (!boost || boost <= 1) return -1;
     
-    if (boost >= 1.5) return 4; // Legendary
-    if (boost >= 1.4) return 3; // Epic
-    if (boost >= 1.3) return 2; // Rare
-    if (boost >= 1.2) return 1; // Uncommon
-    if (boost >= 1.1) return 0; // Common
+    if (boost >= 1.5) return 4; 
+    if (boost >= 1.4) return 3; 
+    if (boost >= 1.3) return 2; 
+    if (boost >= 1.2) return 1; 
+    if (boost >= 1.1) return 0; 
     
-    return -1; // No badge
+    return -1; 
   }
   
   if (isLoading) {
@@ -143,27 +133,21 @@ export default function PointsBreakdownModal({
   
   const achievementPoints = calculateAchievementPoints()
   
-  // Updated to use badge points instead of leaderboard points
   const badgePoints = highestTier >= 0 ? [20, 30, 50, 70, 100][highestTier] : 0;
   
-  // Get check-ins breakdown by badge tier
   const getCheckInBreakdownByTier = () => {
     const tierCounts: {[key: string]: {count: number, points: number}} = {};
     
-    // Initialize with default values
     tierCounts['noTier'] = {count: 0, points: 0};
     for (let i = 0; i <= 4; i++) {
       tierCounts[i] = {count: 0, points: 0};
     }
     
-    // Count check-ins and points per tier
     checkInHistory.forEach((checkIn: CheckInHistoryItem) => {
-      // Determine the tier at check-in time
       let tierAtCheckin = checkIn.tierAtCheckin !== undefined 
         ? checkIn.tierAtCheckin 
         : getTierFromBoost(checkIn.boost);
       
-      // Assign to proper tier bucket
       if (tierAtCheckin < 0) {
         tierCounts['noTier'].count++;
         tierCounts['noTier'].points += (checkIn.points || 0);
@@ -173,7 +157,6 @@ export default function PointsBreakdownModal({
       }
     });
     
-    // Create array of tier entries with check-ins
     return Object.entries(tierCounts)
       .filter(([_, {count}]) => count > 0)
       .map(([tierKey, {count, points}]) => {
@@ -196,24 +179,21 @@ export default function PointsBreakdownModal({
           };
         }
       })
-      .sort((a, b) => b.tier - a.tier); // Sort by tier, highest first
+      .sort((a, b) => b.tier - a.tier); 
   };
   
   const tierBreakdown = getCheckInBreakdownByTier();
   
-  // Calculate sum of checkin points
   const checkinPointsTotal = checkInHistory.reduce((sum: number, checkIn: CheckInHistoryItem) => sum + (checkIn.points || 0), 0);
   
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto backdrop-blur-sm">
-      {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-60 transition-opacity"
         onClick={onClose}
       ></div>
 
       <div className="flex items-center justify-center min-h-screen p-4">
-        {/* Modal Container */}
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -221,7 +201,6 @@ export default function PointsBreakdownModal({
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg rounded-xl shadow-xl relative max-w-md w-full border border-emerald-200/50 dark:border-emerald-500/30 overflow-hidden"
         >
-          {/* Close button */}
           <button
             type="button"
             className="absolute z-10 top-3 right-3 flex items-center justify-center w-7 h-7 rounded-full bg-white/20 dark:bg-black/20 backdrop-blur-md text-gray-700 hover:text-black dark:text-gray-300 dark:hover:text-white focus:outline-none transition-all duration-200 hover:bg-white/40 dark:hover:bg-black/40"
@@ -233,12 +212,10 @@ export default function PointsBreakdownModal({
           </button>
 
           <div className="p-5">
-            {/* Header */}
             <div className="text-center mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Points & Check-ins</h3>
             </div>
             
-            {/* Total Points Card */}
             <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-900/30 dark:to-teal-900/30 backdrop-blur-md rounded-xl p-4 border border-emerald-500/20 mb-4">
               <div className="flex items-center justify-center">
                 <div className="mr-3 text-emerald-500 dark:text-emerald-400">
@@ -253,7 +230,6 @@ export default function PointsBreakdownModal({
               </div>
             </div>
 
-            {/* Check-in History Section - Made Larger and More Prominent */}
             <div className="mb-4">
               <div className="bg-white dark:bg-gray-800/60 rounded-xl p-4 border border-gray-100 dark:border-gray-700/30">
                 <div className="flex items-center justify-between mb-3">
@@ -269,7 +245,6 @@ export default function PointsBreakdownModal({
                 <div className="h-48 overflow-y-auto pr-2 custom-scrollbar space-y-2">
                   {checkInHistory.slice(0, 10).map((checkIn, index) => {
                     const { date } = formatTimestamp(checkIn.timestamp);
-                    // Determine tier from tierAtCheckin field or boost
                     const checkInTier = checkIn.tierAtCheckin !== undefined 
                       ? checkIn.tierAtCheckin 
                       : getTierFromBoost(checkIn.boost);
@@ -331,7 +306,6 @@ export default function PointsBreakdownModal({
               </div>
             </div>
             
-            {/* Next Check-in Preview */}
             <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-900/20 dark:to-teal-900/20 backdrop-blur-md rounded-xl p-3 border border-emerald-500/20 mb-4">
               <div className="flex items-center">
                 <div className="w-7 h-7 rounded-full bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mr-2">
@@ -347,9 +321,7 @@ export default function PointsBreakdownModal({
               </div>
             </div>
             
-            {/* Two columns layout for smaller cards */}
             <div className="grid grid-cols-2 gap-3">
-              {/* Achievements card */}
               <motion.div 
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -374,7 +346,6 @@ export default function PointsBreakdownModal({
                 </div>
               </motion.div>
               
-              {/* Badge Points Card (replacing Leaderboard card) */}
               <motion.div 
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -404,7 +375,6 @@ export default function PointsBreakdownModal({
             </div>
             
             <div className="grid grid-cols-2 gap-3 mt-3">
-              {/* Tier Breakdown */}
               <motion.div
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -414,7 +384,6 @@ export default function PointsBreakdownModal({
                 <h5 className="text-xs font-medium text-gray-800 dark:text-white mb-2">Check-in Tier Breakdown</h5>
                 
                 <div className="space-y-1.5">
-                  {/* Display tier breakdown */}
                   {tierBreakdown.map((tierData, index) => (
                     <div 
                       key={index}
@@ -442,7 +411,6 @@ export default function PointsBreakdownModal({
                 </div>
               </motion.div>
               
-              {/* Point Calculation Summary */}
               <motion.div
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -482,7 +450,6 @@ export default function PointsBreakdownModal({
               </motion.div>
             </div>
             
-            {/* Explanation */}
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
@@ -495,7 +462,6 @@ export default function PointsBreakdownModal({
               </p>
             </motion.div>
             
-            {/* Close button */}
             <div className="mt-4">
               <button
                 type="button"
@@ -507,13 +473,11 @@ export default function PointsBreakdownModal({
             </div>
           </div>
           
-          {/* Decorative elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-emerald-500/5 to-transparent rounded-full transform translate-x-1/3 -translate-y-1/2 pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-emerald-500/5 to-transparent rounded-full transform -translate-x-1/3 translate-y-1/2 pointer-events-none"></div>
         </motion.div>
       </div>
       
-      {/* Custom scrollbar styles */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;

@@ -21,7 +21,6 @@ export const CHECKIN_FEE = process.env.NEXT_PUBLIC_CHECKIN_FEE || "0.01";
 
 export const DAY_IN_MS = 86400000;
 
-// Add deployment block for event fetching in the leaderboard
 export const DEPLOY_BLOCK = parseInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK || "1155300", 10);
 
 export const LOADING_STATES = {
@@ -65,36 +64,35 @@ export const COLORS = {
   glowColor: "rgba(78, 138, 64, 0.3)"
 };
 
-// Badge tier information
 export const BADGE_TIERS = {
   COMMON: {
     id: 0,
     name: "Common",
-    color: "#6b7280", // Gray
+    color: "#6b7280",
     price: "1"
   },
   UNCOMMON: {
     id: 1,
     name: "Uncommon",
-    color: "#10b981", // Emerald
+    color: "#10b981",
     price: "5"
   },
   RARE: {
     id: 2,
     name: "Rare",
-    color: "#3b82f6", // Blue
+    color: "#3b82f6",
     price: "12"
   },
   EPIC: {
     id: 3,
     name: "Epic",
-    color: "#8b5cf6", // Purple
+    color: "#8b5cf6",
     price: "18"
   },
   LEGENDARY: {
     id: 4,
     name: "Legendary",
-    color: "#f59e0b", // Amber/Gold
+    color: "#f59e0b",
     price: "24"
   }
 };

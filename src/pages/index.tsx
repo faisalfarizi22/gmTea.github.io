@@ -742,7 +742,6 @@ export default function Home() {
         <AudioPlayer initialVolume={0.3} />
       </main>
 
-      {/* Notification container */}
       <div className="fixed bottom-4 right-4 z-50 w-full max-w-md space-y-3 flex flex-col items-end">
         {notifications.map((notification) => (
           <div
@@ -787,7 +786,6 @@ export default function Home() {
               </button>
             </div>
             
-            {/* Progress bar */}
             <div className={`h-1 ${
                 notification.type === "success" ? "bg-emerald-500 dark:bg-emerald-600" :
                 notification.type === "error" ? "bg-red-500 dark:bg-red-600" :

@@ -18,7 +18,6 @@ import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
 import { useUserDataCombined } from '@/hooks/useUserData';
 
-// Define interface for leaderboard entry
 interface LeaderboardEntry {
   address: string;
   username: string | null;
@@ -35,17 +34,11 @@ interface LeaderboardProps {
   userCheckinCount?: number;
 }
 
-/**
- * Leaderboard Component
- * Displays a leaderboard of users with the most check-ins
- * Uses a dedicated leaderboard API endpoint
- */
 const Leaderboard: React.FC<LeaderboardProps> = ({ 
   currentUserAddress,
   contract,
   userCheckinCount = 0
 }) => {
-  // State management
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +52,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
   const [forceRefresh, setForceRefresh] = useState<boolean>(false);
   
-  // Use useUserDataCombined to get current user data
   const { 
     userData, 
     isLoading: isLoadingUserData 
@@ -67,22 +59,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
   const ENTRIES_PER_PAGE = 10;
   
-  // Calculate total pages based on total entries and entries per page
   const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE);
 
-  // Get avatar URL
   const getAvatarUrl = (address: string): string => 
     `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
 
-  /**
-   * Load wallet statistics from API endpoint
-   * - Calculate today's check-ins based on check-ins since 7am today
-   */
   const loadWalletStats = async () => {
     try {
       setIsLoadingStats(true);
 
-      // Get statistics from /api/checkins/latest endpoint
       const response = await fetch(`/api/checkins/latest?limit=1`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -90,56 +75,42 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       
       const data = await response.json();
 
-      // Extract statistics from response
       const totalCheckins = data.stats?.totalCheckins || 0;
       setActiveWallets(data.stats?.activeWallets || totalEntries);
       
-      // Calculate today's check-ins based on check-ins since 7am today
-      // Get current date and time
       const now = new Date();
       
-      // Get today at 7am
       const todaySevenAM = new Date(now);
       todaySevenAM.setHours(7, 0, 0, 0);
       
-      // If now is before 7am, use 7am yesterday
       if (now < todaySevenAM) {
         todaySevenAM.setDate(todaySevenAM.getDate() - 1);
       }
       
-      // Format date for API query
       const todaySevenAMISO = todaySevenAM.toISOString();
       
-      // Make request to get today's check-ins
       try {
         const todayResponse = await fetch(`/api/checkins/today?since=${encodeURIComponent(todaySevenAMISO)}`);
         if (todayResponse.ok) {
           const todayData = await todayResponse.json();
           setTodayCheckins(todayData.count || 0);
         } else {
-          // Fallback if endpoint not available
-          setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Estimate about 12% of total
+          setTodayCheckins(Math.floor(totalCheckins * 0.12));
         }
       } catch (error) {
         console.error("Error loading today's check-ins:", error);
-        setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Fallback to estimate
+        setTodayCheckins(Math.floor(totalCheckins * 0.12));
       }
 
       console.log(`Loaded stats: total checkins = ${totalCheckins}, today = ${todayCheckins} (since ${todaySevenAM.toLocaleString()})`);
     } catch (error) {
       console.error("Error loading wallet statistics:", error);
-      // Set fallback values
       setTodayCheckins(Math.floor(leaderboard.length / 3));
     } finally {
       setIsLoadingStats(false);
     }
   };
 
-  /**
-   * Load leaderboard data from the dedicated leaderboard API endpoint
-   * @param page Page number to load
-   * @param jumpToUser Whether to jump to user's rank
-   */
   const loadLeaderboard = async (page = 1, jumpToUser = false) => {
     try {
       if (page === 1) {
@@ -154,7 +125,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
 
       setError(null);
 
-      // Use dedicated leaderboard API endpoint with refresh parameter if needed
       const endpoint = currentUserAddress
         ? `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}&userAddress=${currentUserAddress}${forceRefresh ? '&refresh=true' : ''}`
         : `/api/leaderboard/checkins?page=${page}&limit=${ENTRIES_PER_PAGE}${forceRefresh ? '&refresh=true' : ''}`;
@@ -166,18 +136,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       
       const data = await response.json();
       
-      // Set user rank from API response
       if (data.userRank) {
         setUserRank(data.userRank);
         
-        // If jumping to user's rank, calculate the correct page
         if (jumpToUser) {
           const userPage = Math.ceil(data.userRank / ENTRIES_PER_PAGE);
           
           if (userPage !== page) {
-            // If user's rank is on a different page, load that page
             setCurrentPage(userPage);
-            // Recursively call loadLeaderboard with the correct page
             await loadLeaderboard(userPage, false);
             setIsJumpingToUser(false);
             return;
@@ -185,11 +151,9 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
         }
       }
       
-      // Format data for component - mark current user and use the rank directly from API
       const formattedLeaderboard: LeaderboardEntry[] = data.users.map((user: any) => ({
         ...user,
         isCurrentUser: currentUserAddress ? user.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
-        // Use rank directly from API without recalculating
         rank: user.rank
       }));
       
@@ -197,7 +161,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       setTotalEntries(data.pagination.total);
       setActiveWallets(data.pagination.total);
       
-      // Load wallet statistics if this is the first page
       if (page === 1) {
         loadWalletStats();
       }
@@ -206,7 +169,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       console.error("Error loading leaderboard:", error);
       setError("Failed to load leaderboard data. Please try again later.");
 
-      // Generate mock data for fallback
       const mockData = Array.from({ length: 10 }, (_, i) => ({
         address: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
         username: i % 3 === 0 ? `User${i+1}` : null,
@@ -222,7 +184,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       setActiveWallets(50);
       setTodayCheckins(15);
 
-      // Set mock user rank
       if (currentUserAddress) {
         setUserRank(8);
       }
@@ -231,18 +192,15 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       setIsLoadingMore(false);
       setIsJumpingToUser(false);
       
-      // Reset force refresh flag after loading
       if (forceRefresh) {
         setForceRefresh(false);
       }
     }
   };
 
-  // Load leaderboard on component mount and when current user changes
   useEffect(() => {
     loadLeaderboard(currentPage);
     
-    // Refresh every 5 minutes
     const interval = setInterval(
       () => {
         loadLeaderboard(currentPage);
@@ -253,21 +211,18 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     return () => clearInterval(interval);
   }, [currentUserAddress]);
 
-  // Load new page when currentPage changes
   useEffect(() => {
     if (!isJumpingToUser && !isLoading) {
       loadLeaderboard(currentPage);
     }
   }, [currentPage]);
 
-  // Handle page change
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
   };
 
-  // Jump to user's rank
   const jumpToUserRank = () => {
     if (userRank) {
       setIsJumpingToUser(true);
@@ -275,17 +230,14 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     }
   };
 
-  // Handle refresh with verification
   const handleRefresh = () => {
     setForceRefresh(true);
     loadLeaderboard(currentPage);
   };
 
-  // Format timestamp for display
   const formatCheckinTime = (timestamp: string | null) => {
     if (!timestamp) return "N/A";
     
-    // Convert ISO string to unix timestamp for formatTimestamp
     const unixTimestamp = Math.floor(new Date(timestamp).getTime() / 1000);
     return formatTimestamp(unixTimestamp);
   };
@@ -297,7 +249,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
       transition={{ duration: 0.5 }}
       className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-emerald-700/30"
     >
-      {/* Header with glassmorphism effect */}
       <div className="bg-emerald-50 dark:bg-emerald-900/20 py-4 px-6 border-b border-emerald-100 dark:border-emerald-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -315,7 +266,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
             </div>
           </div>
 
-          {/* Jump to my rank button - ONLY SHOWS WHEN userRank IS SET BY API */}
           {currentUserAddress && userRank && !isLoading && (
             <button
               onClick={jumpToUserRank}
@@ -329,7 +279,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
         </div>
       </div>
 
-      {/* Wallet Statistics Section */}
       <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-6 py-3 border-b border-emerald-100 dark:border-emerald-800/30">
         <div className="flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center mb-2 sm:mb-0">
@@ -363,7 +312,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-8">
@@ -398,7 +346,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* Current user stats if they're on the leaderboard */}
               {currentUserAddress && !isLoadingUserData && userData && (userData.checkinCount > 0 || userRank) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -442,7 +389,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 </motion.div>
               )}
 
-              {/* Leaderboard table */}
               {leaderboard.length > 0 ? (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -469,8 +415,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     </thead>
                     <tbody className="divide-y divide-emerald-100 dark:divide-emerald-800/30">
                       {isLoadingMore
-                        ? // Loading placeholder rows
-                          Array.from({ length: ENTRIES_PER_PAGE }).map((_, index) => (
+                        ? Array.from({ length: ENTRIES_PER_PAGE }).map((_, index) => (
                             <tr key={`loading-${index}`} className="animate-pulse">
                               <td className="py-3 px-4 whitespace-nowrap">
                                 <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
@@ -521,7 +466,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                 </td>
                                 <td className="py-3 px-4 whitespace-nowrap">
                                   <div className="flex items-center">
-                                    {/* Avatar with Frame */}
                                     <div className="h-6 w-6 rounded-full mr-2 overflow-hidden">
                                       <AvatarWithFrame
                                         avatarUrl={getAvatarUrl(entry.address)}
@@ -530,7 +474,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                                       />
                                     </div>
                                     
-                                    {/* Username with Color or Address */}
                                     {entry.username ? (
                                       <div className={entry.isCurrentUser ? "font-bold" : ""}>
                                         <ColoredUsername 
@@ -589,10 +532,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center mt-6 space-x-2">
-                  {/* Previous button */}
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1 || isLoadingMore}
@@ -605,7 +546,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     <FaChevronLeft className="h-4 w-4" />
                   </button>
 
-                  {/* Page numbers - generate intelligently */}
                   {(() => {
                     const pages = []
                     const maxVisible = 5
@@ -616,7 +556,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                       startPage = Math.max(1, endPage - maxVisible + 1)
                     }
                     
-                    // Always show first page
                     if (startPage > 1) {
                       pages.push(
                         <button
@@ -629,7 +568,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                         </button>
                       )
                       
-                      // Add ellipsis if needed
                       if (startPage > 2) {
                         pages.push(
                           <span key="ellipsis1" className="text-gray-500 dark:text-gray-400">
@@ -639,7 +577,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                       }
                     }
                     
-                    // Add visible pages
                     for (let i = startPage; i <= endPage; i++) {
                       pages.push(
                         <button
@@ -657,9 +594,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                       )
                     }
                     
-                    // Always show last page
                     if (endPage < totalPages) {
-                      // Add ellipsis if needed
                       if (endPage < totalPages - 1) {
                         pages.push(
                           <span key="ellipsis2" className="text-gray-500 dark:text-gray-400">
@@ -683,7 +618,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     return pages
                   })()}
 
-                  {/* Next button */}
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages || isLoadingMore}
@@ -698,7 +632,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Message for users not on the leaderboard */}
               {currentUserAddress && !isLoadingUserData && userData && !userRank && userData.checkinCount === 0 && leaderboard.length > 0 && (
                 <div className="mt-6 p-4 border-t border-emerald-100 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
                   <p className="text-sm text-gray-600 dark:text-emerald-300/70 text-center">
@@ -707,7 +640,6 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Refresh button */}
               <div className="mt-6 text-center">
                 <button
                   onClick={handleRefresh}

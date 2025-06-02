@@ -224,7 +224,6 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
         </>
       )}
       
-      {/* Footer with refresh indicator */}
       {!isLoading && sortedMessages.length > 0 && onRefresh && (
         <div className="flex items-center justify-center mt-4 pt-2 border-t border-gray-100 dark:border-emerald-800/30">
           <button 
@@ -237,7 +236,6 @@ const GMMessageList: React.FC<GMMessageListProps> = ({
         </div>
       )}
       
-      {/* User data loading indicator */}
       {loadingUsers && (
         <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 text-center">
           Loading user data...

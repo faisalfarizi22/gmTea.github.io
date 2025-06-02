@@ -58,22 +58,17 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
       try {
         setIsLoading(true);
 
-        // Load user's highest badge tier
         const highestTierResult = await getUserHighestTier(address);
         setHighestTier(highestTierResult);
 
-        // Load user badges
         const userBadges = await getUserBadges(address);
         
-        // Load active benefits
         const benefits = await getUserBenefits(address);
         setActiveBenefits(benefits);
         
-        // Load referral stats
         const stats = await getUserReferralStats(address);
         setReferralStats(stats);
 
-        // Create badge tier info array
         const badgeTiers: BadgeTierInfo[] = [
           {
             id: 0,
@@ -117,7 +112,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
           }
         ];
 
-        // Add token IDs and minted timestamps from user badges
         userBadges.forEach(badge => {
           const tierIndex = badgeTiers.findIndex(tier => tier.id === badge.tier);
           if (tierIndex !== -1) {
@@ -139,7 +133,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
     }
   }, [address]);
 
-  // Get tier name and color
   const getTierName = () => {
     if (highestTier === -1) return 'No Tier';
     const tierKeys = Object.keys(BADGE_TIERS);
@@ -148,7 +141,7 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
   };
 
   const getTierColor = () => {
-    if (highestTier === -1) return '#6b7280'; // Gray
+    if (highestTier === -1) return '#6b7280'; 
     const tierKeys = Object.keys(BADGE_TIERS);
     const key = tierKeys[highestTier];
     return BADGE_TIERS[key as keyof typeof BADGE_TIERS].color;
@@ -158,7 +151,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  // Get badge tier info based on current tier
   const getBadgeTierInfo = (tier: number) => {
     const tiers = [
       {
@@ -191,7 +183,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
     return tier >= 0 && tier < tiers.length ? tiers[tier] : tiers[0];
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-black/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-emerald-500/20 min-h-[50vh]">
@@ -216,7 +207,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
       transition={{ duration: 0.5 }}
       className="bg-black/90 backdrop-blur-lg rounded-2xl shadow-2xl border border-emerald-500/20 overflow-hidden"
     >
-      {/* Header section with current tier info */}
       <div className="relative p-6 md:p-8 border-b border-emerald-500/20 bg-gradient-to-r from-emerald-900/20 to-teal-900/20">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
@@ -234,7 +224,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
           </div>
           
           <div className="mt-4 md:mt-0 flex items-center">
-            {/* Current tier badge */}
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-teal-500 opacity-40 group-hover:opacity-60 rounded-full blur-md transition-all duration-300"></div>
               <div 
@@ -260,7 +249,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                   )}
                 </div>
                 
-                {/* Animated ring around badge */}
                 <div className="absolute inset-0 rounded-full animate-spin-slow opacity-30"
                   style={{ 
                     border: `1px dashed ${getTierColor()}60`,
@@ -269,7 +257,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
               </div>
             </div>
             
-            {/* Tier name and info */}
             <div className="ml-6">
               <h3 
                 className="text-xl font-bold" 
@@ -286,7 +273,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                 }
               </p>
               
-              {/* Tier stats mini-cards */}
               {highestTier >= 0 && (
                 <div className="flex items-center mt-3 space-x-3">
                   <div 
@@ -310,7 +296,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
           </div>
         </motion.div>
 
-        {/* Badge progress path visualization */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -319,7 +304,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
         >
           <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1 bg-emerald-900/30 rounded-full"></div>
           
-          {/* Animated progress bar */}
           <motion.div 
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(100, ((highestTier + 1) / 5) * 100)}%` }}
@@ -329,7 +313,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
             <div className="absolute top-0 right-0 h-full w-4 bg-white/20 blur-sm"></div>
           </motion.div>
           
-          {/* Badge nodes on timeline */}
           <div className="relative flex justify-between">
             {badges.map((badge, index) => (
               <motion.div 
@@ -354,7 +337,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                     borderColor: badge.owned ? `${badge.color}60` : badge.nextToMint ? `${badge.color}40` : 'transparent',
                   }}
                 >
-                  {/* Badge icon */}
                   <div 
                     className={`h-6 w-6 z-10 transition-transform duration-300 group-hover:scale-110`}
                     style={{ color: badge.owned ? badge.color : badge.nextToMint ? `${badge.color}80` : '#6b7280' }}
@@ -362,7 +344,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                     {badge.icon}
                   </div>
                   
-                  {/* Badge glow effect */}
                   {badge.owned && (
                     <div 
                       className="absolute inset-0"
@@ -372,14 +353,12 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                     ></div>
                   )}
                   
-                  {/* Lock icon for locked badges */}
                   {!badge.owned && !badge.nextToMint && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                       <FaLock className="text-gray-500 h-3 w-3" />
                     </div>
                   )}
                   
-                  {/* Next to mint indicator pulse */}
                   {badge.nextToMint && (
                     <div 
                       className="absolute inset-0 z-0 animate-pulse"
@@ -390,7 +369,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                   )}
                 </div>
                 
-                {/* Badge name and minted date */}
                 <span 
                   className={`text-xs font-medium ${badge.owned ? 'text-emerald-300' : badge.nextToMint ? 'text-emerald-500/70' : 'text-gray-500'}`}
                   style={badge.owned ? { color: badge.color } : {}}
@@ -415,9 +393,7 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
         </motion.div>
       </div>
 
-      {/* Benefits and Referrals Section */}
       <div className="p-6 md:p-8">
-        {/* Tab selector */}
         <div className="flex mb-6 border-b border-emerald-900/30">
           <button
             onClick={() => setActiveTab('benefits')}
@@ -462,7 +438,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
           </button>
         </div>
         
-        {/* Tab content */}
         <AnimatePresence mode="wait">
           {activeTab === 'benefits' ? (
             <motion.div
@@ -491,7 +466,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                 </div>
               ) : (
                 <div>
-                  {/* Tier Stats */}
                   <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <motion.div 
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -563,7 +537,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                     </motion.div>
                   </div>
                   
-                  {/* Benefits Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {activeBenefits.map((benefit, index) => (
                       <motion.div 
@@ -598,8 +571,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
               transition={{ duration: 0.3 }}
             >
               <h3 className="text-xl font-semibold text-emerald-300 mb-4">Your Referral Stats</h3>
-              
-              {/* Referral Stats Dashboard */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -668,7 +639,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                 </motion.div>
               </div>
               
-              {/* Referral program info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -732,7 +702,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                   </div>
                 </div>
                 
-                {/* Referral link section */}
                 <div className="mt-6 pt-6 border-t border-emerald-700/30">
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
                     <div className="mb-4 md:mb-0">
@@ -753,7 +722,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
                 </div>
               </motion.div>
               
-              {/* Claim button if there are pending rewards */}
               {parseFloat(referralStats.pendingRewards) > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -782,7 +750,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
         </AnimatePresence>
       </div>
       
-      {/* Upgrade banner for users who can upgrade */}
       {highestTier < 4 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -822,7 +789,6 @@ const UserTierStatus: React.FC<UserTierStatusProps> = ({ address, signer }) => {
         </motion.div>
       )}
       
-      {/* Custom animation style */}
       <style jsx global>{`
         @keyframes spin-slow {
           from { transform: rotate(0deg); }

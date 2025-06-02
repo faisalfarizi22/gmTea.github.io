@@ -1,26 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FaTimes, 
-  FaSpinner, 
-  FaRedo, 
-  FaFilter, 
-  FaCheck,
-  FaExpand,
-  FaLeaf,
-  FaStream,
-  FaHistory,
-  FaClock,
-  FaLink,
-  FaChevronRight
-} from 'react-icons/fa';
-import { 
-  MdOutlineLocalActivity, 
-  MdCheckCircle, 
-  MdSend, 
-  MdOutlineVerified, 
-  MdCelebration,
-  MdClose
-} from 'react-icons/md';
+import { FaTimes, FaSpinner, FaRedo, FaFilter, FaCheck, FaExpand, FaLeaf, FaStream, FaHistory, FaClock, FaLink, FaChevronRight } from 'react-icons/fa';
+import { MdOutlineLocalActivity, MdCheckCircle, MdSend, MdOutlineVerified, MdCelebration,MdClose } from 'react-icons/md';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatAddress } from '@/utils/web3';
 import { useUserBadges, useUserCheckins, useUserData, useUserReferrals } from '@/hooks/useDBData';
@@ -30,10 +10,8 @@ interface ActivitySidebarProps {
   onClose: () => void;
 }
 
-// Define activity types
 type ActivityType = 'checkin' | 'badge' | 'username' | 'referral' | 'all';
 
-// Define interface for activity
 interface Activity {
   id: string;
   type: ActivityType;
@@ -46,7 +24,6 @@ interface Activity {
   blockNumber?: number;
 }
 
-// Interfaces for API responses (unchanged)
 interface CheckinData {
   checkinNumber: number;
   timestamp: string;
@@ -108,7 +85,6 @@ interface ReferralsResponse {
   };
 }
 
-// Function to format timestamp
 const formatBlockTimestamp = (timestamp: string): string => {
   const date = new Date(timestamp);
   return date.toLocaleDateString("en-US", { 
@@ -118,7 +94,6 @@ const formatBlockTimestamp = (timestamp: string): string => {
   });
 };
 
-// Function to get time elapsed since timestamp
 const getTimeElapsed = (timestamp: string): string => {
   const now = Math.floor(Date.now() / 1000);
   const then = Math.floor(new Date(timestamp).getTime() / 1000);
@@ -131,7 +106,6 @@ const getTimeElapsed = (timestamp: string): string => {
   return `${Math.floor(diff / 604800)} weeks ago`;
 };
 
-// Get activity icon component based on type
 const getActivityIcon = (type: ActivityType) => {
   switch (type) {
     case 'checkin':
@@ -147,23 +121,21 @@ const getActivityIcon = (type: ActivityType) => {
   }
 };
 
-// Get color for activity type
 const getActivityColor = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
-      return '#10b981'; // emerald-500
+      return '#10b981'; 
     case 'badge':
-      return '#8b5cf6'; // purple-500
+      return '#8b5cf6'; 
     case 'username':
-      return '#3b82f6'; // blue-500
+      return '#3b82f6'; 
     case 'referral':
-      return '#ec4899'; // pink-500
+      return '#ec4899'; 
     default:
-      return '#10b981'; // emerald-500
+      return '#10b981'; 
   }
 };
 
-// Get gradient colors for activity type
 const getActivityGradient = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
@@ -179,7 +151,6 @@ const getActivityGradient = (type: ActivityType): string => {
   }
 };
 
-// Get lighter color for backgrounds in light mode
 const getActivityLightBg = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
@@ -195,7 +166,6 @@ const getActivityLightBg = (type: ActivityType): string => {
   }
 };
 
-// Get darker color for backgrounds in dark mode
 const getActivityDarkBg = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
@@ -211,7 +181,6 @@ const getActivityDarkBg = (type: ActivityType): string => {
   }
 };
 
-// Get border color for activity type
 const getActivityBorder = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
@@ -227,7 +196,6 @@ const getActivityBorder = (type: ActivityType): string => {
   }
 };
 
-// Get text color for activity type
 const getActivityTextColor = (type: ActivityType): string => {
   switch (type) {
     case 'checkin':
@@ -243,7 +211,6 @@ const getActivityTextColor = (type: ActivityType): string => {
   }
 };
 
-// Animation variants
 const backdropVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 }
@@ -294,7 +261,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
   const [combinedActivities, setCombinedActivities] = useState<Activity[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   
-  // Fetch data from our API endpoints using the hooks from useDBData.ts
   const { data: userResponse, isLoading: userLoading, refetch: refetchUser } = useUserData(address);
   const { data: badgesResponse, isLoading: badgesLoading, refetch: refetchBadges } = useUserBadges(address);
   const { data: checkinsResponse, isLoading: checkinsLoading, refetch: refetchCheckins } = useUserCheckins(address);
@@ -302,7 +268,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
   
   const isLoading = userLoading || badgesLoading || checkinsLoading || referralsLoading;
 
-  // Filter activities based on selected type
   const filterActivities = (type: ActivityType) => {
     setActiveFilter(type);
     if (type === 'all') {
@@ -312,7 +277,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
     }
   };
 
-  // Refresh all activities
   const refreshActivities = () => {
     setRefreshing(true);
     Promise.all([
@@ -325,13 +289,11 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
     });
   };
 
-  // Combine and process activities when data changes
   useEffect(() => {
     if (isLoading) return;
     
     const activities: Activity[] = [];
     
-    // Process check-ins
     const checkinsData = checkinsResponse as CheckinsResponse;
     if (checkinsData && checkinsData.checkins && Array.isArray(checkinsData.checkins)) {
       checkinsData.checkins.forEach((checkin: CheckinData) => {
@@ -349,7 +311,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
       });
     }
     
-    // Process badges
     const badgesData = badgesResponse as BadgesResponse;
     if (badgesData && badgesData.badges && Array.isArray(badgesData.badges)) {
       badgesData.badges.forEach((badge: BadgeData) => {
@@ -369,7 +330,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
       });
     }
     
-    // If we have userResponse data with username changes
     const userData = userResponse as UserResponse;
     if (userData && userData.usernameHistory && Array.isArray(userData.usernameHistory)) {
       userData.usernameHistory.forEach((history: UsernameHistoryData) => {
@@ -388,7 +348,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
       });
     }
     
-    // Process referrals
     const referralsData = referralsResponse as ReferralsResponse;
     if (referralsData && referralsData.referrals && Array.isArray(referralsData.referrals)) {
       referralsData.referrals.forEach((referral: ReferralData) => {
@@ -405,14 +364,12 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
       });
     }
     
-    // Sort all activities by timestamp (newest first)
     const sortedActivities = activities.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
     
     setCombinedActivities(sortedActivities);
     
-    // Apply current filter
     if (activeFilter === 'all') {
       setFilteredActivities(sortedActivities);
     } else {
@@ -420,7 +377,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
     }
   }, [checkinsResponse, badgesResponse, userResponse, referralsResponse, isLoading, activeFilter]);
 
-  // Get checkin count safely
   const getCheckinCount = (): number => {
     const checkinsData = checkinsResponse as CheckinsResponse;
     return checkinsData?.stats?.total || 0;
@@ -434,30 +390,24 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
         animate="visible"
         exit="hidden"
       >
-        {/* Backdrop with blur effect */}
         <motion.div 
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           variants={backdropVariants}
           onClick={onClose}
         ></motion.div>
         
-        {/* Sidebar Content */}
         <motion.div 
           className="relative w-full max-w-md h-full bg-white dark:bg-black/90 backdrop-blur-lg shadow-2xl border-l border-gray-200 dark:border-emerald-500/20 overflow-hidden flex flex-col"
           variants={sidebarVariants}
         >
-          {/* Decorative top border */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 z-10"></div>
           
-          {/* Ambient background gradients */}
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
             <div className="absolute -top-[400px] -left-[300px] w-[600px] h-[600px] rounded-full bg-emerald-900/5 dark:bg-emerald-900/10 blur-3xl animate-blob opacity-30"></div>
             <div className="absolute top-[60%] -right-[300px] w-[600px] h-[600px] rounded-full bg-emerald-800/5 dark:bg-emerald-800/10 blur-3xl animate-blob opacity-30" style={{animationDelay: '2s'}}></div>
             <div className="absolute -bottom-[400px] -left-[200px] w-[500px] h-[500px] rounded-full bg-emerald-700/5 dark:bg-emerald-700/10 blur-3xl animate-blob opacity-30" style={{animationDelay: '4s'}}></div>
           </div>
-          
           <div className="sticky top-0 bg-white/95 dark:bg-black/95 backdrop-blur-md z-10 border-b border-gray-200 dark:border-emerald-500/20 pb-4">
-            {/* Header with glassmorphism effect */}
             <div className="p-6 md:p-8 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
               <div className="flex justify-between items-center">
                 <div>
@@ -484,11 +434,9 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                 </motion.button>
               </div>
               
-              {/* Progress indicator */}
               {!isLoading && combinedActivities.length > 0 && (
                 <div className="mt-4 relative h-2">
                   <div className="absolute inset-0 bg-emerald-100 dark:bg-emerald-900/30 rounded-full overflow-hidden">
-                    {/* Activities count indicator */}
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, (combinedActivities.length / 20) * 100)}%` }}
@@ -502,7 +450,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
               )}
             </div>
             
-            {/* Activity filters */}
             {!isLoading && combinedActivities.length > 0 && (
               <div className="px-6 flex items-center space-x-2 overflow-x-auto scrollbar-hide py-3 mt-2">
                 <motion.button 
@@ -571,9 +518,7 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
           
           <div className="flex-grow overflow-y-auto custom-scrollbar">
             <div className="p-6 pt-4">
-              {/* Activity Content */}
               <AnimatePresence mode="wait">
-                {/* Loading state */}
                 {isLoading && (
                   <motion.div 
                     className="flex flex-col items-center justify-center py-12"
@@ -611,7 +556,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                   </motion.div>
                 )}
                 
-                {/* Empty state */}
                 {!isLoading && combinedActivities.length === 0 && (
                   <motion.div 
                     className="text-center py-12 px-6"
@@ -719,7 +663,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                   </motion.div>
                 )}
                 
-                {/* Filtered empty state */}
                 {!isLoading && combinedActivities.length > 0 && filteredActivities.length === 0 && (
                   <motion.div 
                     className="text-center py-12 px-6"
@@ -775,7 +718,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                   </motion.div>
                 )}
                 
-                {/* Activity list */}
                 {!isLoading && filteredActivities.length > 0 && (
                   <motion.div 
                     className="space-y-6"
@@ -795,7 +737,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                       </motion.p>
                     </div>
                     
-                    {/* Group activities by date */}
                     <motion.div
                       variants={listVariants}
                       initial="hidden"
@@ -826,7 +767,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                           </div>
                           
                           <div className="space-y-4 relative">
-                            {/* Vertical timeline line */}
                             <div className="absolute left-5 top-5 bottom-5 w-[1px] bg-gradient-to-b from-emerald-200 via-emerald-100 to-emerald-50 dark:from-emerald-500/30 dark:via-emerald-500/20 dark:to-emerald-500/10"></div>
                             
                             {dateActivities.map((activity, activityIndex) => (
@@ -840,7 +780,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                                 <div 
                                   className={`flex items-start gap-4 p-4 bg-white dark:bg-black/30 backdrop-blur-md rounded-xl border transition-all duration-300 overflow-hidden shadow-sm ${getActivityBorder(activity.type)}`}
                                 >
-                                  {/* Decorative elements */}
                                   <motion.div 
                                     className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none"
                                     animate={{
@@ -860,7 +799,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                                     }}
                                   ></motion.div>
                                   
-                                  {/* Activity icon */}
                                   <div className="relative mt-1">
                                     <motion.div 
                                       className={`w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br ${activity.iconColor} flex items-center justify-center text-white shadow-md`}
@@ -872,7 +810,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                                       {getActivityIcon(activity.type)}
                                     </motion.div>
                                     
-                                    {/* Status indicator */}
                                     <motion.div 
                                       className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center bg-white dark:bg-black shadow-lg border-2 border-gray-100 dark:border-gray-800"
                                       style={{ backgroundColor: getActivityColor(activity.type) }}
@@ -881,7 +818,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
                                     </motion.div>
                                   </div>
                                   
-                                  {/* Activity details */}
                                   <div className="flex-1">
                                     <div className="flex justify-between items-start">
                                       <motion.h3 
@@ -979,7 +915,6 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
             </div>
           </div>
           
-          {/* Footer with gradient */}
           <div className="bg-gradient-to-t from-white via-white to-transparent dark:from-black dark:via-black dark:to-transparent pt-6 pb-4 px-6 text-center border-t border-gray-200 dark:border-emerald-500/20">
             <div className="flex items-center justify-center">
               <div className="h-[1px] w-16 bg-gradient-to-r from-transparent to-emerald-200 dark:to-emerald-800"></div>

@@ -9,18 +9,15 @@ export const useScrollFunctions = (
 ) => {
   const router = useRouter()
 
-  // Function to scroll to leaderboard
   const scrollToLeaderboard = useCallback(() => {
-    // If we're not on the home page, navigate there first
     if (router.pathname !== "/") {
       router.push("/").then(() => {
-        // After navigation, find the leaderboard element and scroll to it
         setTimeout(() => {
           const leaderboardElement =
             document.querySelector('[data-section="leaderboard"]') || document.getElementById("leaderboard-section")
 
           if (leaderboardElement) {
-            const navbarHeight = 80 // Approximate height of navbar
+            const navbarHeight = 80
             const yOffset = -navbarHeight
             const y = leaderboardElement.getBoundingClientRect().top + window.pageYOffset + yOffset
 
@@ -29,10 +26,9 @@ export const useScrollFunctions = (
               behavior: "smooth",
             })
           }
-        }, 500) // Longer timeout to ensure page is loaded
+        }, 500)
       })
     } else if (leaderboardRef?.current) {
-      // If we're already on the home page and have a ref, use it
       setTimeout(() => {
         leaderboardRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -40,7 +36,6 @@ export const useScrollFunctions = (
         })
       }, 100)
     } else {
-      // Fallback if we're on the home page but don't have a ref
       setTimeout(() => {
         const leaderboardElement =
           document.querySelector('[data-section="leaderboard"]') || document.getElementById("leaderboard-section")
@@ -59,12 +54,9 @@ export const useScrollFunctions = (
     }
   }, [router, leaderboardRef])
 
-  // Function to scroll to badge mint section
   const scrollToMintSection = useCallback(() => {
-    // If we're not on the home page, navigate there first
     if (router.pathname !== "/") {
       router.push("/").then(() => {
-        // After navigation, find the badge mint section and scroll to it
         setTimeout(() => {
           const badgeSection =
             document.querySelector(".badge-mint-section") || document.querySelector('[data-section="badge-mint"]')
@@ -79,10 +71,9 @@ export const useScrollFunctions = (
               behavior: "smooth",
             })
           }
-        }, 500) // Longer timeout to ensure page is loaded
+        }, 500)
       })
     } else if (badgeMintSectionRef?.current) {
-      // If we're already on the home page and have a ref, use it
       setTimeout(() => {
         const navbarHeight = 80
         const yOffset = -navbarHeight
@@ -98,7 +89,6 @@ export const useScrollFunctions = (
         }
       }, 100)
     } else {
-      // Fallback if we're on the home page but don't have a ref
       setTimeout(() => {
         const badgeSection =
           document.querySelector(".badge-mint-section") || document.querySelector('[data-section="badge-mint"]')

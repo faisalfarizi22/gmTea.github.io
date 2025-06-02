@@ -14,7 +14,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
 }) => {
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  // On component mount, check for user's preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -25,7 +24,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
     
     setDarkMode(initialDarkMode);
     
-    // Apply the theme
     if (initialDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -33,14 +31,12 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
     }
   }, []);
 
-  // Handle forced theme changes from parent
   useEffect(() => {
     if (forceTheme !== null) {
       const newDarkMode = forceTheme === 'dark';
       if (darkMode !== newDarkMode) {
         setDarkMode(newDarkMode);
         
-        // Apply the theme
         if (newDarkMode) {
           document.documentElement.classList.add('dark');
         } else {
@@ -50,7 +46,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
     }
   }, [forceTheme, darkMode]);
 
-  // Toggle theme function
   const toggleTheme = () => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
@@ -63,7 +58,6 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({
       localStorage.setItem('theme', 'dark');
     }
     
-    // Notify parent component if callback provided
     if (onThemeChange) {
       onThemeChange(newDarkMode ? 'dark' : 'light');
     }

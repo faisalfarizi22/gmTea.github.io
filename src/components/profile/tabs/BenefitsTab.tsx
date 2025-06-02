@@ -29,7 +29,6 @@ export default function BenefitsTab({
   username,
   socialBenefits
 }: BenefitsTabProps) {
-  // No need to fetch data - we're now receiving everything via props
   return (
     <motion.div
       key="benefits"
@@ -46,7 +45,6 @@ export default function BenefitsTab({
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Username Color */}
             <BenefitCard
               title="Colored Username"
               description={highestTier >= 1 
@@ -64,7 +62,6 @@ export default function BenefitsTab({
               )}
             />
           
-            {/* Avatar Frame */}
             <BenefitCard
               title="Avatar Frame"
               description={highestTier >= 2 
@@ -83,7 +80,6 @@ export default function BenefitsTab({
               )}
             />
           
-            {/* Chat Emotes */}
             <BenefitCard
               title="Chat Emotes"
               description={highestTier >= 2 
@@ -116,7 +112,6 @@ export default function BenefitsTab({
               )}
             />
           
-            {/* Colored Text */}
             <BenefitCard
               title="Colored Text"
               description={highestTier >= 3 
@@ -134,7 +129,6 @@ export default function BenefitsTab({
               )}
             />
             
-            {/* Message Effects */}
             <BenefitCard
               title="Message Effects"
               description={highestTier >= 4 
@@ -155,7 +149,6 @@ export default function BenefitsTab({
               )}
             />
             
-            {/* Profile Background */}
             <BenefitCard
               title="Profile Background"
               description={highestTier >= 3 
@@ -168,7 +161,6 @@ export default function BenefitsTab({
           </div>
         </div>
         
-        {/* Use the TierBenefits component */}
         <TierBenefits selectedTier={highestTier} />
       </div>
     </motion.div>

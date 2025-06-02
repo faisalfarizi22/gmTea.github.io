@@ -144,32 +144,27 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       console.log("No badges found, default to -1");
     }
     
-    // Update highest tier state
     setHighestTier(maxTier);
     
-    // Set selected tier based on highest tier from badges
     if (maxTier === -1) {
-      setSelectedTier(0); // No badges, select COMMON
+      setSelectedTier(0);
     } else if (maxTier < 4) {
-      setSelectedTier(maxTier + 1); // Select next tier
+      setSelectedTier(maxTier + 1);
     } else {
-      setSelectedTier(-1); // Has all badges
+      setSelectedTier(-1);
     }
   }, [badges]);
 
-  // Perbaikan pada fungsi loadContractData
   const loadContractData = async () => {
     try {
       setLoadingPrices(true);
       setLoadingSupplies(true);
 
-      // Dapatkan provider dari signer yang diberikan jika tersedia
       let provider = null;
       if (signer) {
         provider = signer.provider;
       }
 
-      // Fallback ke getProvider() jika signer tidak ada
       if (!provider) {
         provider = getProvider();
       }
@@ -179,7 +174,6 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
         return;
       }
 
-      // Gunakan contract instance langsung dengan address dan ABI
       const badgeContract = new ethers.Contract(
         BADGE_CONTRACT_ADDRESS,
         GMTeaBadgeABI,
@@ -188,18 +182,15 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
 
       console.log("Loading contract data using contract at:", BADGE_CONTRACT_ADDRESS);
 
-      // Load prices for all tiers
       const prices = [];
       const supplies = [];
 
       for (let i = 0; i < 5; i++) {
         try {
-          // Get price
           const price = await badgeContract.tierPrices(i);
           console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
           prices.push(ethers.utils.formatEther(price));
 
-          // Get supplies
           const maxSupply = await badgeContract.tierMaxSupplies(i);
           const currentSupply = await badgeContract.tierCurrentSupplies(i);
 
@@ -226,7 +217,6 @@ const BadgeMintSection: React.FC<BadgeMintSectionProps> = ({ address, signer, on
       setBadgeSupplies(supplies);
     } catch (error) {
       console.error("Error in loadContractData:", error);
-      // Set default values if error occurs
       setContractPrices(["0", "0", "0", "0", "0"]);
       setBadgeSupplies([
         { maxSupply: 1000, currentSupply: 0 },
@@ -251,7 +241,6 @@ useEffect(() => {
     try {
       setIsLoading(true);
 
-      // Compute highest tier from badges
       let maxTier = -1;
       if (badges && badges.length > 0) {
         for (const badge of badges) {
@@ -261,19 +250,16 @@ useEffect(() => {
         }
       }
       
-      // Update highest tier state
       setHighestTier(maxTier);
       
-      // Set selected tier based on highest tier
       if (maxTier === -1) {
-        setSelectedTier(0); // No badges, select COMMON
+        setSelectedTier(0);
       } else if (maxTier < 4) {
-        setSelectedTier(maxTier + 1); // Select next tier
+        setSelectedTier(maxTier + 1);
       } else {
-        setSelectedTier(-1); // Has all badges
+        setSelectedTier(-1);
       }
 
-      // Load username
       try {
         const userUsername = await checkUsername(address);
         setUsername(userUsername);
@@ -282,7 +268,6 @@ useEffect(() => {
         setUsername(null);
       }
 
-      // Load contract data
       await loadContractData();
     } catch (error) {
       console.error("Error loading user and contract data:", error);
@@ -294,7 +279,6 @@ useEffect(() => {
   loadData();
 }, [address, signer, badges]);
 
-  // Load user's username, contract prices and supplies
   useEffect(() => {
     const loadUserData = async () => {
       if (!address) {
@@ -305,7 +289,6 @@ useEffect(() => {
       try {
         setIsLoading(true)
 
-        // Load username
         try {
           const userUsername = await checkUsername(address)
           setUsername(userUsername)
@@ -325,14 +308,12 @@ useEffect(() => {
         setLoadingPrices(true);
         setLoadingSupplies(true);
 
-        // Ambil provider
         const provider = getProvider();
         if (!provider) {
           console.error("Provider not available for loading contract data");
           return;
         }
 
-        // Buat instance contract
         const badgeContract = getBadgeContract(provider);
         if (!badgeContract) {
           console.error("Badge contract not initialized correctly");
@@ -341,20 +322,17 @@ useEffect(() => {
 
         console.log("Loading contract data from contract:", BADGE_CONTRACT_ADDRESS);
 
-        // Tambahkan debugging untuk melihat apakah contract method tersedia
         console.log("Contract methods:", 
           "tierPrices:", typeof badgeContract.tierPrices, 
           "tierMaxSupplies:", typeof badgeContract.tierMaxSupplies,
           "tierCurrentSupplies:", typeof badgeContract.tierCurrentSupplies
         );
 
-        // Load prices for all tiers
         const prices = [];
         const supplies = [];
 
         for (let i = 0; i < 5; i++) {
           try {
-            // Get price with explicit timeout and error handling
             const pricePromise = badgeContract.tierPrices(i);
             const price = await Promise.race([
               pricePromise,
@@ -364,14 +342,12 @@ useEffect(() => {
             console.log(`Tier ${i} price:`, ethers.utils.formatEther(price));
             prices.push(ethers.utils.formatEther(price));
 
-            // Get max supply
             const maxSupplyPromise = badgeContract.tierMaxSupplies(i);
             const maxSupply = await Promise.race([
               maxSupplyPromise,
               new Promise((_, reject) => setTimeout(() => reject(new Error("Max supply fetch timeout")), 10000))
             ]);
 
-            // Get current supply
             const currentSupplyPromise = badgeContract.tierCurrentSupplies(i);
             const currentSupply = await Promise.race([
               currentSupplyPromise,
@@ -389,13 +365,11 @@ useEffect(() => {
             });
           } catch (tierError) {
             console.error(`Error fetching data for tier ${i}:`, tierError);
-            // Set default values if failed
             prices[i] = prices[i] || "0";
             supplies[i] = supplies[i] || { maxSupply: 1000, currentSupply: 0 };
           }
         }
 
-        // Only update state if we have valid data
         if (prices.length > 0) {
           setContractPrices(prices);
           console.log("Updated contract prices:", prices);
@@ -417,7 +391,7 @@ useEffect(() => {
     if (address) {
       await Promise.all([
         loadUserData(),
-        loadContractData() // Pastikan ini dijalankan bersamaan
+        loadContractData()
       ]);
     }
   };
@@ -426,7 +400,6 @@ useEffect(() => {
     loadContractData()
   }, [address, signer])
 
-  // Get tier price from contract
   const getTierPrice = (tier: number): string => {
   if (contractPrices && contractPrices.length > tier && tier >= 0) {
     return contractPrices[tier] || "0";
@@ -434,19 +407,15 @@ useEffect(() => {
   return "0";
 };
 
-// Get tier status with improved handling of missing supplies data
 const getTierStatus = (tier: number): string => {
-  // Check if user owns this tier using badges
   if (hasUserMintedTier(tier)) {
     return "owned";
   }
 
-  // Check if this is the next tier after the highest one
   if (tier === highestTier + 1) {
     return "available";
   }
 
-  // Check if this tier is sold out - with safeguard for missing data
   if (badgeSupplies && badgeSupplies.length > tier && tier >= 0) {
     const supply = badgeSupplies[tier];
     if (supply && supply.currentSupply >= supply.maxSupply) {
@@ -454,23 +423,17 @@ const getTierStatus = (tier: number): string => {
     }
   }
 
-    // Otherwise, tier is locked
     return "locked"
   }
 
-  // Check if user can mint badge
   const canMintBadge = (tier: number): boolean => {
-    // If user has no badges, they can only mint tier 0
     if (highestTier === -1 && tier === 0) return true
 
-    // If user already has this tier or higher, they can't mint it
     if (hasUserMintedTier(tier)) return false
 
-    // User can only mint the next tier after their highest one
     return tier === highestTier + 1
   }
 
-  // Handle mint process
   const handleMint = async (): Promise<void> => {
   if (!address || !signer || selectedTier < 0 || selectedTier >= badgeTiers.length || !username) {
     console.log("Basic validation failed:", { address, signer, selectedTier, username })
@@ -478,7 +441,6 @@ const getTierStatus = (tier: number): string => {
   }
 
   try {
-    // Set transaction state to preparing
     setTxState({
       status: "preparing",
       error: null,
@@ -486,10 +448,8 @@ const getTierStatus = (tier: number): string => {
       confirmations: 0,
     })
 
-    // Use a timeout to ensure UI updates before continuing
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    // Check if user already has this tier badge (using database badges)
     console.log("Checking if user has already minted this tier...")
     if (hasUserMintedTier(selectedTier)) {
       console.log("User already owns this badge tier")
@@ -502,28 +462,23 @@ const getTierStatus = (tier: number): string => {
       return
     }
 
-    // Set state to awaiting wallet confirmation immediately
     console.log("Setting status to awaiting_wallet")
     setTxState((prev) => ({ ...prev, status: "awaiting_wallet" }))
 
-    // Create contract instance directly with signer
     console.log("Creating contract instance...")
     const badgeContractAddress = BADGE_CONTRACT_ADDRESS
     const badgeContract = new ethers.Contract(badgeContractAddress, GMTeaBadgeABI, signer)
 
-    // Get price directly from the contract
     console.log("Getting price from contract...")
     const contractPrice = await badgeContract.tierPrices(selectedTier)
     console.log(`Price for tier ${selectedTier} from contract: ${ethers.utils.formatEther(contractPrice)} ETH`)
 
-    // Always use high gas limit for referral processing
     const gasLimit = 1000000
 
-    // Direct contract call
     console.log("About to request wallet confirmation...")
       try {
         const tx = await badgeContract.mintBadge(address, selectedTier, {
-          value: contractPrice, // Use price from contract
+          value: contractPrice,
           gasLimit: gasLimit,
         })
 
@@ -535,12 +490,10 @@ const getTierStatus = (tier: number): string => {
           confirmations: 0,
         })
 
-        // Wait for transaction confirmation
         console.log("Waiting for transaction confirmation...")
         const receipt = await tx.wait();
         console.log("Transaction confirmed!", receipt);
 
-        // PENTING: Set txState ke success SETELAH transaksi berhasil dikonfirmasi
         setTxState({
           status: "success",
           error: null,
@@ -548,12 +501,10 @@ const getTierStatus = (tier: number): string => {
           confirmations: receipt.confirmations || 1
         });
 
-        // Update highest tier & show success modal
         if (selectedTier > highestTier) {
           setHighestTier(selectedTier);
         }
 
-        // Update supply count for the tier
         setBadgeSupplies(prevSupplies => {
           const newSupplies = [...prevSupplies];
           if (newSupplies[selectedTier]) {
@@ -562,10 +513,8 @@ const getTierStatus = (tier: number): string => {
           return newSupplies;
         });
 
-        // Show success modal
         setShowSuccessModal(true);
 
-        // Call onMintComplete callback
         if (onMintComplete) {
           onMintComplete();
         }
@@ -593,14 +542,11 @@ const getTierStatus = (tier: number): string => {
     }
   }
 
-  // Function to parse transaction errors for better messages
   const parseTransactionError = (error: any): { message: string; type: "error" | "info" } => {
     if (!error) return { message: "Unknown error occurred", type: "error" };
     
-    // Convert error to string for easier checking
     const errorString = error.toString().toLowerCase();
     
-    // User rejected/denied transaction
     if (
       errorString.includes("user rejected") || 
       errorString.includes("user denied") || 
@@ -613,7 +559,6 @@ const getTierStatus = (tier: number): string => {
       };
     }
     
-    // Gas related errors
     if (errorString.includes("gas") && errorString.includes("limit")) {
       return {
         message: "Transaction failed: Gas limit estimation error",
@@ -621,7 +566,6 @@ const getTierStatus = (tier: number): string => {
       };
     }
     
-    // Network errors
     if (errorString.includes("network") || errorString.includes("connection")) {
       return {
         message: "Network connection issue. Please check your internet and try again.",
@@ -629,21 +573,17 @@ const getTierStatus = (tier: number): string => {
       };
     }
     
-    // Extract message from JSON error object if present
     if (errorString.includes("{") && errorString.includes("}")) {
       try {
-        // Try to find the actual error message without the technical details
         const basicMessage = error.message?.split("(")[0]?.trim() || "Transaction failed";
         return {
           message: basicMessage,
           type: "error"
         };
       } catch (e) {
-        // Fall back to default message
       }
     }
     
-    // Default: use the error message or a generic one
     return {
       message: error.message || "Transaction failed",
       type: "error"
@@ -652,7 +592,6 @@ const getTierStatus = (tier: number): string => {
 
   
 
-  // Copy transaction hash to clipboard
   const copyTxHashToClipboard = () => {
     if (!txState.txHash) return
 
@@ -669,10 +608,8 @@ const getTierStatus = (tier: number): string => {
   const addNotification = (message: string, type: "success" | "error" | "info" = "info") => {
     const id = ++notificationIdRef.current;
     
-    // Add notification to state
     setNotifications(prev => [...prev, { id, message, type }]);
     
-    // Auto-remove notification after 5 seconds
     setTimeout(() => {
       removeNotification(id);
     }, 5000);
@@ -680,12 +617,10 @@ const getTierStatus = (tier: number): string => {
     return id;
   };
 
-  // Remove notification function
   const removeNotification = (id: number) => {
     setNotifications(prev => prev.filter(notification => notification.id !== id));
   };
 
-  // Reset transaction state
   const resetTxState = () => {
     setTxState({
       status: "idle",
@@ -696,7 +631,6 @@ const getTierStatus = (tier: number): string => {
     setShowSuccessModal(false)
   }
 
-  // Render transaction status
   const renderTransactionStatus = () => {
     switch (txState.status) {
       case "preparing":
@@ -757,11 +691,9 @@ const getTierStatus = (tier: number): string => {
     }
   }
 
-  // Success modal
   const renderSuccessModal = () => {
     if (!showSuccessModal) return null
 
-    // Find the tier that was just minted (previous selected tier)
     const mintedTierIndex = selectedTier > 0 ? selectedTier - 1 : 0
     const mintedTier = badgeTiers[mintedTierIndex]
 
@@ -812,24 +744,17 @@ const getTierStatus = (tier: number): string => {
           <div className="flex space-x-3">
             <button
               onClick={async () => {
-                // Reset modal first
                 resetTxState()
 
-                // Show loading indicator
                 setIsLoading(true)
 
-                // Re-fetch user tier data and contract data
                 try {
-                  // Load updated highest tier
                   const newTier = await getUserHighestTier(address)
                   setHighestTier(newTier)
 
-                  // Update selected tier to the next one after the new highest tier
                   if (newTier < 4) {
-                    // Set next tier as selected
                     setSelectedTier(newTier + 1)
 
-                    // Scroll to the new tier
                     setTimeout(() => {
                       const tierElement = document.getElementById(`tier-${newTier + 1}`)
                       if (tierElement) {
@@ -837,10 +762,9 @@ const getTierStatus = (tier: number): string => {
                       }
                     }, 300)
                   } else {
-                    setSelectedTier(-1) // Has all badges
+                    setSelectedTier(-1)
                   }
 
-                  // Also refresh badge supplies
                   const provider = getProvider()
                   if (provider) {
                     const badgeContract = getBadgeContract(provider)
@@ -859,7 +783,6 @@ const getTierStatus = (tier: number): string => {
                     setBadgeSupplies(supplies)
                   }
 
-                  // Also trigger the onMintComplete callback if provided
                   if (onMintComplete) {
                     onMintComplete()
                   }
@@ -885,18 +808,15 @@ const getTierStatus = (tier: number): string => {
     )
   }
 
-  // Get badge color by tier
   const getBadgeColor = (tier: number) => {
     if (tier < 0 || tier >= badgeTiers.length) return "#6b7280"
     return badgeTiers[tier].color
   }
 
-  // Get tier icon
   const getTierIcon = (tier: number) => {
     return <FaLeaf />
   }
 
-  // Render the collection tab content
   const renderCollectionTab = () => {
     return (
       <motion.div
@@ -919,7 +839,6 @@ const getTierStatus = (tier: number): string => {
                 }`}
               >
                 <div className="aspect-square relative overflow-hidden rounded-2xl">
-                  {/* Badge background with geometric patterns */}
                   <div
                     className={`absolute inset-0 ${
                       isOwned
@@ -934,7 +853,6 @@ const getTierStatus = (tier: number): string => {
                     }}
                   ></div>
 
-                  {/* Geometric patterns with animated light */}
                   <div className="absolute inset-0 opacity-30">
                     <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                       <defs>
@@ -983,7 +901,6 @@ const getTierStatus = (tier: number): string => {
                     </svg>
                   </div>
 
-                  {/* Badge content */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
                     <div
                       className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 backdrop-blur-sm transition-all duration-300 ${
@@ -1017,7 +934,6 @@ const getTierStatus = (tier: number): string => {
                     )}
                   </div>
 
-                  {/* Animated glow effect for owned badges */}
                   {isOwned && (
                     <>
                       <div
@@ -1035,7 +951,6 @@ const getTierStatus = (tier: number): string => {
                     </>
                   )}
 
-                  {/* Animated shine effect */}
                   <div
                     className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-700"
                     style={{
@@ -1045,7 +960,6 @@ const getTierStatus = (tier: number): string => {
                     }}
                   ></div>
 
-                  {/* Lock icon for locked badges */}
                   {tierStatus === "locked" && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
@@ -1055,7 +969,6 @@ const getTierStatus = (tier: number): string => {
                   )}
                 </div>
 
-                {/* Badge info footer */}
                 <div className="mt-3 text-center">
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {isOwned ? (
@@ -1070,7 +983,6 @@ const getTierStatus = (tier: number): string => {
           })}
         </div>
 
-        {/* Collection progress */}
         <div className="bg-white dark:bg-black/80 backdrop-blur-md rounded-xl p-6 border border-gray-200 dark:border-emerald-500/20 shadow-xl">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-emerald-300 mb-4 flex items-center">
             <FaMedal className="mr-2 text-emerald-500 dark:text-emerald-400" /> Collection Progress
@@ -1123,7 +1035,6 @@ const getTierStatus = (tier: number): string => {
     )
   }
 
-  // Render the benefits tab content
   const renderBenefitsTab = () => {
     return (
       <motion.div
@@ -1137,7 +1048,6 @@ const getTierStatus = (tier: number): string => {
     )
   }
 
-  // Get button text based on tier status
   const getMintButtonText = (tier: number): string => {
     const status = getTierStatus(tier)
     if (status === "owned") return "Owned"
@@ -1146,7 +1056,6 @@ const getTierStatus = (tier: number): string => {
     return "Mint"
   }
 
-  // Get button style based on tier status
   const getMintButtonStyle = (tier: number): string => {
     const status = getTierStatus(tier)
     if (status === "owned")
@@ -1156,7 +1065,6 @@ const getTierStatus = (tier: number): string => {
     return "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white transition-all shadow-lg hover:shadow-emerald-500/20"
   }
 
-  // Get status badge style based on tier status
   const getStatusBadgeStyle = (status: string): string => {
     switch (status) {
       case "owned":
@@ -1165,7 +1073,7 @@ const getTierStatus = (tier: number): string => {
         return "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 animate-pulse"
       case "sold out":
         return "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"
-      default: // locked
+      default:
         return "bg-gray-200 dark:bg-gray-500/20 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-500/30"
     }
   }
@@ -1177,9 +1085,7 @@ const getTierStatus = (tier: number): string => {
       transition={{ duration: 0.5 }}
       className="mb-8 mt-8 bg-white dark:bg-black/80 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl border border-gray-200 dark:border-emerald-500/20"
     >
-      {/* Header with subtle glow effect */}
       <div className="relative p-6 border-b border-gray-200 dark:border-emerald-500/20 bg-gradient-to-r from-gray-50 to-white dark:from-emerald-900/20 dark:to-teal-900/20 overflow-hidden">
-        {/* Animated background glow */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -inset-[100%] opacity-30 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 animate-aurora"></div>
         </div>
@@ -1191,7 +1097,6 @@ const getTierStatus = (tier: number): string => {
         </div>
       </div>
 
-      {/* Tab Navigation - Sleek, minimal design */}
       <div className="border-b border-gray-200 dark:border-emerald-500/20 bg-gray-50 dark:bg-emerald-900/10">
         <div className="flex overflow-x-auto scrollbar-hide">
           <button
@@ -1270,14 +1175,12 @@ const getTierStatus = (tier: number): string => {
               transition={{ duration: 0.3 }}
             >
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                {/* Collection Status - 5 columns */}
                 <div className="md:col-span-5">
                   <div className="bg-white dark:bg-black/60 backdrop-blur-md rounded-xl p-6 border border-gray-200 dark:border-emerald-500/20 shadow-xl h-full">
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-emerald-300 mb-4 flex items-center">
                       <FaMedal className="mr-2 text-emerald-500 dark:text-emerald-400" /> Your Collection
                     </h3>
 
-                    {/* Collection Status */}
                     <div className="space-y-4 mb-6">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600 dark:text-emerald-200/70">Highest Badge:</span>
@@ -1319,7 +1222,6 @@ const getTierStatus = (tier: number): string => {
                         </div>
                       </div>
 
-                      {/* Username Status */}
                       <div className="p-4 bg-gray-50 dark:bg-emerald-900/10 rounded-xl border border-gray-200 dark:border-emerald-500/20">
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600 dark:text-emerald-200/70">Username:</span>
@@ -1342,7 +1244,6 @@ const getTierStatus = (tier: number): string => {
                       </div>
                     </div>
 
-                    {/* Badge Collection - Rectangular design */}
                     <div className="mt-6">
                       <h4 className="text-md font-medium text-gray-800 dark:text-emerald-300 mb-4">
                         Badge Collection:
@@ -1367,7 +1268,6 @@ const getTierStatus = (tier: number): string => {
                               className={`relative cursor-pointer ${isSelected ? "z-10" : ""}`}
                               onClick={() => setSelectedTier(index)}
                             >
-                              {/* Status indicator at the top */}
                               <div className="absolute top-1 left-0 right-0 flex justify-center z-10">
                                 <span
                                   className={`text-[9px] px-1.5 py-0.5 rounded-full border ${getStatusBadgeStyle(
@@ -1378,7 +1278,6 @@ const getTierStatus = (tier: number): string => {
                                 </span>
                               </div>
 
-                              {/* Rectangular Badge */}
                               <div
                                 className={`
                                   aspect-square relative overflow-hidden rounded-lg transition-all duration-300
@@ -1391,7 +1290,6 @@ const getTierStatus = (tier: number): string => {
                                   borderColor: isSelected ? getBadgeColor(index) : "transparent",
                                 }}
                               >
-                                {/* Badge Content */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
                                   <div
                                     className={`
@@ -1417,7 +1315,6 @@ const getTierStatus = (tier: number): string => {
                                   </p>
                                 </div>
 
-                                {/* Animated effect for owned badges */}
                                 {isOwned && (
                                   <>
                                     <div
@@ -1447,7 +1344,6 @@ const getTierStatus = (tier: number): string => {
                                 )}
                               </div>
 
-                              {/* Price Tag */}
                               <div className="text-center mt-1">
                                 <span className="text-[10px] text-gray-500 dark:text-emerald-200/50">
                                   {loadingPrices ? (
@@ -1465,7 +1361,6 @@ const getTierStatus = (tier: number): string => {
                   </div>
                 </div>
 
-                {/* Badge Minting Section - 7 columns */}
                 <div className="md:col-span-7">
                   <div className="bg-white dark:bg-black/60 backdrop-blur-md rounded-xl p-6 border border-gray-200 dark:border-emerald-500/20 shadow-xl h-full">
                     {highestTier < 4 ? (
@@ -1480,7 +1375,6 @@ const getTierStatus = (tier: number): string => {
                           </p>
                         </div>
 
-                        {/* Selected tier details */}
                         {selectedTier >= 0 && selectedTier < badgeTiers.length ? (
                           <div className="bg-gray-50 dark:bg-emerald-900/10 rounded-xl p-6 border border-gray-200 dark:border-emerald-500/20">
                             <div className="flex items-start">
@@ -1497,7 +1391,6 @@ const getTierStatus = (tier: number): string => {
                                 >
                                   {getTierIcon(selectedTier)}
                                 </div>
-                                {/* Animated glow */}
                                 <div
                                   className="absolute inset-0 opacity-30 animate-pulse"
                                   style={{
@@ -1574,7 +1467,6 @@ const getTierStatus = (tier: number): string => {
                                   </div>
                                 </div>
 
-                                {/* Transaction status */}
                                 <AnimatePresence mode="wait">
                                   {txState.status !== "idle" && (
                                     <motion.div
@@ -1590,9 +1482,7 @@ const getTierStatus = (tier: number): string => {
                                   )}
                                 </AnimatePresence>
 
-                                {/* Mint button */}
                                 <div className="flex space-x-3 items-center">
-                                  {/* Mint button - using flex-1 instead of w-full to take available space */}
                                   <button
                                     onClick={handleMint}
                                     disabled={
@@ -1615,14 +1505,11 @@ const getTierStatus = (tier: number): string => {
                                       }
                                     `}
                                   >
-                                  {/* Background animation elements (only show when enabled) */}
                                   {canMintBadge(selectedTier) && signer && username && (txState.status === "idle" || txState.status === "error") && (
                                     <>
-                                      {/* Animated particles */}
                                       <div className="absolute inset-0 w-full h-full">
                                         <div className="absolute -inset-[100%] bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 animate-shimmer"></div>
                                       </div>
-                                      {/* Geometric pattern */}
                                       <div className="absolute inset-0 opacity-20">
                                         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                                           <defs>
@@ -1633,12 +1520,10 @@ const getTierStatus = (tier: number): string => {
                                           <rect width="100%" height="100%" fill="url(#grid-pattern)" />
                                         </svg>
                                       </div>
-                                      {/* Subtle glow on hover */}
                                       <div className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity duration-500 bg-emerald-400 blur-xl"></div>
                                     </>
                                   )}
 
-                                  {/* Button content */}
                                   <span className="relative flex items-center justify-center">
                                     {txState.status === "idle" || txState.status === "error" ? (
                                       <>
@@ -1657,7 +1542,6 @@ const getTierStatus = (tier: number): string => {
                                   </span>
                                 </button>
 
-                                {/* Reset button conditionally rendered in the flex container */}
                                 {txState.status === "awaiting_wallet" && (
                                   <button
                                     onClick={() => {
@@ -1670,10 +1554,8 @@ const getTierStatus = (tier: number): string => {
                                     }}
                                     className="w-28 py-2.5 relative overflow-hidden group rounded-lg flex justify-center items-center font-medium transition-all border border-red-300/50 dark:border-red-500/30 text-red-500 dark:text-red-400 hover:text-white"
                                   >
-                                    {/* Background effects */}
                                     <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-red-500 to-rose-500"></div>
                                     
-                                    {/* Geometric pattern */}
                                     <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-300">
                                       <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                                         <defs>
@@ -1685,7 +1567,6 @@ const getTierStatus = (tier: number): string => {
                                       </svg>
                                     </div>
                                     
-                                    {/* Button content - simplified for side-by-side layout */}
                                     <span className="relative flex items-center">
                                       <FaTimes className="mr-1.5 h-3.5 w-3.5" />
                                       Cancel
@@ -1694,7 +1575,6 @@ const getTierStatus = (tier: number): string => {
                                 )}
                               </div>
 
-                              {/* Username warning */}
                               {!username && getTierStatus(selectedTier) === "available" && (
                                 <div className="mt-3 p-3 bg-red-50 dark:bg-red-500/10 rounded-lg border border-red-200 dark:border-red-500/20 text-sm text-red-500 dark:text-red-400">
                                   <FaInfoCircle className="inline mr-1" />
@@ -1725,7 +1605,6 @@ const getTierStatus = (tier: number): string => {
                           </div>
                         )}
 
-                        {/* Badge comparison table - Futuristic design */}
                         <div className="mt-6 bg-gray-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-gray-200 dark:border-emerald-500/20">
                           <h4 className="font-medium text-gray-800 dark:text-emerald-300 mb-3">
                             Badge Benefits Comparison
@@ -1918,16 +1797,13 @@ const getTierStatus = (tier: number): string => {
         </AnimatePresence>
       </div>
 
-      {/* Success modal */}
       {renderSuccessModal()}
 
-      {/* Notification Container */}
       <NotificationContainer 
         notifications={notifications} 
         removeNotification={removeNotification} 
       />
 
-      {/* Custom animation styles */}
       <style jsx global>{`
         @keyframes gradient-shift {
           0% { background-position: 200% 0; }
@@ -2001,9 +1877,7 @@ const getTierStatus = (tier: number): string => {
   )
 }
 
-// Notification component
 const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) => {
-  // Color schemes based on notification type
   const colorSchemes = {
     success: {
       bg: "bg-gradient-to-r from-emerald-500/90 to-teal-600/90",
@@ -2035,7 +1909,6 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
       transition={{ duration: 0.3 }}
       className={`${scheme.bg} backdrop-blur-md border ${scheme.border}/30 rounded-xl shadow-2xl p-4 max-w-sm w-full flex items-center relative overflow-hidden`}
     >
-      {/* Animated background pattern */}
       <div className="absolute inset-0 opacity-10">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -2047,24 +1920,19 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
         </svg>
       </div>
       
-      {/* Animated progress bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
         <div className="h-full bg-white/40 animate-notification-progress"></div>
       </div>
       
-      {/* Icon container with ring animation */}
       <div className="relative mr-3 flex-shrink-0">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm`}>
           {scheme.icon}
         </div>
-        {/* Animated ring */}
         <div className={`absolute inset-0 rounded-full border-2 border-white/30 animate-ping opacity-50`}></div>
       </div>
       
-      {/* Message */}
       <div className="flex-1 text-white text-sm font-medium pr-8">{message}</div>
       
-      {/* Close button */}
       <button 
         onClick={onClose} 
         className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
@@ -2075,7 +1943,6 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) =
   );
 };
 
-// Notification Container component
 const NotificationContainer: React.FC<NotificationContainerProps> = ({ notifications, removeNotification }) => {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none">

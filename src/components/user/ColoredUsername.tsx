@@ -1,4 +1,3 @@
-// components/user/ColoredUsername.tsx
 import React from "react";
 import { getUsernameColor } from "@/utils/socialBenefitsUtils";
 
@@ -17,7 +16,6 @@ const ColoredUsername: React.FC<ColoredUsernameProps> = ({
 }) => {
   if (!username) return null;
   
-  // Menggunakan try-catch untuk menangani error
   try {
     const color = getUsernameColor(badgeTier);
     
@@ -31,7 +29,6 @@ const ColoredUsername: React.FC<ColoredUsernameProps> = ({
     );
   } catch (error) {
     console.error("Error rendering ColoredUsername:", error);
-    // Fallback rendering jika terjadi error
     return (
       <span className={`font-medium ${className}`}>
         {username}

@@ -1,4 +1,3 @@
-// components/ConnectWalletButton.tsx
 import React, { useState } from 'react';
 import { FaWallet } from 'react-icons/fa';
 import { motion } from 'framer-motion';

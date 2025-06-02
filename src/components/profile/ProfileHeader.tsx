@@ -28,7 +28,6 @@ export default function ProfileHeader({
   showUsernameModal,
   copyAddressToClipboard
 }: ProfileHeaderProps) {
-  // Get user tier name based on highestTier
   const getUserTier = () => {
     switch (highestTier) {
       case 0: return "Common"
@@ -40,19 +39,14 @@ export default function ProfileHeader({
     }
   }
 
-  // Check if user can edit username
   const canEditUsername = !hasUsername
 
   return (
     <div className="relative">
       <div className="bg-white dark:bg-black/90 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-emerald-500/20 overflow-hidden">
-        {/* Profile Header with Tier-based Background */}
-        {/* Use the Banner component here */}
         <Banner badgeTier={highestTier} />
-
         <div className="px-6 md:px-8 pb-6 -mt-16 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end">
-            {/* Profile avatar */}
             <div className="relative">
               <div className="relative">
                 <div className="relative h-32 w-32 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-900 dark:to-gray-800 border-4 border-white dark:border-black/90 shadow-xl flex items-center justify-center overflow-hidden">
@@ -89,7 +83,6 @@ export default function ProfileHeader({
               )}
             </div>
 
-            {/* Profile info */}
             <div className="mt-4 md:mt-0 md:ml-6 flex-1">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
@@ -126,7 +119,6 @@ export default function ProfileHeader({
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 <div className="mt-4 md:mt-0 flex space-x-3">
                   {canEditUsername && (
                     <button
@@ -144,7 +136,6 @@ export default function ProfileHeader({
         </div>
       </div>
 
-      {/* Username Warning (if no username) */}
       {hasUsername === false && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}

@@ -39,7 +39,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
       setIsLoading(true);
       setError(null);
 
-      // Fetch from database API instead of blockchain
       const response = await fetch(`/api/badges/${address}`);
       
       if (!response.ok) {
@@ -49,7 +48,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
       const data = await response.json();
       
       if (!data || !data.badges || data.badges.length === 0) {
-        // No badges found
         setBadgeInfo({
           hasBadges: false,
           badges: [],
@@ -61,7 +59,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
         return;
       }
       
-      // Process badges from API response
       const badges: Badge[] = data.badges.map((badge: any) => ({
         tokenId: badge.tokenId || 0,
         tier: badge.tier,
@@ -69,16 +66,11 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
         mintedAt: new Date(badge.mintedAt).getTime() / 1000
       }));
       
-      // Sort badges by tier (ascending)
       badges.sort((a, b) => a.tier - b.tier);
       
-      // Get highest tier
       const highestTier = Math.max(...badges.map(badge => badge.tier));
-      
-      // Determine if upgrade is available
-      const canUpgrade = highestTier < 4; // 4 is LEGENDARY
-      
-      // Get next tier info if available
+      const canUpgrade = highestTier < 4; 
+
       let nextTier: number | undefined;
       let nextTierName: string | undefined;
       
@@ -97,14 +89,12 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
         nextTierName
       });
       
-      // Set the highest tier badge as selected by default
       if (badges.length > 0) {
         const highestBadge = badges.find(badge => badge.tier === highestTier) || badges[0];
         setSelectedBadge(highestBadge);
       }
     } catch (error: any) {
       console.error('Error fetching user badges:', error);
-      // Fallback to blockchain if API fails
       try {
         console.log('Falling back to blockchain for badge data');
         const provider = getProvider();
@@ -115,16 +105,13 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
   
         const badgeContract = getBadgeContract(provider);
         
-        // Get user's badge balance
         const balance = await badgeContract.balanceOf(address);
-        // ... original blockchain code here
       } catch (fallbackError: any) {
         console.error('Fallback to blockchain also failed:', fallbackError);
         setError(error.message || 'Failed to load badges');
       }
     } finally {
       setIsLoading(false);
-      // Delay the animation completion flag slightly for visual effect
       setTimeout(() => setAnimationComplete(true), 800);
     }
   };
@@ -136,12 +123,10 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     setSelectedBadge(badge);
   };
 
-  // Get tier icon based on tier number
   const getTierIcon = (tier: number) => {
     return <FaLeaf className="h-full w-full" />;
   };
 
-  // Calculate rarity percentage based on tier
   const getRarityPercentage = (tier: number): string => {
     switch(tier) {
       case 0: return "100%";
@@ -153,7 +138,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     }
   };
 
-  // Get benefits based on tier
   const getBadgeBenefits = (tier: number): string[] => {
     const baseBenefits = ["Community Chat Access"];
     
@@ -168,7 +152,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     return baseBenefits;
   };
 
-  // Get stats based on tier
   const getBadgeStats = (tier: number) => {
     const tiers = [
       {
@@ -201,7 +184,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     return tiers[tier] || tiers[0];
   };
 
-  // Loading state with futuristic animation
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-black/90 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-emerald-500/20 min-h-[50vh]">
@@ -219,7 +201,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="p-8 bg-white dark:bg-black/90 backdrop-blur-lg rounded-2xl shadow-lg border border-red-200 dark:border-red-500/20">
@@ -245,7 +226,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
     );
   }
 
-  // No badges state
   if (!badgeInfo?.hasBadges) {
     return (
       <motion.div 
@@ -322,7 +302,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
       transition={{ duration: 0.5 }}
       className="bg-white dark:bg-black/90 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-emerald-500/20 overflow-hidden"
     >
-      {/* Header with glassmorphism effect */}
       <div className="p-6 md:p-8 border-b border-gray-200 dark:border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
         <div className="flex flex-col md:flex-row md:items-center justify-between">
           <div>
@@ -364,10 +343,8 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
           </div>
         </div>
         
-        {/* Progress Bar */}
         <div className="mt-6 relative h-2">
           <div className="absolute inset-0 bg-emerald-100 dark:bg-emerald-900/30 rounded-full overflow-hidden">
-            {/* Animated progress fill */}
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (badgeInfo.badges.length / 5) * 100)}%` }}
@@ -381,14 +358,12 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-0">
-        {/* Badge Collection - 3 columns */}
         <div className="lg:col-span-3 p-6 md:p-8">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-emerald-300 mb-6 flex items-center">
             <FaCertificate className="mr-2 text-emerald-500 dark:text-emerald-400/60" />
             Digital Credentials
           </h3>
           
-          {/* Hexagonal Badge Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             {[0, 1, 2, 3, 4].map((tier) => {
               const badge = badgeInfo.badges.find(b => b.tier === tier);
@@ -404,7 +379,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                   onClick={() => badge && handleBadgeSelect(badge)}
                   className={`relative overflow-hidden ${isOwned ? 'cursor-pointer' : 'opacity-50'}`}
                 >
-                  {/* Hexagon Shape */}
                   <div 
                     className={`
                       aspect-square relative overflow-hidden transition-all duration-300
@@ -418,7 +392,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       borderColor: isSelected ? getBadgeColor(tier) : 'transparent',
                     }}
                   >
-                    {/* Badge Content */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
                       <div 
                         className={`
@@ -441,7 +414,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       </p>
                     </div>
                     
-                    {/* Animated effect for owned badges */}
                     {isOwned && (
                       <>
                         <div 
@@ -461,7 +433,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       </>
                     )}
                     
-                    {/* Selected indicator */}
                     {isSelected && (
                       <div className="absolute inset-0 border-2" style={{ 
                         borderColor: getBadgeColor(tier),
@@ -469,7 +440,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       }}></div>
                     )}
                     
-                    {/* Lock icon for locked badges */}
                     {!isOwned && (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-black/50">
                         <FaLeaf className="text-gray-400 dark:text-gray-500/50 h-6 w-6" />
@@ -477,14 +447,12 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                     )}
                   </div>
                   
-                  {/* Badge name */}
                   <p className="text-center text-[11px] mt-2 font-medium" style={{ 
                     color: isOwned ? getBadgeColor(tier) : 'rgba(100, 116, 139, 0.6)'
                   }}>
                     {getTierName(tier)}
                   </p>
                   
-                  {/* Minting date if owned */}
                   {badge?.mintedAt && (
                     <p className="text-center text-[10px] text-gray-500 dark:text-emerald-500/50">
                       {new Date(badge.mintedAt * 1000).toLocaleDateString()}
@@ -495,7 +463,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
             })}
           </div>
           
-          {/* Statistics section */}
           <div className="bg-emerald-50 dark:bg-emerald-900/10 backdrop-blur-sm rounded-xl border border-emerald-200 dark:border-emerald-600/20 p-4 mt-4">
             <h4 className="text-sm font-medium text-emerald-700 dark:text-emerald-300 mb-3">Collection Stats</h4>
             
@@ -524,7 +491,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
           </div>
         </div>
         
-        {/* Selected Badge Details - 2 columns */}
         <div className="lg:col-span-2 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-emerald-500/20 bg-gray-50 dark:bg-emerald-900/5">
           <AnimatePresence mode="wait">
             {selectedBadge ? (
@@ -552,7 +518,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                   </div>
                 </div>
                 
-                {/* Badge visualization */}
                 <div className="w-full aspect-square max-w-[180px] mx-auto mb-6 relative">
                   <div className="absolute inset-0 rounded-full opacity-20 animate-pulse"
                     style={{ 
@@ -589,7 +554,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                   ></div>
                   </div>
 
-                  {/* Badge details */}
                   <div className="space-y-4">
                     <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
                       <div className="grid grid-cols-2 gap-3">
@@ -619,7 +583,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       </div>
                     </div>
                     
-                    {/* Badge stats */}
                     <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Badge Stats</h4>
                       
@@ -647,7 +610,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       </div>
                     </div>
                     
-                    {/* Badge benefits */}
                     <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300 mb-3">Benefits</h4>
                       
@@ -666,7 +628,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
                       </div>
                     </div>
                     
-                    {/* Blockchain verification */}
                     <div className="bg-white dark:bg-black/30 backdrop-blur-md rounded-lg p-4 border border-gray-200 dark:border-emerald-500/10">
                       <div className="flex justify-between items-center">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-emerald-300">Blockchain Verification</h4>
@@ -708,7 +669,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
           </div>
         </div>
 
-        {/* Custom animation style */}
         <style jsx global>{`
           @keyframes gradient-shift {
             0% { background-position: 200% 0; }
@@ -732,7 +692,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
         );
         };
 
-        // Helper function to get badge color based on tier (with light mode support)
         const getBadgeColor = (tier: number, isLightMode: boolean = false) => {
           const tierKey = Object.keys(BADGE_TIERS).find(
             key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier
@@ -742,14 +701,13 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
           
           const color = BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].color;
           
-          // For light mode, we want the colors to be more vibrant/darker
           if (isLightMode) {
             switch(tier) {
-              case 0: return "#10b981"; // emerald-500 instead of 400
-              case 1: return "#0891b2"; // cyan-600 instead of 500
-              case 2: return "#8b5cf6"; // violet-500 instead of 400
-              case 3: return "#f59e0b"; // amber-500 instead of 400
-              case 4: return "#ef4444"; // red-500 instead of 400
+              case 0: return "#10b981"; 
+              case 1: return "#0891b2"; 
+              case 2: return "#8b5cf6"; 
+              case 3: return "#f59e0b"; 
+              case 4: return "#ef4444"; 
               default: return color;
             }
           }
@@ -757,7 +715,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({ address }) => {
           return color;
         };
 
-        // Helper function to get tier name based on tier
         const getTierName = (tier: number) => {
           const tierKey = Object.keys(BADGE_TIERS).find(
             key => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier

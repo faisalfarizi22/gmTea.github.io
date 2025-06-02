@@ -1,7 +1,6 @@
-// src/hooks/useRealtimeUpdates.ts
 import { useEffect, useState } from 'react';
 import io, { Socket } from 'socket.io-client';
-import { useActiveWalletConnectionStatus, useActiveAccount } from "thirdweb/react"; // Updated ThirdWeb imports
+import { useActiveWalletConnectionStatus, useActiveAccount } from "thirdweb/react"; 
 
 interface UpdateData {
   type: string;
@@ -12,21 +11,19 @@ export function useRealtimeUpdates(
   onUserUpdate?: (type: string, data: any) => void,
   onGlobalUpdate?: (type: string, data: any) => void
 ) {
-  const connectionStatus = useActiveWalletConnectionStatus(); // Get ThirdWeb connection status
-  const account = useActiveAccount(); // Get active account
-  const address = account?.address || null; // Get the address or null
+  const connectionStatus = useActiveWalletConnectionStatus(); 
+  const account = useActiveAccount(); 
+  const address = account?.address || null; 
   
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // Initialize the socket connection
     const initSocket = async () => {
       try {
-        // First, ping the socket endpoint to initialize it on the server
+        
         await fetch('/api/socket');
         
-        // Then connect to the socket
         const socketInstance = io({
           path: '/api/socket',
         });
@@ -35,7 +32,6 @@ export function useRealtimeUpdates(
           console.log('Socket connected');
           setConnected(true);
           
-          // Subscribe to updates for the current user if logged in
           if (address) {
             socketInstance.emit('subscribe', address);
           }
@@ -62,7 +58,6 @@ export function useRealtimeUpdates(
 
         setSocket(socketInstance);
 
-        // Clean up function
         return () => {
           if (socketInstance) {
             socketInstance.disconnect();
@@ -76,13 +71,10 @@ export function useRealtimeUpdates(
     initSocket();
   }, []);
 
-  // Subscribe to user updates when address changes
   useEffect(() => {
     if (socket && address) {
-      // Unsubscribe from previous address if any
       socket.emit('unsubscribe', address);
       
-      // Subscribe to new address
       socket.emit('subscribe', address);
     }
   }, [socket, address]);

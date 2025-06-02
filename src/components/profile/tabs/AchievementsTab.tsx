@@ -15,8 +15,6 @@ export default function AchievementsTab({
   username,
   highestTier
 }: AchievementsTabProps) {
-  // We're now receiving data directly via props from the parent component
-  // No need to fetch from blockchain
   
   return (
     <motion.div
@@ -27,7 +25,6 @@ export default function AchievementsTab({
       transition={{ duration: 0.3 }}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* First Check-in */}
         <AchievementCard
           title="First Check-in"
           description={checkinCount >= 1 ? "Unlocked" : "Check-in to unlock"}
@@ -36,7 +33,6 @@ export default function AchievementsTab({
           reward="+50 Points"
         />
 
-        {/* 7 Check-ins */}
         <AchievementCard
           title="7 Check-ins"
           description={checkinCount >= 7 ? "Unlocked" : `${checkinCount}/7`}
@@ -45,7 +41,6 @@ export default function AchievementsTab({
           reward="+50 Points"
         />
 
-        {/* 50 Check-ins */}
         <AchievementCard
           title="50 Check-ins"
           description={checkinCount >= 50 ? "Unlocked" : `${checkinCount}/50`}
@@ -54,7 +49,6 @@ export default function AchievementsTab({
           reward="+50 Points"
         />
 
-        {/* 100 Check-ins */}
         <AchievementCard
           title="100 Check-ins"
           description={checkinCount >= 100 ? "Unlocked" : `${checkinCount}/100`}
@@ -63,7 +57,6 @@ export default function AchievementsTab({
           reward="+200 Points"
         />
 
-        {/* Username Set */}
         <AchievementCard
           title="Username Set"
           description={username ? "Unlocked" : "Register a username"}
@@ -72,7 +65,6 @@ export default function AchievementsTab({
           reward="Badge Access"
         />
 
-        {/* Common Badge */}
         <TierAchievementCard
           title="Common Badge"
           description={highestTier >= 0 ? "Unlocked" : "Mint your first badge"}
@@ -81,7 +73,6 @@ export default function AchievementsTab({
           reward="1.1x Boost"
         />
 
-        {/* Uncommon Badge */}
         <TierAchievementCard
           title="Uncommon Badge"
           description={highestTier >= 1 ? "Unlocked" : "Mint the uncommon badge"}
@@ -90,7 +81,6 @@ export default function AchievementsTab({
           reward="1.2x Boost"
         />
 
-        {/* Rare Badge */}
         <TierAchievementCard
           title="Rare Badge"
           description={highestTier >= 2 ? "Unlocked" : "Mint the rare badge"}
@@ -99,7 +89,6 @@ export default function AchievementsTab({
           reward="1.3x Boost"
         />
 
-        {/* Epic Badge */}
         <TierAchievementCard
           title="Epic Badge"
           description={highestTier >= 3 ? "Unlocked" : "Mint the epic badge"}
@@ -108,7 +97,6 @@ export default function AchievementsTab({
           reward="1.4x Boost"
         />
 
-        {/* Legendary Badge */}
         <TierAchievementCard
           title="Legendary Badge"
           description={highestTier >= 4 ? "Unlocked" : "Mint the legendary badge"}

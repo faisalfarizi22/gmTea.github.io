@@ -34,8 +34,6 @@ export default function OverviewTab({
   const [rankDisplayMode, setRankDisplayMode] = useState<"points" | "checkins">("points")
   const [fetchedCheckinRank, setFetchedCheckinRank] = useState<number | null>(null)
   const [isLoadingRank, setIsLoadingRank] = useState<boolean>(false)
-
-  // Fetch points data directly from API
   const { data: pointsData, isLoading: pointsLoading } = useDBData<{
     total: number
     breakdown: {
@@ -45,20 +43,16 @@ export default function OverviewTab({
     }
   }>(`/api/points/${address}`)
 
-  // Use data from API or calculate if not available
   useEffect(() => {
     if (pointsData && pointsData.total !== undefined) {
-      // Use total from API if available
       setTotalPoints(pointsData.total)
       setIsLoading(false)
       console.log("Using points from API:", pointsData.total)
     } else if (!pointsLoading) {
-      // Calculate points if API doesn't provide or is not available
       const baseCheckinPoints = checkinCount * 10
       const achievementPoints = calculateAchievementPoints(checkinCount)
       const badgePoints = calculateBadgePoints(highestTier)
 
-      // Calculate total (no leaderboard bonus anymore)
       const total = baseCheckinPoints + achievementPoints + badgePoints
 
       setTotalPoints(total)
@@ -71,7 +65,6 @@ export default function OverviewTab({
     }
   }, [pointsData, pointsLoading, address, checkinCount, highestTier])
 
-  // Function to fetch checkin rank - this uses the improved API endpoint
   const fetchCheckinRank = async () => {
     if (!address || checkinCount <= 0) {
       return
@@ -80,7 +73,6 @@ export default function OverviewTab({
     try {
       setIsLoadingRank(true)
       
-      // Force a fresh rank calculation by adding refresh=true
       const response = await fetch(`/api/leaderboard/checkins?userAddress=${address}&refresh=true`)
       
       if (response.ok) {
@@ -105,28 +97,22 @@ export default function OverviewTab({
     }
   }
 
-  // Effect to fetch checkin rank when needed
   useEffect(() => {
-    // When switching to checkins rank display or when the component mounts
-    // and we're on checkins display, fetch the rank if we don't have it
     if (rankDisplayMode === "checkins" && !fetchedCheckinRank && address && checkinCount > 0) {
       fetchCheckinRank()
     }
   }, [rankDisplayMode, address, checkinCount])
 
-  // Set initial checkin rank from props if available
   useEffect(() => {
     if (checkinLeaderboardRank && checkinLeaderboardRank > 0) {
       setFetchedCheckinRank(checkinLeaderboardRank)
     }
   }, [checkinLeaderboardRank])
 
-  // Toggle between points and checkin leaderboard rank display
   const toggleRankDisplayMode = () => {
     const newMode = rankDisplayMode === "points" ? "checkins" : "points"
     console.log(`[OverviewTab] Switching rank display to: ${newMode}`)
     
-    // If switching to checkins mode and we don't have a rank, fetch it
     if (newMode === "checkins" && !fetchedCheckinRank && !isLoadingRank && address && checkinCount > 0) {
       fetchCheckinRank()
     }
@@ -134,12 +120,10 @@ export default function OverviewTab({
     setRankDisplayMode(newMode)
   }
 
-  // Get the appropriate rank based on current display mode
   const getCurrentRank = () => {
     if (rankDisplayMode === "points") {
       return leaderboardRank && leaderboardRank > 0 ? `#${leaderboardRank}` : "Not Ranked"
     } else {
-      // For checkin rank, use fetched rank or prop
       const checkinRank = fetchedCheckinRank || checkinLeaderboardRank
       
       if (isLoadingRank) {
@@ -149,12 +133,11 @@ export default function OverviewTab({
       } else if (checkinCount <= 0) {
         return "Not Ranked"
       } else {
-        return "Unknown" // Fallback if we have checkins but no rank
+        return "Unknown" 
       }
     }
   }
 
-  // For debugging - log the ranks
   useEffect(() => {
     console.log("[OverviewTab] Points Rank:", leaderboardRank)
     console.log("[OverviewTab] Checkin Rank from Props:", checkinLeaderboardRank)
@@ -170,14 +153,12 @@ export default function OverviewTab({
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
-      {/* Quick Stats */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        {/* Check-ins */}
         <div className="bg-white dark:bg-black/80 backdrop-blur-md rounded-xl border border-gray-200 dark:border-emerald-700/30 p-5 shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-600/10 to-transparent rounded-bl-full"></div>
           <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-300/70 mb-1 flex items-center">
@@ -191,7 +172,6 @@ export default function OverviewTab({
           </div>
         </div>
 
-        {/* Points */}
         <div
           className="bg-white dark:bg-black/80 backdrop-blur-md rounded-xl border border-gray-200 dark:border-emerald-700/30 p-5 shadow-lg relative overflow-hidden cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors"
           onClick={() => setShowPointsBreakdown(true)}
@@ -218,7 +198,6 @@ export default function OverviewTab({
           </div>
         </div>
 
-        {/* Badges */}
         <div className="bg-white dark:bg-black/80 backdrop-blur-md rounded-xl border border-gray-200 dark:border-emerald-700/30 p-5 shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-600/10 to-transparent rounded-bl-full"></div>
           <h3 className="text-sm font-medium text-purple-600 dark:text-emerald-300/70 mb-1 flex items-center">
@@ -232,7 +211,6 @@ export default function OverviewTab({
           </div>
         </div>
 
-        {/* Leaderboard Rank */}
         <div
           className={`bg-white dark:bg-black/80 backdrop-blur-md rounded-xl border border-gray-200 dark:border-emerald-700/30 p-5 shadow-lg relative overflow-hidden cursor-pointer transition-colors ${
             isLoadingRank 
@@ -266,7 +244,6 @@ export default function OverviewTab({
         </div>
       </motion.div>
 
-      {/* Achievement Progress Card */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -288,22 +265,19 @@ export default function OverviewTab({
         </div>
 
         <div className="space-y-6">
-          {/* Progress bar */}
           <div className="relative">
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               {(() => {
                 let completed = 0
-                if (checkinCount >= 1) completed++ // First check-in
-                if (checkinCount >= 7) completed++ // 7 check-ins
-                if (checkinCount >= 50) completed++ // 50 check-ins
-                if (checkinCount >= 100) completed++ // 100 check-ins
-                // Username check would be here
-                if (activeBenefits.length > 0) completed++ // Has some benefits
-                if (highestTier >= 0) completed++ // Common badge
-                if (highestTier >= 1) completed++ // Uncommon badge
-                if (highestTier >= 2) completed++ // Rare badge
-                if (highestTier >= 3) completed++ // Epic badge
-                if (highestTier >= 4) completed++ // Legendary badge
+                if (checkinCount >= 1) completed++ 
+                if (checkinCount >= 7) completed++ 
+                if (checkinCount >= 50) completed++ 
+                if (checkinCount >= 100) completed++ 
+                if (activeBenefits.length > 0) completed++ 
+                if (highestTier >= 1) completed++ 
+                if (highestTier >= 2) completed++ 
+                if (highestTier >= 3) completed++ 
+                if (highestTier >= 4) completed++ 
 
                 const percentage = (completed / 10) * 100
 
@@ -325,7 +299,6 @@ export default function OverviewTab({
                   if (checkinCount >= 7) completed++
                   if (checkinCount >= 50) completed++
                   if (checkinCount >= 100) completed++
-                  // Username check would be here
                   if (activeBenefits.length > 0) completed++
                   if (highestTier >= 0) completed++
                   if (highestTier >= 1) completed++

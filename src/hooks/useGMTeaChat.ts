@@ -1,4 +1,3 @@
-// hooks/useGMTeaChat.ts
 import { useCallback, useState } from 'react';
 import { ethers } from 'ethers';
 import GMTeaChatABI from '../abis/GMTeaChatABI.json';
@@ -36,10 +35,8 @@ export const useGMTeaChat = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Explicitly type the contract address
   const contractAddress: string = process.env.NEXT_PUBLIC_GMTEACHAT_ADDRESS || "0x24e0......";
   
-  // Helper to get ethereum provider with explicit return type
   const getProvider = useCallback((): ethers.providers.Web3Provider | null => {
     if (typeof window !== 'undefined' && window.ethereum) {
       return new ethers.providers.Web3Provider(window.ethereum);
@@ -47,7 +44,6 @@ export const useGMTeaChat = () => {
     return null;
   }, []);
   
-  // Get threads - paginated
   const getThreads = useCallback(async (offset: number, limit: number): Promise<Thread[] | null> => {
     const provider = getProvider();
     if (!provider) return null;
@@ -72,7 +68,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Get thread details
   const getThreadDetails = useCallback(async (threadId: number): Promise<Thread | null> => {
     try {
       const threads = await getThreads(threadId, 1);
@@ -83,7 +78,6 @@ export const useGMTeaChat = () => {
     }
   }, [getThreads]);
   
-  // Get thread messages - paginated
   const getThreadMessages = useCallback(async (threadId: number, offset: number, limit: number): Promise<ForumMessage[]> => {
     const provider = getProvider();
     if (!provider) return [];
@@ -92,7 +86,6 @@ export const useGMTeaChat = () => {
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, provider);
       const [messages, total] = await contract.getThreadMessages(threadId, offset, limit);
       
-      // Get current user address
       let currentAddress: string | null = null;
       try {
         const accounts = await provider.listAccounts();
@@ -109,7 +102,7 @@ export const useGMTeaChat = () => {
         content: msg.content,
         timestamp: Number(msg.timestamp),
         likes: Number(msg.likes),
-        hasLiked: false // To be implemented
+        hasLiked: false 
       }));
     } catch (err) {
       console.error("Error fetching thread messages:", err);
@@ -117,7 +110,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Get contract configuration
   const getContractConfig = useCallback(async (): Promise<GMTeaChatConfig | null> => {
     const provider = getProvider();
     if (!provider) return null;
@@ -125,14 +117,12 @@ export const useGMTeaChat = () => {
     try {
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, provider);
       
-      // Default values
       let minimumCheckinsRequired = 1;
       let threadCreationCheckinsRequired = 2;
       let threadCreationFee = ethers.utils.parseEther("1");
       let maxPrivateMessageLength = 500;
       let maxConversationHistory = 100;
       
-      // Try to get actual values but use defaults if there are errors
       try { minimumCheckinsRequired = await contract.minimumCheckinsRequired(); } 
       catch (e) { console.warn("Error getting minimumCheckinsRequired:", e); }
       
@@ -161,7 +151,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Create thread - returns the new thread ID
   const createThread = useCallback(async (title: string, initialMessage: string = ""): Promise<number | null> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -172,20 +161,17 @@ export const useGMTeaChat = () => {
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, signer);
       
-      // Get thread creation fee
       let fee;
       try {
         fee = await contract.threadCreationFee();
       } catch (feeError) {
         console.error("Error getting thread creation fee:", feeError);
-        fee = ethers.utils.parseEther("1"); // Default to 1 TEA
+        fee = ethers.utils.parseEther("1"); 
       }
       
-      // Send transaction to create thread with initial message
       const tx = await contract.createThread(title, initialMessage, { value: fee });
       const receipt = await tx.wait();
       
-      // Get the thread ID from the event logs
       let threadId = null;
       const threadCreatedEvent = receipt.events?.find(
         (event: any) => event.event === "ThreadCreated"
@@ -194,7 +180,6 @@ export const useGMTeaChat = () => {
       if (threadCreatedEvent && threadCreatedEvent.args) {
         threadId = Number(threadCreatedEvent.args.threadId);
       } else {
-        // Fallback: get the latest thread count
         const threads = await getThreads(0, 1);
         if (threads && threads.length > 0) {
           const [threadsResult, total] = await contract.getThreads(0, 0);
@@ -208,7 +193,6 @@ export const useGMTeaChat = () => {
     } catch (err: any) {
       console.error("Error creating thread:", err);
       
-      // Handle common errors
       if (err.message) {
         if (err.message.includes("check-ins")) {
           throw new Error("You need enough check-ins to create a thread");
@@ -223,7 +207,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider, getThreads]);
   
-  // Post to thread
   const postToThread = useCallback(async (threadId: number, content: string): Promise<boolean> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -234,24 +217,20 @@ export const useGMTeaChat = () => {
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, signer);
       
-      // Check if thread exists and is active
       try {
         const thread = await getThreadDetails(threadId);
         if (!thread) throw new Error("Thread does not exist");
         if (!thread.isActive) throw new Error("Thread is closed");
       } catch (error) {
         console.error("Error checking thread status:", error);
-        // Continue anyway, let the contract handle validation
       }
       
-      // Send transaction to post message
       const tx = await contract.postToThread(threadId, content);
       await tx.wait();
       return true;
     } catch (err: any) {
       console.error("Error posting to thread:", err);
       
-      // Handle common errors
       if (err.message) {
         if (err.message.includes("check-ins")) {
           throw new Error("You need at least one check-in to post messages");
@@ -268,7 +247,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider, getThreadDetails]);
   
-  // Like message
   const likeMessage = useCallback(async (threadId: number, messageId: number): Promise<boolean> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -285,7 +263,6 @@ export const useGMTeaChat = () => {
     } catch (err: any) {
       console.error("Error liking message:", err);
       
-      // Handle common errors
       if (err.message && err.message.includes("Already liked")) {
         throw new Error("You have already liked this message");
       }
@@ -296,7 +273,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Close thread
   const closeThread = useCallback(async (threadId: number): Promise<boolean> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -313,7 +289,6 @@ export const useGMTeaChat = () => {
     } catch (err: any) {
       console.error("Error closing thread:", err);
       
-      // Handle common errors
       if (err.message && err.message.includes("Not authorized")) {
         throw new Error("You are not authorized to close this thread");
       }
@@ -324,7 +299,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Delete thread message
   const deleteThreadMessage = useCallback(async (threadId: number, messageId: number): Promise<boolean> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -341,7 +315,6 @@ export const useGMTeaChat = () => {
     } catch (err: any) {
       console.error("Error deleting message:", err);
       
-      // Handle common errors
       if (err.message && err.message.includes("Not authorized")) {
         throw new Error("You are not authorized to delete this message");
       }
@@ -352,7 +325,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Get conversation with a specific user
   const getConversation = useCallback(async (partnerAddress: string): Promise<SimpleMessage[]> => {
     const provider = getProvider();
     if (!provider) return [];
@@ -374,32 +346,22 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
 
-  // Get conversation partners - FIXED IMPLEMENTATION
   const getConversationPartners = useCallback(async (): Promise<string[]> => {
     const provider = getProvider();
     if (!provider) return [];
     
     try {
-      // Ensure the user is connected
       await provider.send("eth_requestAccounts", []);
       
       const signer = provider.getSigner();
-      // Get the connected user's address first
       const address = await signer.getAddress();
-      
-      // Create contract instance with signer
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, signer);
       
       try {
-        // Call the getConversationPartners method
         return await contract.getConversationPartners();
       } catch (contractErr: any) {
         console.error("Contract error in getConversationPartners:", contractErr);
-        
-        // Fallback: If the contract call fails, we'll return an empty array
-        // This could be because:
-        // 1. User has no conversations yet
-        // 2. Contract function is not properly implemented
+      
         return [];
       }
     } catch (err) {
@@ -409,7 +371,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider]);
   
-  // Send private message
   const sendPrivateMessage = useCallback(async (recipient: string, content: string): Promise<boolean> => {
     const provider = getProvider();
     if (!provider) throw new Error("Provider not available");
@@ -420,7 +381,6 @@ export const useGMTeaChat = () => {
       const signer = provider.getSigner();
       const contract = new ethers.Contract(contractAddress, GMTeaChatABI, signer);
       
-      // Validate the content length if possible
       const contractConfig = await getContractConfig();
       if (contractConfig && content.length > contractConfig.maxPrivateMessageLength) {
         throw new Error(`Message too long. Maximum length is ${contractConfig.maxPrivateMessageLength} characters.`);
@@ -432,7 +392,6 @@ export const useGMTeaChat = () => {
     } catch (err: any) {
       console.error("Error sending private message:", err);
       
-      // Handle common errors
       if (err.message) {
         if (err.message.includes("check-ins")) {
           throw new Error("You need enough check-ins to send messages");
@@ -447,7 +406,6 @@ export const useGMTeaChat = () => {
     }
   }, [contractAddress, getProvider, getContractConfig]);
   
-  // Return all the functions and state
   return {
     isLoading,
     error,

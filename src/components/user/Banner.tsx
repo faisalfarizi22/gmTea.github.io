@@ -1,4 +1,3 @@
-// components/user/Banner.tsx
 import React from "react";
 import { getProfileBackground } from "@/utils/socialBenefitsUtils";
 
@@ -7,7 +6,6 @@ interface BannerProps {
 }
 
 const Banner: React.FC<BannerProps> = ({ badgeTier }) => {
-  // Get background based on tier
   const backgroundImage = getProfileBackground(badgeTier);
   
   return (
@@ -19,7 +17,6 @@ const Banner: React.FC<BannerProps> = ({ badgeTier }) => {
         backgroundPosition: 'center'
       } : {}}
     >
-      {/* Animated glowing particles - only for lower tiers without background */}
       {!backgroundImage && (
         <div className="absolute inset-0 overflow-hidden">
           {[...Array(20)].map((_, i) => (
@@ -37,7 +34,6 @@ const Banner: React.FC<BannerProps> = ({ badgeTier }) => {
         </div>
       )}
       
-      {/* Overlay to ensure text visibility on backgrounds */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30"></div>
     </div>
   );

@@ -1,31 +1,17 @@
 "use client"
 
 import type React from "react"
+import type { ethers } from "ethers"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  FaTrophy,
-  FaRedo,
-  FaGem,
-  FaChevronLeft,
-  FaChevronRight,
-  FaUser,
-  FaUsers,
-  FaCalendarCheck
-} from "react-icons/fa"
+import { FaTrophy, FaRedo, FaGem, FaChevronLeft, FaChevronRight, FaUser, FaUsers, FaCalendarCheck } from "react-icons/fa"
 import { formatAddress } from "@/utils/web3"
-import type { ethers } from "ethers"
 import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
 import { useUserDataCombined } from '@/hooks/useUserData'
 import { useDBData } from '@/hooks/useDBData'
-import { 
-  getCheckInBoost, 
-  calculateAchievementPoints, 
-  calculateBadgePoints
-} from "@/utils/pointCalculation"
+import { getCheckInBoost, calculateAchievementPoints, calculateBadgePoints } from "@/utils/pointCalculation"
 
-// Definisikan interface untuk entri leaderboard
 interface LeaderboardEntry {
   address: string;
   username: string | null;
@@ -40,16 +26,10 @@ interface PointsLeaderboardProps {
   currentUserAddress: string | null;
 }
 
-/**
- * Points Leaderboard Component
- * Menampilkan leaderboard pengguna dengan point terbanyak
- * Menggunakan data aktual dari API
- */
 const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({ 
   currentUserAddress,
   contract
 }) => {
-  // State management
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,13 +43,11 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
   const [forceRefresh, setForceRefresh] = useState<boolean>(false);
   
-  // Menggunakan useUserDataCombined untuk mendapatkan data pengguna saat ini
   const { 
     userData, 
     isLoading: isLoadingUserData 
   } = useUserDataCombined(currentUserAddress);
 
-  // Menggunakan useDBData untuk mendapatkan data points dari API
   const { data: pointsData, isLoading: isLoadingPointsData } = useDBData<{
     total: number;
     breakdown: { 
@@ -81,23 +59,16 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
 
   const ENTRIES_PER_PAGE = 10;
   
-  // Calculate total pages based on total entries and entries per page
   const totalPages = Math.ceil(totalEntries / ENTRIES_PER_PAGE);
 
-  // Mendapatkan URL avatar
   const getAvatarUrl = (address: string): string => 
     `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`;
 
-  /**
-   * Mendapatkan total points user yang saat ini login
-   */
   const getUserPoints = () => {
-    // Gunakan points dari API jika tersedia
     if (pointsData && pointsData.total !== undefined) {
       return pointsData.total;
     }
     
-    // Jika tidak, gunakan nilai points dari userData
     if (userData) {
       return userData.points || 0;
     }
@@ -105,14 +76,10 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
     return 0;
   };
 
-  /**
-   * Mengambil data statistik wallet dari endpoint API
-   */
   const loadWalletStats = async () => {
     try {
       setIsLoadingStats(true);
 
-      // Mengambil statistik dari endpoint API /api/checkins/latest
       const response = await fetch(`/api/checkins/latest?limit=1`);
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
@@ -120,52 +87,39 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       
       const data = await response.json();
 
-      // Extract statistics from response
       const totalCheckins = data.stats?.totalCheckins || 0;
       setActiveWallets(data.stats?.activeWallets || totalEntries);
-      
-      // Hitung today's check-ins berdasarkan check-in sejak jam 7 pagi hari ini
-      // Dapatkan tanggal dan jam saat ini
+  
       const now = new Date();
-      
-      // Dapatkan tanggal dengan jam 7 pagi hari ini
       const todaySevenAM = new Date(now);
       todaySevenAM.setHours(7, 0, 0, 0);
       
-      // Jika sekarang sebelum jam 7 pagi, gunakan jam 7 pagi kemarin
       if (now < todaySevenAM) {
         todaySevenAM.setDate(todaySevenAM.getDate() - 1);
       }
       
-      // Format tanggal untuk query API
       const todaySevenAMISO = todaySevenAM.toISOString();
       
-      // Buat request untuk mendapatkan check-in hari ini
       try {
         const todayResponse = await fetch(`/api/checkins/today?since=${encodeURIComponent(todaySevenAMISO)}`);
         if (todayResponse.ok) {
           const todayData = await todayResponse.json();
           setTodayCheckins(todayData.count || 0);
         } else {
-          // Fallback jika endpoint tidak tersedia
-          setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Estimasi sekitar 12% dari total
+          setTodayCheckins(Math.floor(totalCheckins * 0.12)); 
         }
       } catch (error) {
         console.error("Error loading today's check-ins:", error);
-        setTodayCheckins(Math.floor(totalCheckins * 0.12)); // Fallback ke estimasi
+        setTodayCheckins(Math.floor(totalCheckins * 0.12)); 
       }
     } catch (error) {
       console.error("Error loading wallet statistics:", error);
-      // Set fallback values
       setTodayCheckins(Math.floor(leaderboard.length / 3));
     } finally {
       setIsLoadingStats(false);
     }
   };
 
-  /**
-   * Load leaderboard data dari API dan pastikan points konsisten
-   */
   const loadLeaderboard = async (page = 1, jumpToUser = false) => {
     try {
       if (page === 1) {
@@ -180,7 +134,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
 
       setError(null);
 
-      // API endpoint untuk mendapatkan leaderboard
         const endpoint = `/api/leaderboard/points?page=${page}&limit=${ENTRIES_PER_PAGE}${currentUserAddress ? `&userAddress=${currentUserAddress}` : ''}${forceRefresh ? '&refresh=true' : ''}`;
     
         const response = await fetch(endpoint);
@@ -190,18 +143,14 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       
       const data = await response.json();
       
-      // Set user rank if provided by API
       if (data.userRank) {
         setUserRank(data.userRank);
         
-        // If we're jumping to user's rank, calculate the correct page
         if (jumpToUser) {
           const userPage = Math.ceil(data.userRank / ENTRIES_PER_PAGE);
           
           if (userPage !== page) {
-            // If user's rank is on a different page, load that page
             setCurrentPage(userPage);
-            // Recursively call loadLeaderboard with the correct page
             await loadLeaderboard(userPage, false);
             setIsJumpingToUser(false);
             return;
@@ -209,12 +158,11 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
         }
       }
       
-      // Format data for component - mark current user
       const formattedLeaderboard: LeaderboardEntry[] = data.users.map((user: any) => ({
         address: user.address,
         username: user.username || null,
         highestBadgeTier: user.highestBadgeTier || -1,
-        points: user.points, // Gunakan points dari API tanpa modifikasi
+        points: user.points, 
         rank: user.rank,
         isCurrentUser: currentUserAddress ? user.address.toLowerCase() === currentUserAddress.toLowerCase() : false,
         }));
@@ -223,7 +171,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       setTotalEntries(data.pagination.total);
       setActiveWallets(data.pagination.total);
       
-      // Load wallet statistics if this is the first page
       if (page === 1) {
         loadWalletStats();
       }
@@ -232,7 +179,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       console.error("Error loading points leaderboard:", error);
       setError("Failed to load leaderboard data. Please try again later.");
 
-      // Generate mock data for fallback
       const mockData = Array.from({ length: 10 }, (_, i) => ({
         address: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
         username: i % 3 === 0 ? `User${i+1}` : null,
@@ -247,7 +193,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       setActiveWallets(50);
       setTodayCheckins(15);
 
-      // Set mock user rank
       if (currentUserAddress) {
         setUserRank(8);
       }
@@ -258,11 +203,9 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
     }
   };
 
-  // Load leaderboard on component mount and when current user changes
   useEffect(() => {
     loadLeaderboard(currentPage);
     
-    // Refresh every 5 minutes
     const interval = setInterval(
       () => {
         loadLeaderboard(currentPage);
@@ -273,21 +216,18 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
     return () => clearInterval(interval);
   }, [currentUserAddress]);
 
-  // Load new page when currentPage changes
   useEffect(() => {
     if (!isJumpingToUser && !isLoading) {
       loadLeaderboard(currentPage);
     }
   }, [currentPage]);
 
-  // Handle page change
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
   };
 
-  // Jump to user's rank
   const jumpToUserRank = () => {
     if (userRank) {
       setIsJumpingToUser(true);
@@ -302,7 +242,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       transition={{ duration: 0.5 }}
       className="bg-white dark:bg-black/80 backdrop-blur-lg rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-emerald-700/30"
     >
-      {/* Header with glassmorphism effect */}
       <div className="bg-emerald-50 dark:bg-emerald-900/20 py-4 px-6 border-b border-emerald-100 dark:border-emerald-800/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -320,7 +259,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
             </div>
           </div>
 
-          {/* Jump to my rank button */}
           {currentUserAddress && userRank && !isLoading && (
             <button
               onClick={jumpToUserRank}
@@ -334,7 +272,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
         </div>
       </div>
 
-      {/* Wallet Statistics Section */}
       <div className="bg-emerald-50/50 dark:bg-emerald-900/10 px-6 py-3 border-b border-emerald-100 dark:border-emerald-800/30">
         <div className="flex flex-col sm:flex-row justify-between items-center">
           <div className="flex items-center mb-2 sm:mb-0">
@@ -368,7 +305,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-8">
@@ -403,7 +339,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* Current user stats if they're on the leaderboard */}
               {currentUserAddress && !isLoadingUserData && !isLoadingPointsData && (getUserPoints() > 0 || userRank) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -447,7 +382,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                 </motion.div>
               )}
 
-              {/* Leaderboard table */}
               {leaderboard.length > 0 ? (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -471,7 +405,7 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                     </thead>
                     <tbody className="divide-y divide-emerald-100 dark:divide-emerald-800/30">
                       {isLoadingMore
-                        ? // Loading placeholder rows
+                        ? 
                           Array.from({ length: ENTRIES_PER_PAGE }).map((_, index) => (
                             <tr key={`loading-${index}`} className="animate-pulse">
                               <td className="py-3 px-4 whitespace-nowrap">
@@ -520,7 +454,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                                 </td>
                                 <td className="py-3 px-4 whitespace-nowrap">
                                   <div className="flex items-center">
-                                    {/* Avatar with Frame */}
                                     <div className="h-6 w-6 rounded-full mr-2 overflow-hidden">
                                       <AvatarWithFrame
                                         avatarUrl={getAvatarUrl(entry.address)}
@@ -529,7 +462,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                                       />
                                     </div>
                                     
-                                    {/* Username dengan Color atau Address */}
                                     {entry.username ? (
                                       <div className={entry.isCurrentUser ? "font-bold" : ""}>
                                         <ColoredUsername 
@@ -593,10 +525,8 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center mt-6 space-x-2">
-                  {/* Previous button */}
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1 || isLoadingMore}
@@ -609,7 +539,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                     <FaChevronLeft className="h-4 w-4" />
                   </button>
 
-                  {/* Page numbers - generate intelligently */}
                   {(() => {
                     const pages = []
                     const maxVisible = 5
@@ -619,7 +548,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                     if (endPage - startPage + 1 < maxVisible) {
                       startPage = Math.max(1, endPage - maxVisible + 1)
                     }
-                    // Always show first page
                     if (startPage > 1) {
                       pages.push(
                         <button
@@ -632,7 +560,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                         </button>
                       )
                       
-                      // Add ellipsis if needed
                       if (startPage > 2) {
                         pages.push(
                           <span key="ellipsis1" className="text-gray-500 dark:text-gray-400">
@@ -642,7 +569,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                       }
                     }
                     
-                    // Add visible pages
                     for (let i = startPage; i <= endPage; i++) {
                       pages.push(
                         <button
@@ -660,9 +586,7 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                       )
                     }
                     
-                    // Always show last page
                     if (endPage < totalPages) {
-                      // Add ellipsis if needed
                       if (endPage < totalPages - 1) {
                         pages.push(
                           <span key="ellipsis2" className="text-gray-500 dark:text-gray-400">
@@ -686,7 +610,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                     return pages
                   })()}
 
-                  {/* Next button */}
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages || isLoadingMore}
@@ -701,7 +624,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Message for users not on the leaderboard */}
               {currentUserAddress && !isLoadingUserData && !isLoadingPointsData && !userRank && getUserPoints() === 0 && leaderboard.length > 0 && (
                 <div className="mt-6 p-4 border-t border-emerald-100 dark:border-emerald-800/30 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg">
                   <p className="text-sm text-gray-600 dark:text-emerald-300/70 text-center">
@@ -710,7 +632,6 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
                 </div>
               )}
 
-              {/* Refresh button */}
               <div className="mt-6 text-center">
                 <button
                   onClick={() => loadLeaderboard(currentPage)}

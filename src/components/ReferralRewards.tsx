@@ -18,10 +18,8 @@ import {
   FaUsers,
   FaChartLine,
 } from "react-icons/fa"
-// Import fungsi yang masih kita gunakan dari badgeWeb3.ts
 import { checkUsername, getProvider, getReferralContract } from "@/utils/badgeWeb3"
 import type { ReferralStats } from "@/types/badge"
-// Import untuk akses langsung ke blockchain
 import { REFERRAL_CONTRACT_ADDRESS } from "@/utils/constants"
 import GMTeaReferralABI from "../abis/GMTeaReferralABI.json"
 
@@ -42,7 +40,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
   const [username, setUsername] = useState<string | null>(null)
   const [copySuccess, setCopySuccess] = useState("")
 
-  // Fungsi helper untuk mendapatkan provider
   const getEthereumProvider = () => {
     if (typeof window === 'undefined') return null;
     
@@ -60,7 +57,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }
   };
 
-  // Function to fetch referral stats directly from blockchain
   const fetchReferralStatsFromBlockchain = async () => {
     if (!address) {
       setIsLoading(false)
@@ -70,12 +66,10 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     try {
       setIsLoading(true)
       
-      // Coba get provider dari props signer jika tersedia
       let provider: ethers.providers.Provider | null | undefined = null;
       
       if (signer) {
         try {
-          // Coba dapatkan provider dari signer
           provider = signer.provider;
           console.log("Using provider from signer");
         } catch (signerError) {
@@ -83,19 +77,16 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
         }
       }
       
-      // Jika tidak bisa mendapatkan provider dari signer, coba dari window
       if (!provider) {
         provider = getEthereumProvider();
         console.log("Using provider from window.ethereum");
       }
       
-      // Jika masih belum ada provider, gunakan fungsi getProvider dari badgeWeb3
       if (!provider) {
         provider = getProvider();
         console.log("Using provider from badgeWeb3.getProvider");
       }
       
-      // Jika masih tidak bisa mendapatkan provider, set default stats dan return
       if (!provider) {
         console.error("No provider available. Setting default stats.");
         setReferralStats({
@@ -104,27 +95,23 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
           claimedRewardsAmount: "0",
         });
         
-        // Tetap coba get username
         const usernameResult = await checkUsername(address);
         setUsername(usernameResult);
         
         setIsLoading(false);
         return;
       }
-      
-      // Buat instance referral contract
+
       const referralContract = new ethers.Contract(
         REFERRAL_CONTRACT_ADDRESS,
         GMTeaReferralABI,
         provider
       );
       
-      // Ambil data dari blockchain langsung
       console.log("Fetching referral stats for address:", address);
       const stats = await referralContract.getReferralStats(address);
       console.log("Raw referral stats from blockchain:", stats);
       
-      // Format data
       const formattedStats = {
         totalReferrals: stats.totalReferrals.toNumber(),
         pendingRewardsAmount: ethers.utils.formatEther(stats.pendingRewardsAmount),
@@ -133,17 +120,14 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
       
       console.log("Formatted referral stats:", formattedStats);
       
-      // Update state
       setReferralStats(formattedStats);
       
-      // Get username
       const usernameResult = await checkUsername(address);
       setUsername(usernameResult);
       
       console.log("Loaded referral stats directly from blockchain:", formattedStats);
     } catch (error) {
       console.error("Error fetching referral stats from blockchain:", error);
-      // Set default stats if error occurs
       setReferralStats({
         totalReferrals: 0,
         pendingRewardsAmount: "0",
@@ -154,12 +138,10 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }
   };
 
-  // Load referral stats on mount and when address or claimSuccess changes
   useEffect(() => {
     fetchReferralStatsFromBlockchain();
   }, [address, claimSuccess, signer]);
 
-  // Manual refresh function
   const handleRefresh = async () => {
     if (isRefreshing) return;
 
@@ -171,7 +153,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }
   };
 
-  // Handle copy to clipboard
   const handleCopyLink = () => {
     const referralLink = username ? `${username}` : `${address}`;
 
@@ -183,9 +164,7 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }, 2000);
   };
 
-  // Direct blockchain implementation for claiming rewards
   const handleClaimRewardsFromBlockchain = async () => {
-    // Validate inputs
     if (!signer) {
       setClaimError("Wallet not connected. Please connect your wallet.");
       return;
@@ -203,34 +182,28 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }
 
     try {
-      // Reset states
       setIsClaiming(true);
       setClaimError(null);
       setClaimSuccess(false);
       setClaimTxHash(null);
 
-      // Capture current values before the transaction
       const currentPendingAmount = pendingAmount;
       const currentClaimedAmount = Number.parseFloat(referralStats.claimedRewardsAmount);
 
-      // Create contract instance with signer
       const referralContract = new ethers.Contract(
         REFERRAL_CONTRACT_ADDRESS,
         GMTeaReferralABI,
         signer
       );
 
-      // Call the claimRewards function directly
       const tx = await referralContract.claimRewards({
-        gasLimit: 300000, // Add explicit gas limit to avoid estimation issues
+        gasLimit: 300000, 
       });
 
       console.log("Claim transaction sent:", tx.hash);
 
-      // Wait for transaction confirmation
       await tx.wait();
 
-      // Immediately update the local state for better UX
       setReferralStats(prevStats => {
         if (!prevStats) return null;
         return {
@@ -243,22 +216,18 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
       setClaimSuccess(true);
       setClaimTxHash(tx.hash);
 
-      // Notify parent component if callback provided
       if (onClaimComplete) {
         onClaimComplete();
       }
 
-      // Re-fetch stats from blockchain after a delay
       setTimeout(() => {
         fetchReferralStatsFromBlockchain();
       }, 2000);
     } catch (error) {
       console.error("Error claiming rewards:", error);
 
-      // Extract user-friendly error message
       let errorMessage = "Failed to claim rewards. Please try again.";
 
-      // Type check for error object
       if (error && typeof error === 'object') {
         const err = error as any;
         
@@ -288,7 +257,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
     }
   };
 
-  // Debug logs for provider status
   useEffect(() => {
     const checkProviderStatus = async () => {
       const provider = getEthereumProvider();
@@ -360,7 +328,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
       transition={{ duration: 0.5 }}
       className="bg-white dark:bg-black/90 backdrop-blur-lg rounded-2xl shadow-lg border border-gray-200 dark:border-emerald-500/20 overflow-hidden"
     >
-      {/* Header */}
       <div className="p-6 md:p-8 border-b border-gray-200 dark:border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
         <motion.div
           initial={{ y: -20, opacity: 0 }}
@@ -387,9 +354,7 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
       </div>
 
       <div className="p-6 md:p-8">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Total Referrals */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -411,7 +376,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
             </div>
           </motion.div>
 
-          {/* Pending Rewards */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -436,7 +400,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
             </div>
           </motion.div>
 
-          {/* Total Claimed */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -462,7 +425,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
           </motion.div>
         </div>
 
-        {/* Claim Rewards Section */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -529,7 +491,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
             )}
           </button>
 
-          {/* Error Message */}
           {claimError && (
             <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 rounded-md">
               <div className="flex items-center">
@@ -541,7 +502,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
             </div>
           )}
 
-          {/* Success Message */}
           {claimSuccess && (
             <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 rounded-md">
               <div className="flex items-center">
@@ -566,7 +526,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
           )}
         </motion.div>
 
-        {/* Referral Link Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -609,7 +568,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
           )}
         </motion.div>
 
-        {/* Help Text */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -624,7 +582,6 @@ const ReferralRewards: React.FC<ReferralRewardsProps> = ({ address, signer, onCl
         </motion.div>
       </div>
 
-      {/* Custom animation style */}
       <style jsx global>{`
         @keyframes spin-slow {
           from { transform: rotate(0deg); }

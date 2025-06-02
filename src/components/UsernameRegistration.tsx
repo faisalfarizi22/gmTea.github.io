@@ -423,7 +423,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
           </div>
         </motion.div>
         
-        {/* If user already has a referrer, show a notice */}
         {hasReferrer && (
           <motion.div 
             className="mb-4 bg-blue-50 dark:bg-blue-900/30 rounded-md p-3 border border-blue-200 dark:border-blue-800/50"
@@ -445,7 +444,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
           </motion.div>
         )}
         
-        {/* Required Referral Notice */}
         {!hasReferrer && (
           <motion.div 
             className="mb-4 bg-amber-50 dark:bg-amber-900/30 rounded-md p-3 border border-amber-200 dark:border-amber-700/50"
@@ -467,7 +465,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
           </motion.div>
         )}
         
-        {/* Registration Progress Roadmap - Shows only during or after registration */}
         {currentStep !== 'idle' && (
           <motion.div 
             className="mb-6 pt-2"
@@ -477,10 +474,7 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
           >
             <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-3">Registration Progress</h4>
             <div className="relative">
-              {/* Progress Line */}
               <div className="absolute left-4 top-0 w-0.5 h-full bg-gray-200 dark:bg-gray-700 z-0"></div>
-              
-              {/* Step 1: Registering Username */}
               <div className="relative z-10 flex items-start mb-4">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 
                   ${currentStep === 'registering_username' ? 'bg-blue-500 animate-pulse' : 
@@ -511,7 +505,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                 </div>
               </div>
               
-              {/* Step 2: Linking Referrer */}
               <div className="relative z-10 flex items-start mb-4">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 
                   ${currentStep === 'linking_referrer' ? 'bg-blue-500 animate-pulse' : 
@@ -545,7 +538,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                 </div>
               </div>
               
-              {/* Step 3: Complete */}
               <div className="relative z-10 flex items-start">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 
                   ${currentStep === 'completed' ? 'bg-emerald-500' : 
@@ -584,7 +576,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
               </div>
             </div>
 
-            {/* Error Message */}
             {processError && (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -608,7 +599,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
               </motion.div>
             )}
 
-            {/* Only show form when in IDLE state or FAILED state */}
             {(isCurrentStep(currentStep, 'idle') || isCurrentStep(currentStep, 'failed')) && (
               <button
                 onClick={resetRegistration}
@@ -623,7 +613,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
             </motion.div>
             )}
 
-            {/* Registration Form */}
             {(!hasReferrer && (currentStep === 'idle' || currentStep === 'failed')) && (
               <motion.form 
                 onSubmit={handleSubmit}
@@ -632,7 +621,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                 transition={{ delay: 0.3, duration: 0.4 }}
                 className="space-y-4"
               >
-                {/* Username Input */}
                 <div className="space-y-1.5">
                   <label 
                     htmlFor="username" 
@@ -662,14 +650,12 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                       required
                     />
                     
-                    {/* Show spinner when checking */}
                     {isCheckingUsername && (
                       <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center">
                         <FaSpinner className="text-gray-400 text-xs animate-spin" />
                       </div>
                     )}
                     
-                    {/* Show check mark if username is available */}
                     {!isCheckingUsername && isUsernameAvailable === true && (
                       <motion.div 
                         initial={{ scale: 0 }}
@@ -680,7 +666,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                       </motion.div>
                     )}
                     
-                    {/* Show X mark if username is not available */}
                     {!isCheckingUsername && isUsernameAvailable === false && (
                       <motion.div 
                         initial={{ scale: 0 }}
@@ -692,7 +677,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                     )}
                   </div>
                   
-                  {/* Username validation message */}
                   {usernameError && (
                     <motion.p 
                       initial={{ opacity: 0, y: -5 }}
@@ -704,7 +688,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                     </motion.p>
                   )}
                   
-                  {/* Username available message */}
                   {!usernameError && isUsernameAvailable === true && (
                     <motion.p 
                       initial={{ opacity: 0, y: -5 }}
@@ -717,7 +700,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                   )}
                 </div>
                 
-                {/* Referrer Input */}
                 <div className="space-y-1.5">
                   <label 
                     htmlFor="referrer" 
@@ -747,14 +729,12 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                       required
                     />
                     
-                    {/* Show spinner when checking */}
                     {isCheckingReferrer && (
                       <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center">
                         <FaSpinner className="text-gray-400 text-xs animate-spin" />
                       </div>
                     )}
                     
-                    {/* Show check mark if referrer is valid */}
                     {!isCheckingReferrer && isReferrerValid === true && (
                       <motion.div 
                         initial={{ scale: 0 }}
@@ -765,7 +745,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                       </motion.div>
                     )}
                     
-                    {/* Show X mark if referrer is not valid */}
                     {!isCheckingReferrer && isReferrerValid === false && (
                       <motion.div 
                         initial={{ scale: 0 }}
@@ -777,7 +756,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                     )}
                   </div>
                   
-                  {/* Special warning for capacity limit */}
                   {referrerAtCapacity && (
                     <motion.p 
                       initial={{ opacity: 0, y: -5 }}
@@ -788,7 +766,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                       This referrer has reached their maximum invitation limit (10 users)
                     </motion.p>
                   )}
-                  {/* Other referrer validation message */}
                   {referrerError && !referrerAtCapacity && (
                     <motion.p 
                       initial={{ opacity: 0, y: -5 }}
@@ -800,7 +777,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                     </motion.p>
                   )}
                   
-                  {/* Referrer valid message */}
                   {!referrerError && isReferrerValid === true && (
                     <motion.p 
                       initial={{ opacity: 0, y: -5 }}
@@ -813,7 +789,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                   )}
                 </div>
                 
-                {/* Warning if signer not available but blockchain mode is active */}
                 {!usingDBMode && !signer && (
                   <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/40 rounded-md">
                     <div className="flex items-start">
@@ -825,7 +800,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
                   </div>
                 )}
 
-                {/* Submit Button */}
                 <motion.div
                   whileHover={{ scale: registrationState.isLoading || registrationState.success ? 1 : 1.01 }}
                   whileTap={{ scale: registrationState.isLoading || registrationState.success ? 1 : 0.99 }}
@@ -881,7 +855,6 @@ const UsernameRegistration: React.FC<UsernameRegistrationProps> = ({
               </motion.form>
             )}
 
-            {/* Only show information box when in IDLE state or FAILED state */}
             {(currentStep === 'idle' || currentStep === 'failed') && (
               <motion.div 
                 className="mt-5 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-md"

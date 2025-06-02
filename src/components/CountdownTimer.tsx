@@ -43,14 +43,12 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     };
   }, [isActive, onComplete]);
 
-  // Calculate percentage for progress bar
   const calculateProgress = () => {
     if (initialSeconds <= 0) return 100;
     const progress = 100 - (secondsRemaining / initialSeconds) * 100;
     return Math.min(progress, 100); 
   };
 
-  // Get hours, minutes, seconds
   const hours = Math.floor(secondsRemaining / 3600);
   const minutes = Math.floor((secondsRemaining % 3600) / 60);
   const seconds = secondsRemaining % 60;

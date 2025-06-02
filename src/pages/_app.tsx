@@ -1,7 +1,7 @@
 "use client"
 import type { AppProps } from "next/app"
 import Head from "next/head"
-import Script from "next/script" // Tambahkan import ini
+import Script from "next/script" 
 import "@/styles/globals.css"
 import { ThirdwebProvider } from "thirdweb/react"
 import { useRouter } from "next/router"
@@ -22,7 +22,6 @@ function GMApp({ Component, pageProps }: AppProps) {
     await connectWallet()
   }
 
-  // Determine if the current route should be wrapped with WalletRequired
   const shouldRequireWallet = !router.pathname.includes("/auth") && !router.pathname.includes("/landing")
 
   return (

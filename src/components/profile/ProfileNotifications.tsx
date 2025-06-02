@@ -63,7 +63,6 @@ export default function ProfileNotifications({
                 <FaTimes className="h-4 w-4" />
               </button>
             </div>
-            {/* Animated progress bar */}
             <div className="h-1 bg-gray-200 dark:bg-emerald-500/30 relative">
               <motion.div
                 initial={{ width: "100%" }}

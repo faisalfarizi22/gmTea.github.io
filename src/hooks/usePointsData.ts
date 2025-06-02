@@ -1,8 +1,6 @@
-// src/hooks/usePointsData.ts
 import { useState, useEffect } from 'react';
 import { useDBData } from './useDBData';
 
-// Definisi interface untuk data points statistics
 interface PointsStatsData {
   totalPoints: number;
   sourceBreakdown: Record<string, number>;
@@ -13,7 +11,6 @@ interface PointsStatsData {
   }>;
 }
 
-// Interface untuk latest points activities
 interface PointsActivityData {
   activities: Array<{
     id: string;
@@ -22,7 +19,6 @@ interface PointsActivityData {
     points: number;
     source: string;
     timestamp: string;
-    // tambahkan properti lain yang diperlukan
   }>;
   pagination: {
     total: number;
@@ -32,9 +28,6 @@ interface PointsActivityData {
   };
 }
 
-/**
- * Hook for fetching latest points activities
- */
 export function useLatestPointsActivities(limit: number = 20, source?: string) {
   const queryParams = new URLSearchParams();
   queryParams.append('limit', limit.toString());
@@ -46,17 +39,11 @@ export function useLatestPointsActivities(limit: number = 20, source?: string) {
   return useDBData<PointsActivityData>(endpoint);
 }
 
-/**
- * Hook for fetching points statistics
- */
 export function usePointsStats() {
   const endpoint = `/api/points/stats`;
   return useDBData<PointsStatsData>(endpoint);
 }
 
-/**
- * Hook for tracking total points in real-time
- */
 export function useTotalPoints() {
   const { data, isLoading, error, refetch } = usePointsStats();
   const [totalPoints, setTotalPoints] = useState<number>(0);
@@ -75,9 +62,6 @@ export function useTotalPoints() {
   };
 }
 
-/**
- * Hook for getting points breakdown by source
- */
 export function usePointsBreakdown() {
   const { data, isLoading, error } = usePointsStats();
   
@@ -96,15 +80,11 @@ export function usePointsBreakdown() {
   };
 }
 
-/**
- * Hook for getting points trend data (for charts)
- */
 export function usePointsTrend() {
   const { data, isLoading, error } = usePointsStats();
   
   const trendData = data && data.dailyTrend ? data.dailyTrend : [];
   
-  // Format for popular chart libraries
   const chartData = trendData.map((day) => ({
     date: day._id,
     points: day.points,

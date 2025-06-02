@@ -34,7 +34,6 @@ interface BenefitItem {
 }
 
 const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
-  // Badge tier information with benefits
   const badgeTiers = [
     {
       id: 0,
@@ -78,7 +77,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
     },
   ]
 
-  // List of benefits for each tier
   const benefits: BenefitItem[] = [
     {
       icon: <FaCoffee />,
@@ -159,7 +157,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
     },
   ]
 
-  // Get tier name for display
   const getTierName = (tier: number) => {
     if (tier < 0) return "None"
 
@@ -169,9 +166,8 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
     return BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].name
   }
 
-  // Get tier color
   const getTierColor = (tier: number) => {
-    if (tier < 0) return "#6b7280" // Gray
+    if (tier < 0) return "#6b7280" 
 
     const tierKey = Object.keys(BADGE_TIERS).find((key) => BADGE_TIERS[key as keyof typeof BADGE_TIERS].id === tier)
 
@@ -179,7 +175,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
     return BADGE_TIERS[tierKey as keyof typeof BADGE_TIERS].color
   }
 
-  // Get tier icon
   const getTierIcon = (tier: number) => {
     switch (tier) {
       case 0:
@@ -197,12 +192,10 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
     }
   }
 
-  // Find a tier object by its id
   const getTierById = (tierId: number) => {
     return badgeTiers.find((tier) => tier.id === tierId) || badgeTiers[0]
   }
 
-  // Get the current tier object
   const currentTier = getTierById(Math.max(0, selectedTier))
 
   return (
@@ -220,7 +213,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
           Each tier unlocks new benefits while retaining all benefits from lower tiers.
         </p>
 
-        {/* Summary of selected tier */}
         {selectedTier >= 0 && (
           <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-emerald-900/20 border border-gray-200 dark:border-emerald-500/30">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -324,7 +316,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
           </table>
         </div>
 
-        {/* Social Benefits Section */}
         <div className="mt-8 p-4 rounded-lg bg-gray-50 dark:bg-emerald-900/10 border border-gray-200 dark:border-emerald-500/20">
           <h3 className="text-lg font-semibold text-gray-800 dark:text-emerald-300 mb-3">Social Benefits</h3>
 
@@ -382,7 +373,6 @@ const TierBenefits: React.FC<TierBenefitsProps> = ({ selectedTier }) => {
           </div>
         </div>
 
-        {/* Footer note */}
         <p className="mt-6 text-gray-500 dark:text-emerald-200/50 text-sm italic flex items-center">
           <FaInfoCircle className="mr-2" />
           Your current tier is: {selectedTier >= 0 ? getTierName(selectedTier) : "None"}.

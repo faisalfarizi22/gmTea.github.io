@@ -25,7 +25,6 @@ export default function UsernameModal({
   const [signerError, setSignerError] = useState<string | null>(null)
   const [validatedSigner, setValidatedSigner] = useState<ethers.Signer | null>(null)
   
-  // Check if signer is valid
   useEffect(() => {
     async function validateSigner() {
       try {
@@ -34,10 +33,9 @@ export default function UsernameModal({
         
         if (signer) {
           try {
-            // Validate signer by trying to get the address
             const signerAddress = await signer.getAddress()
             console.log("✅ Signer address:", signerAddress)
-            setValidatedSigner(signer) // Set validated signer
+            setValidatedSigner(signer) 
           } catch (error) {
             console.error("❌ Error validating signer:", error)
             setSignerError("Failed to validate signer from wallet")
@@ -68,7 +66,6 @@ export default function UsernameModal({
       exit={{ opacity: 0 }}
     >
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        {/* Background overlay with blur effect */}
         <motion.div
           className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm dark:bg-black dark:bg-opacity-80"
           initial={{ opacity: 0 }}
@@ -77,7 +74,6 @@ export default function UsernameModal({
           onClick={onClose}
         ></motion.div>
 
-        {/* Modal panel */}
         <motion.div
           className="inline-block overflow-hidden text-left align-bottom transition-all transform sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -85,7 +81,6 @@ export default function UsernameModal({
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
         >
-          {/* Close button - floating outside the card for cleaner look */}
           <div className="absolute z-10 top-2 right-2 sm:top-4 sm:right-4">
             <button
               type="button"
@@ -98,7 +93,6 @@ export default function UsernameModal({
             </button>
           </div>
 
-          {/* Modal content */}
           <div className="relative">
             {signerLoading ? (
               <div className="flex items-center justify-center min-h-[200px] bg-white dark:bg-gray-800 rounded-lg p-6">
@@ -126,7 +120,7 @@ export default function UsernameModal({
             ) : (
               <UsernameRegistration
                 address={address}
-                signer={validatedSigner} // Use validated signer (ethers.Signer | null)
+                signer={validatedSigner} 
                 onRegistrationComplete={onRegistrationComplete}
                 hasReferrer={hasReferrer}
               />

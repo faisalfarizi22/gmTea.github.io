@@ -28,8 +28,8 @@ export interface BadgeMetadata {
   }
   
   export interface RefundPolicy {
-    timeThreshold: number; // in seconds
-    refundPercentage: number; // in basis points (100 = 1%)
+    timeThreshold: number; 
+    refundPercentage: number; 
   }
   
   export interface ReferralStats {

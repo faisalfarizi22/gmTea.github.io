@@ -17,27 +17,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isDarkMode, setIsDarkMode] = useState(currentTheme === 'dark');
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
 
-  // Handle theme toggle
   const handleThemeToggle = (theme: 'light' | 'dark') => {
     setIsDarkMode(theme === 'dark');
     onThemeChange(theme);
   };
 
-  // Handle music toggle
   const handleMusicToggle = () => {
     const newMusicState = !isMusicEnabled;
     setIsMusicEnabled(newMusicState);
     
-    // Dispatch event for AudioPlayer component to listen for
     window.dispatchEvent(new CustomEvent('toggle-music', { 
       detail: { enabled: newMusicState } 
     }));
     
-    // Save preference to localStorage
     localStorage.setItem('musicEnabled', newMusicState.toString());
   };
 
-  // Load saved preferences on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
@@ -52,7 +47,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop with blur effect */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -61,7 +55,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         onClick={onClose}
       ></motion.div>
       
-      {/* Modal Content */}
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -73,12 +66,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             : 'bg-white/95 border-emerald-600/20 text-gray-800'
         }`}
       >
-        {/* Decorative elements */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500"></div>
         <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
         
-        {/* Header */}
         <div className={`relative p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
           <div className="flex items-center">
             <div className={`h-10 w-10 rounded-full ${
@@ -90,7 +81,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Settings</h2>
             
-            {/* Close button */}
             <button 
               onClick={onClose}
               className={`ml-auto rounded-full h-8 w-8 flex items-center justify-center ${
@@ -104,9 +94,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
         
-        {/* Settings content */}
         <div className="p-6 space-y-6">
-          {/* Theme Setting */}
           <div className={`group transition-all duration-300 relative rounded-xl p-4 shadow-sm ${
             isDarkMode 
               ? 'bg-gray-800/50 hover:bg-gray-800 border-gray-700 hover:border-emerald-500/30 hover:shadow-emerald-500/5' 
@@ -127,7 +115,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
               
-              {/* Use the ThemeToggle component */}
               <ThemeToggle 
                 className="bg-transparent hover:bg-transparent p-0"
                 onThemeChange={handleThemeToggle}
@@ -137,7 +124,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </div>
           
-          {/* Music Setting */}
           <div className={`group transition-all duration-300 relative rounded-xl p-4 shadow-sm ${
             isDarkMode 
               ? 'bg-gray-800/50 hover:bg-gray-800 border-gray-700 hover:border-emerald-500/30 hover:shadow-emerald-500/5' 
@@ -158,7 +144,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
               
-              {/* Toggle switch - enhanced with animation */}
               <button 
                 onClick={handleMusicToggle}
                 className="relative w-12 h-6 transition-colors duration-300 rounded-full"
@@ -170,7 +155,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     : isDarkMode ? 'bg-gray-700' : 'bg-gray-300'
                 } transition-colors duration-300`}></div>
                 
-                {/* Music waves animation when enabled */}
                 {isMusicEnabled && (
                   <div className="absolute mr-4 inset-0 flex items-center justify-center space-x-0.5 scale-75 pointer-events-none">
                     <div className="w-0.5 h-2 bg-white dark:bg-purple-300 animate-music-bar1 rounded-full"></div>
@@ -196,7 +180,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
         
-        {/* Footer with version info */}
         <div className={`p-4 text-center border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
           <div className={`text-xs flex items-center justify-center ${
             isDarkMode ? 'text-emerald-500/50' : 'text-emerald-600/50'
@@ -207,7 +190,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
       </motion.div>
       
-      {/* Styles for music visualizer animation */}
       <style jsx global>{`
         @keyframes music-bar1 {
           0%, 100% { height: 4px; }

@@ -6,7 +6,6 @@ import {
   useUserReferrals 
 } from './useDBData';
 
-// Define interfaces for strongly typed data
 interface UserData {
   address: string;
   username: string | null;
@@ -60,7 +59,6 @@ interface Activity {
   details: any;
 }
 
-// Define expected response interfaces based on API structure
 interface UserResponse {
   user?: UserData;
   usernameHistory?: UsernameHistory[];
@@ -87,13 +85,7 @@ interface ReferralsResponse {
   };
 }
 
-/**
- * Enhanced hook for fetching and combining user data
- * @param walletAddress User's wallet address
- * @returns Consolidated user data and loading state
- */
 export function useUserDataCombined(walletAddress: string | null) {
-  // Initialize states with proper types
   const [userData, setUserData] = useState<UserData | null>(null);
   const [badges, setBadges] = useState<BadgeData[]>([]);
   const [checkins, setCheckins] = useState<CheckinData[]>([]);
@@ -101,7 +93,6 @@ export function useUserDataCombined(walletAddress: string | null) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Fetch data from our API endpoints
   const { 
     data: userResponseRaw, 
     isLoading: userLoading, 
@@ -113,7 +104,6 @@ export function useUserDataCombined(walletAddress: string | null) {
     if (userError && (userError.message.includes('404') || userError.message.includes('Not Found'))) {
       console.warn('API endpoint not found, using fallback data', walletAddress);
       
-      // Set fallback data
       setUserData({
         address: walletAddress || '',
         username: null,
@@ -144,50 +134,42 @@ export function useUserDataCombined(walletAddress: string | null) {
     refetch: refetchReferrals 
   } = useUserReferrals(walletAddress);
   
-  // Type-safe wrappers for response data
   const userResponse = userResponseRaw as UserResponse || {};
   const badgesResponse = badgesResponseRaw as BadgesResponse || {};
   const checkinsResponse = checkinsResponseRaw as CheckinsResponse || {};
   const referralsResponse = referralsResponseRaw as ReferralsResponse || {};
   
-  // Process data when it changes
   useEffect(() => {
     if (!userLoading && userResponse) {
       setUserData(userResponse.user || null);
     }
   }, [userResponse, userLoading]);
   
-  // Process badges
   useEffect(() => {
     if (!badgesLoading && badgesResponse) {
       setBadges(badgesResponse.badges || []);
     }
   }, [badgesResponse, badgesLoading]);
   
-  // Process checkins
   useEffect(() => {
     if (!checkinsLoading && checkinsResponse) {
       setCheckins(checkinsResponse.checkins || []);
     }
   }, [checkinsResponse, checkinsLoading]);
   
-  // Process referrals
   useEffect(() => {
     if (!referralsLoading && referralsResponse) {
       setReferrals(referralsResponse.referrals || []);
     }
   }, [referralsResponse, referralsLoading]);
   
-  // Combine activities
   useEffect(() => {
-    // Skip if still loading
     if (userLoading || badgesLoading || checkinsLoading || referralsLoading) {
       return;
     }
     
     const combinedActivities: Activity[] = [];
     
-    // Add checkins to activities
     (checkinsResponse.checkins || []).forEach((checkin: CheckinData) => {
       combinedActivities.push({
         type: 'checkin',
@@ -196,7 +178,6 @@ export function useUserDataCombined(walletAddress: string | null) {
       });
     });
     
-    // Add badges to activities
     (badgesResponse.badges || []).forEach((badge: BadgeData) => {
       combinedActivities.push({
         type: 'badge',
@@ -205,7 +186,6 @@ export function useUserDataCombined(walletAddress: string | null) {
       });
     });
     
-    // Add username changes if available
     (userResponse.usernameHistory || []).forEach((history: UsernameHistory) => {
       combinedActivities.push({
         type: 'username',
@@ -214,7 +194,6 @@ export function useUserDataCombined(walletAddress: string | null) {
       });
     });
     
-    // Add referrals to activities
     (referralsResponse.referrals || []).forEach((referral: ReferralData) => {
       combinedActivities.push({
         type: 'referral',
@@ -223,21 +202,18 @@ export function useUserDataCombined(walletAddress: string | null) {
       });
     });
     
-    // Sort activities by timestamp (newest first)
     const sortedActivities = combinedActivities.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
     
     setActivities(sortedActivities);
     
-    // All data loaded
     setLoading(false);
   }, [
     userResponse, badgesResponse, checkinsResponse, referralsResponse, 
     userLoading, badgesLoading, checkinsLoading, referralsLoading
   ]);
   
-  // Refresh all data
   const refreshAll = () => {
     refetchUser();
     refetchBadges();
@@ -257,13 +233,7 @@ export function useUserDataCombined(walletAddress: string | null) {
   };
 }
 
-/**
- * Hook for getting tier-based benefits and requirements
- * @param tier Badge tier to get benefits for
- * @returns Information about tier benefits
- */
 export function useTierBenefits(tier: number = -1) {
-  // Define tier information
   const tiers = [
     {
       name: "Common",
@@ -333,10 +303,8 @@ export function useTierBenefits(tier: number = -1) {
     }
   ];
   
-  // Get information for requested tier
   const tierInfo = tier >= 0 && tier < tiers.length ? tiers[tier] : null;
   
-  // Get next tier information
   const nextTier = tier >= 0 && tier < tiers.length - 1 ? tiers[tier + 1] : null;
   
   return {

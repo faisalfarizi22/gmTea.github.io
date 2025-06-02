@@ -72,7 +72,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 })()}
               </div>
               
-              {/* Username with color - dengan error boundary */}
               {(() => {
                 try {
                   return username ? (
@@ -91,7 +90,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 }
               })()}
               
-              {/* Badge tier badge for tier 1+ - dengan error boundary */}
               {(() => {
                 try {
                   return badgeTier >= 0 ? (
@@ -109,7 +107,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                     </span>
                   ) : null;
                 } catch (e) {
-                  return null; // Jika gagal menampilkan badge, jangan tampilkan apa-apa
+                  return null; 
                 }
               })()}
             </div>
@@ -119,7 +117,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             </span>
           </div>
           
-          {/* Message content dengan error handling */}
           <p 
             className={`mt-2 ${
               chatPrivileges.messageEffects 
@@ -133,14 +130,12 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             {processedMessage}
           </p>
           
-          {/* Animated underline untuk tier 4+ */}
           {chatPrivileges.messageEffects && (
             <div className="h-0.5 w-0 bg-emerald-500 mt-2 group-hover:w-full transition-all duration-500"></div>
           )}
         </div>
       );
     } catch (error) {
-      // Fallback view jika semua rendering gagal
       console.error("Error rendering ChatMessage:", error);
       return (
         <div className="p-4 rounded-xl bg-white dark:bg-gray-800/30 border border-emerald-50 dark:border-emerald-800/30 shadow-sm">

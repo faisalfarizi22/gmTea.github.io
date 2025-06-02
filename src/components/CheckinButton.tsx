@@ -213,4 +213,3 @@ const CheckinButton: React.FC<CheckinButtonProps> = ({
 };
 
 export default CheckinButton;
-            

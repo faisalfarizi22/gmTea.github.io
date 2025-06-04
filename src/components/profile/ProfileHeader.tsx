@@ -54,7 +54,7 @@ export default function ProfileHeader({
                     <AvatarWithFrame
                       avatarUrl={avatarUrl || "/placeholder.svg"}
                       badgeTier={highestTier}
-                      size="lg"
+                      size="xl"
                     />
                   ) : (
                     <div

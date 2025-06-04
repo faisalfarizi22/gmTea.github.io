@@ -4,7 +4,7 @@ import { getAvatarFrame } from "@/utils/socialBenefitsUtils";
 interface AvatarWithFrameProps {
   avatarUrl: string;
   badgeTier: number;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
@@ -14,18 +14,19 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
   size = "md",
   className = ""
 }) => {
+  const sizeClasses = {
+    xs: "w-5 h-5",
+    sm: "w-8 h-8", 
+    md: "w-12 h-12",
+    lg: "w-24 h-24",
+    xl: "w-32 h-32"
+  }[size];
+  
   try {
     const avatarFrame = getAvatarFrame(badgeTier);
     
-    const dimensions = {
-      xs: { width: 24, height: 24 },
-      sm: { width: 32, height: 32 },
-      md: { width: 48, height: 48 },
-      lg: { width: 96, height: 96 }
-    }[size];
-    
     return (
-      <div className={`relative ${className}`}>
+      <div className={`relative ${sizeClasses} ${className}`}>
         <div className="rounded-full overflow-hidden w-full h-full">
           <img 
             src={avatarUrl}
@@ -39,7 +40,7 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
             <img 
               src={avatarFrame.url}
               alt="Avatar frame" 
-              className="w-100px h-100px"
+              className="w-full h-full object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
@@ -51,7 +52,7 @@ const AvatarWithFrame: React.FC<AvatarWithFrameProps> = ({
   } catch (error) {
     console.error("Error rendering AvatarWithFrame:", error);
     return (
-      <div className={`relative ${className}`}>
+      <div className={`relative ${sizeClasses} ${className}`}>
         <div className="rounded-full overflow-hidden w-full h-full">
           <img 
             src={avatarUrl}

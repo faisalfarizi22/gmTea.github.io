@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
+import { ethers } from "ethers"
 import { formatAddress } from "@/utils/web3"
 import ThemeToggle from "./ThemeToggle"
 import {
@@ -20,15 +21,18 @@ import {
   FaTrophy,
   FaHome,
   FaTint,
+  FaSync,
 } from "react-icons/fa"
 import ConnectWalletButton from "./ConnectWalletButton"
-import { getUserReferralStats, checkUsername } from "@/utils/badgeWeb3"
+import { checkUsername, getProvider } from "@/utils/badgeWeb3"
 import ActivitySidebar from "./ActivitySidebar"
 import SettingsModal from "./SettingsModal"
 import ColoredUsername from "@/components/user/ColoredUsername"
 import AvatarWithFrame from "@/components/user/AvatarWithFrame"
 import { getUserHighestTier } from "@/utils/badgeWeb3"
 import { getTierName, getUsernameColor } from "@/utils/socialBenefitsUtils"
+import { REFERRAL_CONTRACT_ADDRESS } from "@/utils/constants"
+import GMTeaReferralABI from "../abis/GMTeaReferralABI.json"
 
 interface NavbarProps {
   address: string | null
@@ -37,6 +41,7 @@ interface NavbarProps {
   isConnecting: boolean
   scrollToLeaderboard?: () => void
   scrollToMintSection?: () => void
+  signer?: ethers.Signer | null
 }
 
 const getAvatarUrl = (address: string): string => `https://api.dicebear.com/6.x/identicon/svg?seed=${address}`
@@ -48,6 +53,7 @@ const Navbar: React.FC<NavbarProps> = ({
   isConnecting,
   scrollToLeaderboard,
   scrollToMintSection,
+  signer,
 }) => {
   const [showCopyToast, setShowCopyToast] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null)
@@ -68,6 +74,82 @@ const Navbar: React.FC<NavbarProps> = ({
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [isLoadingUserData, setIsLoadingUserData] = useState(false)
   const [highestTier, setHighestTier] = useState<number>(-1)
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0)
+  const [isRefreshingStats, setIsRefreshingStats] = useState(false)
+
+  const getEthereumProvider = () => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        console.warn("Ethereum object not found in window");
+        return null;
+      }
+      
+      return new ethers.providers.Web3Provider(ethereum, "any");
+    } catch (error) {
+      console.error("Error creating Web3Provider:", error);
+      return null;
+    }
+  };
+
+  const fetchReferralStatsFromBlockchain = async (address: string, signer?: ethers.Signer | null) => {
+    try {
+      let provider: ethers.providers.Provider | null | undefined = null;
+      
+      if (signer) {
+        provider = signer.provider;
+      } else {
+        provider = getEthereumProvider();
+      }
+      
+      if (!provider) {
+        provider = getProvider();
+      }
+      
+      if (!provider) {
+        return {
+          totalReferrals: 0,
+          pendingRewardsAmount: "0",
+          claimedRewardsAmount: "0",
+        };
+      }
+
+      const referralContract = new ethers.Contract(
+        REFERRAL_CONTRACT_ADDRESS,
+        GMTeaReferralABI,
+        provider
+      );
+      
+      const stats = await referralContract.getReferralStats(address);
+      
+      return {
+        totalReferrals: stats.totalReferrals.toNumber(),
+        pendingRewardsAmount: ethers.utils.formatEther(stats.pendingRewardsAmount),
+        claimedRewardsAmount: ethers.utils.formatEther(stats.claimedRewardsAmount)
+      };
+    } catch (error) {
+      console.error("Error fetching referral stats:", error);
+      return {
+        totalReferrals: 0,
+        pendingRewardsAmount: "0",
+        claimedRewardsAmount: "0",
+      };
+    }
+  };
+
+  useEffect(() => {
+    const handleReferralUpdate = () => {
+      setLastUpdateTime(Date.now())
+    }
+
+    window.addEventListener('referralStatsUpdated', handleReferralUpdate)
+    
+    return () => {
+      window.removeEventListener('referralStatsUpdated', handleReferralUpdate)
+    }
+  }, [])
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -81,10 +163,9 @@ const Navbar: React.FC<NavbarProps> = ({
         const highestTierResult = await getUserHighestTier(address)
         setHighestTier(highestTierResult)
 
-        const stats = await getUserReferralStats(address)
-        if (stats) {
-          setReferralStats(stats)
-        }
+        const stats = await fetchReferralStatsFromBlockchain(address, signer)
+        setReferralStats(stats)
+        
       } catch (error) {
         console.error("Error loading user data:", error)
       } finally {
@@ -93,7 +174,7 @@ const Navbar: React.FC<NavbarProps> = ({
     }
 
     loadUserData()
-  }, [address])
+  }, [address, signer, lastUpdateTime])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -210,6 +291,20 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const handleCloseSettings = () => {
     setShowSettingsModal(false)
+  }
+
+  const handleRefreshStats = async () => {
+    if (!address || isRefreshingStats) return
+    
+    setIsRefreshingStats(true)
+    try {
+      const stats = await fetchReferralStatsFromBlockchain(address, signer)
+      setReferralStats(stats)
+    } catch (error) {
+      console.error("Error refreshing stats:", error)
+    } finally {
+      setIsRefreshingStats(false)
+    }
   }
 
   const copyAddressToClipboard = () => {
@@ -395,6 +490,14 @@ const Navbar: React.FC<NavbarProps> = ({
                           <div className="flex items-center gap-2">
                             <FaGift className="text-emerald-500" size={14} />
                             <span className="text-sm text-gray-700 dark:text-gray-300">Referral Rewards</span>
+                            {isLoadingUserData ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-emerald-500"></div>
+                            ) : (
+                              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-300">
+                                {Number.parseFloat(referralStats.pendingRewardsAmount).toFixed(4)}
+                                <span className="text-xs ml-1 font-small text-emerald-500/70 dark:text-emerald-400/70">TEA</span>
+                              </p>
+                            )}
                           </div>
                         </button>
 
@@ -404,6 +507,15 @@ const Navbar: React.FC<NavbarProps> = ({
                         >
                           <FaHistory className="text-emerald-500" size={14} />
                           <span className="text-sm text-gray-700 dark:text-gray-300">On-chain activity</span>
+                        </button>
+
+                        <button
+                          onClick={handleRefreshStats}
+                          disabled={isRefreshingStats}
+                          className="px-4 py-3 w-full flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-emerald-900/10 transition-colors border-b border-gray-200 dark:border-emerald-800/30 text-left disabled:opacity-50"
+                        >
+                          <FaSync className={`text-emerald-500 ${isRefreshingStats ? 'animate-spin' : ''}`} size={14} />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">Refresh Stats</span>
                         </button>
 
                         <button
@@ -510,7 +622,6 @@ const Navbar: React.FC<NavbarProps> = ({
                       <span className="font-medium bg-gradient-to-r from-cyan-700 to-emerald-300 text-transparent bg-clip-text">MultiChainGM</span>
                     </div>
                   </button>
-
 
                   <button
                     onClick={() => handleNav("dashboard")}

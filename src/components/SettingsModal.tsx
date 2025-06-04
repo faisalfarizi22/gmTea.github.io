@@ -144,37 +144,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
               
-              <button 
-                onClick={handleMusicToggle}
-                className="relative w-12 h-6 transition-colors duration-300 rounded-full"
-                aria-label={isMusicEnabled ? "Disable background music" : "Enable background music"}
-              >
-                <div className={`absolute inset-0 rounded-full ${
-                  isMusicEnabled 
-                    ? 'bg-purple-600 dark:bg-purple-700' 
-                    : isDarkMode ? 'bg-gray-700' : 'bg-gray-300'
-                } transition-colors duration-300`}></div>
-                
-                {isMusicEnabled && (
-                  <div className="absolute mr-4 inset-0 flex items-center justify-center space-x-0.5 scale-75 pointer-events-none">
-                    <div className="w-0.5 h-2 bg-white dark:bg-purple-300 animate-music-bar1 rounded-full"></div>
-                    <div className="w-0.5 h-3 bg-white dark:bg-purple-300 animate-music-bar2 rounded-full"></div>
-                    <div className="w-0.5 h-1.5 bg-white dark:bg-purple-300 animate-music-bar3 rounded-full"></div>
-                  </div>
-                )}
-                
-                <div 
-                  className={`absolute -top-[-2] w-5 h-5 rounded-full transform transition-transform duration-300 border ${
+              <div className="relative">
+                <button 
+                  onClick={handleMusicToggle}
+                  className="relative w-12 h-6 transition-colors duration-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                  aria-label={isMusicEnabled ? "Disable background music" : "Enable background music"}
+                >
+                  <div className={`absolute inset-0 rounded-full transition-colors duration-300 ${
                     isMusicEnabled 
-                      ? isDarkMode
-                        ? 'bg-purple-400 border-purple-600 translate-x-6' 
-                        : 'bg-white border-purple-400 translate-x-6'
-                      : isDarkMode
-                        ? 'bg-gray-500 border-gray-600 translate-x-1'
-                        : 'bg-white border-gray-400 translate-x-1'
-                  }`}
-                ></div>
-              </button>
+                      ? 'bg-purple-600 dark:bg-purple-700' 
+                      : isDarkMode ? 'bg-gray-700' : 'bg-gray-300'
+                  }`}></div>
+                  
+                  {isMusicEnabled && (
+                    <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-0.5 scale-75 pointer-events-none">
+                      <div className="w-0.5 h-2 bg-white dark:bg-purple-300 animate-music-bar1 rounded-full"></div>
+                      <div className="w-0.5 h-3 bg-white dark:bg-purple-300 animate-music-bar2 rounded-full"></div>
+                      <div className="w-0.5 h-1.5 bg-white dark:bg-purple-300 animate-music-bar3 rounded-full"></div>
+                    </div>
+                  )}
+                  
+                  <div 
+                    className={`absolute top-0.5 w-5 h-5 rounded-full transform transition-transform duration-300 border-2 ${
+                      isMusicEnabled 
+                        ? isDarkMode
+                          ? 'bg-purple-300 border-purple-200 translate-x-6' 
+                          : 'bg-white border-white translate-x-6'
+                        : isDarkMode
+                          ? 'bg-gray-400 border-gray-300 translate-x-0.5'
+                          : 'bg-white border-white translate-x-0.5'
+                    }`}
+                  ></div>
+                </button>
+              </div>
             </div>
             <div className="absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </div>

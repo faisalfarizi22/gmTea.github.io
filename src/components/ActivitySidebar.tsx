@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaRedo, FaFilter, FaCheck, FaExpand, FaLeaf, FaStream, FaHistory, FaClock, FaLink, FaChevronRight } from 'react-icons/fa';
 import { MdOutlineLocalActivity, MdCheckCircle, MdSend, MdOutlineVerified, MdCelebration,MdClose } from 'react-icons/md';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { formatAddress } from '@/utils/web3';
 import { useUserBadges, useUserCheckins, useUserData, useUserReferrals } from '@/hooks/useDBData';
 
@@ -211,17 +211,23 @@ const getActivityTextColor = (type: ActivityType): string => {
   }
 };
 
-const backdropVariants = {
+const backdropVariants: Variants = { 
   hidden: { opacity: 0 },
   visible: { opacity: 1 }
 };
 
-const sidebarVariants = {
-  hidden: { x: '100%' },
-  visible: { x: 0, transition: { type: 'spring', damping: 25, stiffness: 200 } }
+const sidebarVariants: Variants = { 
+  hidden: { x: '100vw' }, 
+  visible: { 
+    x: 0, 
+    transition: { 
+      damping: 25, 
+      stiffness: 200 
+    } 
+  }
 };
 
-const listVariants = {
+const listVariants: Variants = { 
   hidden: { opacity: 0 },
   visible: { 
     opacity: 1,
@@ -231,20 +237,19 @@ const listVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = { 
   hidden: { opacity: 0, y: 20 },
   visible: { 
     opacity: 1, 
     y: 0,
     transition: { 
-      type: 'spring', 
       damping: 25, 
       stiffness: 200 
     }
   }
 };
 
-const filterVariants = {
+const filterVariants: Variants = { 
   inactive: { 
     scale: 0.95, 
     opacity: 0.7
@@ -934,6 +939,5 @@ const ActivitySidebar: React.FC<ActivitySidebarProps> = ({ address, onClose }) =
     </AnimatePresence>
   );
 };
-
 
 export default ActivitySidebar;

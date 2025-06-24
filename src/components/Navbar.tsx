@@ -41,6 +41,7 @@ interface NavbarProps {
   isConnecting: boolean
   scrollToLeaderboard?: () => void
   scrollToMintSection?: () => void
+  scrollToProfile?: () => void;
   signer?: ethers.Signer | null
 }
 
@@ -53,6 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({
   isConnecting,
   scrollToLeaderboard,
   scrollToMintSection,
+  scrollToProfile,
   signer,
 }) => {
   const [showCopyToast, setShowCopyToast] = useState(false)

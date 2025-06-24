@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react"
 import { ethers, BigNumber } from "ethers"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, Variants } from "framer-motion"
 import StatsCard from "@/components/StatsCard"
 import CountdownTimer from "@/components/CountdownTimer"
 import CheckinButton from "@/components/CheckinButton"
@@ -261,14 +261,14 @@ export default function Home() {
         } catch (error) {
           console.error("Error loading fresh recent messages:", error)
           if (!cacheValid) { 
-             if (web3State.isConnected) { 
+              if (web3State.isConnected) { 
                 setMessages([
                     { user: "0x123...", timestamp: Math.floor(Date.now() / 1000) - 3600, message: "GM from the Tea community! 🍵 (fallback)" },
                     { user: "0x098...", timestamp: Math.floor(Date.now() / 1000) - 7200, message: "Starting the day with a fresh cup of Tea! ☕ (fallback)" },
                 ]);
-             } else {
+              } else {
                 setMessages([]);
-             }
+              }
           }
         }
       } catch (error) {
@@ -462,7 +462,7 @@ export default function Home() {
     },
   })
 
- 
+  
   useEffect(() => {
     if (web3State.isConnected && web3State.address && web3State.contract) {
       console.log("Setting up initial data load and refresh intervals in Home")
@@ -508,9 +508,9 @@ export default function Home() {
     }
   }, [activeTab]) 
 
-  const tabVariants = {
+  const tabVariants: Variants = { 
     enter: (direction: number) => ({
-      x: direction > 0 ? '100%' : '-100%',
+      x: direction > 0 ? '100vw' : '-100vw', 
       opacity: 0,
       rotate: direction > 0 ? 5 : -5,
     }),
@@ -520,18 +520,26 @@ export default function Home() {
       opacity: 1,
       rotate: 0,
       transition: {
-        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        x: {
+          stiffness: 180, 
+          damping: 26, 
+          mass: 0.9 
+        },
         opacity: { duration: 0.45, ease: "easeOut" },
         rotate: { duration: 0.5, ease: "easeOut" },
       },
     },
     exit: (direction: number) => ({
       zIndex: 0,
-      x: direction < 0 ? '100%' : '-100%',
+      x: direction < 0 ? '100vw' : '-100vw', 
       opacity: 0,
       rotate: direction < 0 ? -5 : 5,
       transition: {
-        x: { type: "spring", stiffness: 180, damping: 26, mass: 0.9 },
+        x: { 
+          stiffness: 180,
+          damping: 26,
+          mass: 0.9
+        },
         opacity: { duration: 0.35, ease: "easeIn" },
         rotate: { duration: 0.4, ease: "easeIn" },
       },
@@ -557,6 +565,7 @@ export default function Home() {
         isConnecting={web3State.isLoading}
         scrollToLeaderboard={scrollToLeaderboard}
         scrollToMintSection={scrollToMintSection}
+        scrollToProfile={scrollToProfile}
       />
 
       <main className="pt-28 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -605,7 +614,7 @@ export default function Home() {
               >
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-5 space-y-6">
-                     <StatsCard 
+                      <StatsCard 
                         address={web3State.address}
                         timeUntilNextCheckin={checkinStats.timeUntilNextCheckin}
                       />
@@ -645,7 +654,7 @@ export default function Home() {
                 className="w-full" 
               >
                 <div ref={mintSectionRef} className="badge-mint-section" data-section="badge-mint">
-                 <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Badge Minting...</div>}>
+                   <Suspense fallback={<div className="p-8 text-center text-emerald-500">Loading Badge Minting...</div>}>
                       <LazyBadgeMintSection
                         address={web3State.address || ""}
                         signer={web3State.signer}
@@ -737,7 +746,7 @@ export default function Home() {
             )}
           </AnimatePresence>
         </div>
-       
+        
 
         <AudioPlayer initialVolume={0.3} />
       </main>

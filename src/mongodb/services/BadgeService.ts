@@ -1,4 +1,3 @@
-// src/mongodb/services/BadgeService.ts
 import dbConnect from '../connection';
 import Badge from '../models/Badge';
 import User from '../models/User';
@@ -9,9 +8,7 @@ import { docVal } from '../utils/documentHelper';
 import { calculateBadgePoints } from '../../utils/pointCalculation';
 
 export default class BadgeService {
-  /**
-   * Get all badges for a user
-   */
+ 
   static async getUserBadges(address: string) {
     await dbConnect();
     
@@ -19,22 +16,19 @@ export default class BadgeService {
     console.log(`Getting badges for user: ${normalizedAddress}`);
     
     const badges = await Badge.find({ owner: normalizedAddress })
-      .sort({ tier: 1 }); // Sort by tier ascending
+      .sort({ tier: 1 }); 
       
     console.log(`Found ${badges.length} badges for user ${normalizedAddress}`);
     return badges;
   }
 
-  /**
-   * Get user's highest badge tier
-   */
   static async getUserHighestTier(address: string): Promise<number> {
     await dbConnect();
     
     const normalizedAddress = address.toLowerCase();
     
     const highestBadge = await Badge.findOne({ owner: normalizedAddress })
-      .sort({ tier: -1 }) // Sort by tier descending
+      .sort({ tier: -1 }) 
       .limit(1);
     
     const highestTier = highestBadge ? highestBadge.tier : -1;
@@ -43,9 +37,6 @@ export default class BadgeService {
     return highestTier;
   }
 
-  /**
-   * Get badges by referrer
-   */
   static async getBadgesByReferrer(referrerAddress: string) {
     await dbConnect();
     
@@ -58,9 +49,6 @@ export default class BadgeService {
     return badges;
   }
 
-  /**
-   * Save a new badge mint from blockchain data
-   */
   static async saveBadgeMint(badgeData: {
     tokenId: number;
     owner: string;
@@ -76,7 +64,6 @@ export default class BadgeService {
     
     console.log(`Saving badge mint - TokenId: ${badgeData.tokenId}, Owner: ${owner}, Tier: ${badgeData.tier}, Referrer: ${referrer}`);
     
-    // Check if this badge already exists
     const existing = await Badge.findOne({ 
       tokenId: badgeData.tokenId 
     });
@@ -84,7 +71,6 @@ export default class BadgeService {
     if (existing) {
       console.log(`Badge ${badgeData.tokenId} already exists in database`);
       
-      // Update referrer if not set but provided now
       if (!existing.referrer && referrer) {
         console.log(`Updating referrer for existing badge ${badgeData.tokenId} to ${referrer}`);
         
@@ -97,7 +83,6 @@ export default class BadgeService {
       return existing;
     }
     
-    // Create the badge
     console.log(`Creating new badge record for tokenId ${badgeData.tokenId}`);
     
     try {
@@ -112,10 +97,8 @@ export default class BadgeService {
       
       console.log(`Badge created successfully: ${badge._id}`);
       
-      // Update user's highest tier if this badge is higher
       await this.updateUserHighestTier(owner, badgeData.tier);
       
-      // If there's a referrer, make sure they exist in the User collection
       if (referrer) {
         console.log(`Ensuring referrer ${referrer} exists in database`);
         
@@ -133,7 +116,6 @@ export default class BadgeService {
         }
       }
       
-      // Send webhook event
       try {
         await WebhookService.sendBadgeMintEvent(owner, {
           owner,
@@ -154,14 +136,9 @@ export default class BadgeService {
     }
   }
   
-  /**
-   * Update user's highest tier and recalculate points
-   * UPDATED: No longer adds points directly, uses PointsService instead
-   */
   private static async updateUserHighestTier(address: string, newTier: number) {
     const normalizedAddress = address.toLowerCase();
     
-    // Find the user document directly
     const user = await User.findOne({ address: normalizedAddress });
     const currentHighestTier = user ? docVal(user, 'highestBadgeTier', -1) : -1;
     
@@ -170,7 +147,6 @@ export default class BadgeService {
     if (newTier > currentHighestTier) {
       console.log(`Tier upgrade detected for ${normalizedAddress}: ${currentHighestTier} -> ${newTier}`);
       
-      // Update user's tier with upsert to ensure the user exists
       await User.findOneAndUpdate(
         { address: normalizedAddress },
         { 
@@ -180,29 +156,23 @@ export default class BadgeService {
         { upsert: true, new: true }
       );
       
-      // Create a PointsHistory entry for the badge milestone (for record keeping)
-      const badgePoints = calculateBadgePoints(newTier); // Use consistent calculation from utils
+      const badgePoints = calculateBadgePoints(newTier); 
       
-      // Only create a history entry, don't add points directly
       await PointsHistory.create({
         address: normalizedAddress,
         points: badgePoints,
         reason: `Badge Tier ${newTier} Earned`,
-        source: 'achievement', // This is fine, but won't be counted twice now
+        source: 'achievement', 
         timestamp: new Date(),
         tierAtEvent: newTier
       });
       
-      // Use PointsService to recalculate all points correctly
       await PointsService.recalculateSingleUserPoints(normalizedAddress);
       
       console.log(`Points recalculated for ${normalizedAddress} after tier update`);
     }
   }
 
-  /**
-   * Check if user has minted a specific tier
-   */
   static async hasUserMintedTier(address: string, tier: number): Promise<boolean> {
     await dbConnect();
     
@@ -219,9 +189,6 @@ export default class BadgeService {
     return hasTier;
   }
   
-  /**
-   * Get tier name based on tier number
-   */
   static getTierName(tier: number): string {
     switch (tier) {
       case 0: return "Common";
@@ -233,27 +200,21 @@ export default class BadgeService {
     }
   }
   
-  /**
-   * Get badge statistics
-   */
   static async getBadgeStats() {
     await dbConnect();
     
     const totalBadges = await Badge.countDocuments();
     
-    // Get count by tier
     const tierCounts = await Badge.aggregate([
       { $group: { _id: "$tier", count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
     
-    // Format as an object with tier names
     const tierStats = tierCounts.reduce((acc, curr) => {
       acc[this.getTierName(curr._id)] = curr.count;
       return acc;
     }, {} as Record<string, number>);
     
-    // Count badges with referrers
     const referredBadges = await Badge.countDocuments({
       referrer: { $ne: null }
     });
@@ -265,24 +226,17 @@ export default class BadgeService {
     };
   }
   
-  /**
-   * Debug method to check and fix referrers
-   */
   static async fixBadgeReferrers(): Promise<{ fixed: number, total: number }> {
     await dbConnect();
     
     console.log('Running badge referrer fix utility');
     
-    // Find all badges
     const badges = await Badge.find();
     console.log(`Found ${badges.length} total badges`);
     
     let fixedCount = 0;
-    
-    // Check each badge
     for (const badge of badges) {
       if (!badge.referrer) {
-        // Skip badges with no referrers
         continue;
       }
       
@@ -291,7 +245,6 @@ export default class BadgeService {
       if (badge.referrer !== normalizedReferrer) {
         console.log(`Fixing referrer case for badge ${badge.tokenId}: ${badge.referrer} -> ${normalizedReferrer}`);
         
-        // Update with normalized address
         await Badge.updateOne(
           { _id: badge._id },
           { $set: { referrer: normalizedReferrer } }

@@ -1,22 +1,16 @@
-// src/mongodb/connection.ts
 import mongoose from 'mongoose';
 
-// Definisikan tipe untuk objek cache mongoose
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
 }
 
-// Deklarasi untuk memperluas tipe global
 declare global {
-  // eslint-disable-next-line no-var
-  var mongooseCache: MongooseCache | undefined; // Ganti nama untuk menghindari kebingungan
+  var mongooseCache: MongooseCache | undefined; 
 }
 
-// Inisialisasi cache
 const cached: MongooseCache = global.mongooseCache || { conn: null, promise: null };
 
-// Tetapkan ke global jika belum diset
 if (!global.mongooseCache) {
   global.mongooseCache = cached;
 }

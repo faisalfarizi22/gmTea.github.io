@@ -13,7 +13,9 @@ import {
   FaFlask,
   FaGithub,
   FaRocket,
-  FaUsers
+  FaUsers,
+  FaYoutube,
+  FaTelegram
 } from 'react-icons/fa';
 import { IoIosStats } from "react-icons/io";
 import { TfiStatsUp } from "react-icons/tfi";
@@ -268,21 +270,27 @@ const Footer: React.FC<FooterProps> = ({
             </div>
             
             <div className="flex space-x-4 pt-2">
-              <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
-                <FaTwitter className="transform group-hover:-translate-y-1 transition-transform duration-300" />
-              </div>
-              <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
-                <FaDiscord className="transform group-hover:-translate-y-1 transition-transform duration-300" />
-              </div>
-              <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
-                <FaGlobe className="transform group-hover:-translate-y-1 transition-transform duration-300" />
-              </div>
-              <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
-                <FaGithub className="transform group-hover:-translate-y-1 transition-transform duration-300" />
-              </div>
-              <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
-                <FaEnvelope className="transform group-hover:-translate-y-1 transition-transform duration-300" />
-              </div>
+              <Link href="https://x.com/multichain_gm" target="_blank" rel="noopener noreferrer">
+                <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
+                  <FaTwitter className="transform group-hover:-translate-y-1 transition-transform duration-300" />
+                </div>
+              </Link>
+                <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
+                  <FaDiscord className="transform group-hover:-translate-y-1 transition-transform duration-300" />
+                </div>
+                <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
+                  <FaTelegram className="transform group-hover:-translate-y-1 transition-transform duration-300" />
+                </div>
+              <Link href="https://youtube.com/@multichaingm?si=nc7TYJx_APQiTDXA" target="_blank" rel="noopener noreferrer">
+                <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
+                  <FaYoutube className="transform group-hover:-translate-y-1 transition-transform duration-300" />
+                </div>
+              </Link>
+              <Link href="mailto:David-dvd@multichaingm.com" target="_blank" rel="noopener noreferrer">
+                <div className="group bg-emerald-900/40 hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 border border-emerald-700/30 cursor-pointer">
+                  <FaEnvelope className="transform group-hover:-translate-y-1 transition-transform duration-300" />
+                </div>
+              </Link>
             </div>
           </div>
           

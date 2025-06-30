@@ -1,39 +1,26 @@
-// src/mongodb/utils/formatters.ts
-
-/**
- * Format Ethereum address to lowercase
- */
 export const formatAddress = (address: string): string => {
   if (!address) return '';
   return address.toLowerCase();
 };
 
-/**
- * Format username to lowercase for consistent lookups
- */
 export const formatUsername = (username: string): string => {
   if (!username) return '';
   return username.toLowerCase();
 };
 
-/**
- * Format timestamp for API responses with error handling
- */
+
 export const formatTimestamp = (timestamp: Date | string | number): string => {
   try {
-    // Handle null or undefined
     if (!timestamp) {
       console.warn('Received null or undefined timestamp');
       return new Date().toISOString();
     }
     
-    // Create a date object based on the timestamp
     let date: Date;
     
     if (timestamp instanceof Date) {
       date = timestamp;
     } else if (typeof timestamp === 'number') {
-      // Check if it's a Unix timestamp in seconds (10 digits or less)
       if (timestamp.toString().length <= 10) {
         date = new Date(timestamp * 1000);
       } else {
@@ -43,13 +30,11 @@ export const formatTimestamp = (timestamp: Date | string | number): string => {
       date = new Date(timestamp);
     }
     
-    // Check if the date is valid
     if (isNaN(date.getTime())) {
       console.warn(`Invalid timestamp: ${timestamp}, using current date instead`);
       return new Date().toISOString();
     }
     
-    // Handle dates that are outside the valid JavaScript date range
     const year = date.getFullYear();
     if (year < 1970 || year > 9999) {
       console.warn(`Timestamp outside valid range: ${timestamp}, using current date instead`);
@@ -63,9 +48,6 @@ export const formatTimestamp = (timestamp: Date | string | number): string => {
   }
 };
 
-/**
- * Format time remaining until next checkin (in seconds)
- */
 export const formatTimeRemaining = (seconds: number): string => {
   if (seconds <= 0) return "Available now";
   
@@ -83,17 +65,12 @@ export const formatTimeRemaining = (seconds: number): string => {
   }
 };
 
-/**
- * Format Ethereum address for display
- */
+
 export const formatAddressForDisplay = (address: string): string => {
   if (!address || address.length < 10) return address || '';
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 };
 
-/**
- * Format ETH amount with appropriate decimals
- */
 export const formatEther = (amount: string | number): string => {
   if (!amount) return '0.0000';
   
@@ -109,9 +86,6 @@ export const formatEther = (amount: string | number): string => {
   }
 };
 
-/**
- * Format tier name based on tier number
- */
 export const formatTierName = (tier: number): string => {
   switch (tier) {
     case 0: return 'Common';
@@ -123,14 +97,10 @@ export const formatTierName = (tier: number): string => {
   }
 };
 
-/**
- * Format badge data for API response with error handling
- */
 export const formatBadgeForResponse = (badge: any) => {
   try {
     if (!badge) return null;
     
-    // Safely format the timestamp
     let mintedAtFormatted;
     try {
       mintedAtFormatted = badge.mintedAt ? formatTimestamp(badge.mintedAt) : null;
@@ -139,7 +109,6 @@ export const formatBadgeForResponse = (badge: any) => {
       mintedAtFormatted = formatTimestamp(new Date()); // Fallback to current date
     }
     
-    // Safe tier formatting
     const tier = typeof badge.tier === 'number' ? badge.tier : 0;
     
     return {
@@ -154,7 +123,6 @@ export const formatBadgeForResponse = (badge: any) => {
   } catch (error) {
     console.error(`Error formatting badge ${badge?.tokenId || 'unknown'}:`, error);
     
-    // Return minimal safe badge data on error
     return {
       tokenId: badge?.tokenId || 0,
       tier: badge?.tier || 0,
@@ -168,14 +136,10 @@ export const formatBadgeForResponse = (badge: any) => {
   }
 };
 
-/**
- * Format checkin data for API response with error handling
- */
 export const formatCheckinForResponse = (checkin: any) => {
   try {
     if (!checkin) return null;
     
-    // Safely format the timestamp
     let timestampFormatted;
     try {
       timestampFormatted = checkin.blockTimestamp ? formatTimestamp(checkin.blockTimestamp) : formatTimestamp(new Date());
@@ -195,7 +159,6 @@ export const formatCheckinForResponse = (checkin: any) => {
   } catch (error) {
     console.error('Error formatting checkin:', error);
     
-    // Return minimal safe checkin data on error
     return {
       checkinNumber: checkin?.checkinNumber || 0,
       timestamp: formatTimestamp(new Date()),
@@ -208,14 +171,10 @@ export const formatCheckinForResponse = (checkin: any) => {
   }
 };
 
-/**
- * Format referral data for API response with error handling
- */
 export const formatReferralForResponse = (referral: any) => {
   try {
     if (!referral) return null;
     
-    // Safely format the timestamp
     let timestampFormatted;
     try {
       timestampFormatted = referral.timestamp ? formatTimestamp(referral.timestamp) : formatTimestamp(new Date());
@@ -224,7 +183,6 @@ export const formatReferralForResponse = (referral: any) => {
       timestampFormatted = formatTimestamp(new Date());
     }
     
-    // Safe tier formatting
     const badgeTier = typeof referral.badgeTier === 'number' ? referral.badgeTier : -1;
     
     return {
@@ -242,7 +200,6 @@ export const formatReferralForResponse = (referral: any) => {
   } catch (error) {
     console.error('Error formatting referral:', error);
     
-    // Return minimal safe referral data on error
     return {
       referrer: referral?.referrer || '',
       referee: referral?.referee || '',
@@ -259,9 +216,6 @@ export const formatReferralForResponse = (referral: any) => {
   }
 };
 
-/**
- * Format badge tier name based on tier number from badge contract
- */
 export const formatBadgeTierName = (tier: number): string => {
   switch (tier) {
     case 0: return 'Common';
